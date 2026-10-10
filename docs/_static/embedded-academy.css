@@ -1,0 +1,147 @@
+/*
+SPDX-FileCopyrightText: Embedded Academy contributors
+SPDX-License-Identifier: MIT
+*/
+
+/* Embedded Academy design system applied to the Furo theme.
+   Palette: Tango. Type: Ubuntu Sans Mono (headings, code), Ubuntu Sans (body).
+   Square corners, borders instead of shadows, no CRT effects. */
+
+@import "https://fonts.googleapis.com/css2?family=Ubuntu+Sans+Mono:ital,wght@0,400..700;1,400..700&family=Ubuntu+Sans:ital,wght@0,100..800;1,100..800&display=swap";
+
+/* Paper (light) */
+body {
+  --ea-bg: #f7f7f5;
+  --ea-surface: #eeeeec;
+  --ea-raised: #e4e5e1;
+  --ea-line: #babdb6;
+  --ea-ink: #2e3436;
+  --ea-muted: #555753;
+  --ea-green: #376d04;
+  --ea-blue: #204a87;
+  --ea-yellow: #8f5902;
+}
+
+/* Map the tokens onto Furo variables. The selector list matches Furo's own
+   theme selectors in specificity, so these mappings win in every mode. */
+body,
+body:not([data-theme="light"]),
+body[data-theme="light"] {
+  --font-stack: "Ubuntu Sans", "DejaVu Sans", system-ui, sans-serif;
+  --font-stack--monospace: "Ubuntu Sans Mono", "Ubuntu Mono", "DejaVu Sans Mono", monospace;
+  --font-stack--headings: "Ubuntu Sans Mono", "Ubuntu Mono", "DejaVu Sans Mono", monospace;
+  --color-background-primary: var(--ea-bg);
+  --color-background-secondary: var(--ea-surface);
+  --color-background-hover: var(--ea-raised);
+  --color-background-hover--transparent: transparent;
+  --color-background-border: var(--ea-line);
+  --color-background-item: var(--ea-raised);
+  --color-foreground-primary: var(--ea-ink);
+  --color-foreground-secondary: var(--ea-muted);
+  --color-foreground-muted: var(--ea-muted);
+  --color-foreground-border: var(--ea-line);
+  --color-brand-primary: var(--ea-green);
+  --color-brand-content: var(--ea-blue);
+  --color-brand-visited: var(--ea-blue);
+  --color-link: var(--ea-blue);
+  --color-link--hover: var(--ea-green);
+  --color-link--visited: var(--ea-blue);
+  --color-link-underline: var(--ea-line);
+  --color-link-underline--hover: var(--ea-green);
+  --color-sidebar-background: var(--ea-surface);
+  --color-sidebar-background-border: var(--ea-line);
+  --color-sidebar-item-background--hover: var(--ea-raised);
+  --color-sidebar-link-text--top-level: var(--ea-ink);
+  --color-code-background: var(--ea-surface);
+  --color-code-foreground: var(--ea-ink);
+  --color-inline-code-background: var(--ea-surface);
+  --color-highlighted-background: var(--ea-raised);
+  --color-admonition-background: var(--ea-surface);
+  --color-table-header-background: var(--ea-surface);
+  --color-table-border: var(--ea-line);
+  --color-card-background: var(--ea-surface);
+  --color-card-border: var(--ea-line);
+  --color-card-marginals-background: var(--ea-raised);
+  --color-announcement-background: var(--ea-raised);
+  --color-announcement-text: var(--ea-ink);
+}
+
+/* TTY (dark): explicit choice */
+body[data-theme="dark"] {
+  --ea-bg: #111315;
+  --ea-surface: #181b1e;
+  --ea-raised: #1f2327;
+  --ea-line: #3a4045;
+  --ea-ink: #eeeeec;
+  --ea-muted: #a0a6a3;
+  --ea-green: #8ae234;
+  --ea-blue: #729fcf;
+  --ea-yellow: #fce94f;
+}
+
+/* TTY (dark): follows the system setting in Furo's auto mode */
+@media (prefers-color-scheme: dark) {
+  body:not([data-theme="light"]) {
+    --ea-bg: #111315;
+    --ea-surface: #181b1e;
+    --ea-raised: #1f2327;
+    --ea-line: #3a4045;
+    --ea-ink: #eeeeec;
+    --ea-muted: #a0a6a3;
+    --ea-green: #8ae234;
+    --ea-blue: #729fcf;
+    --ea-yellow: #fce94f;
+  }
+}
+
+/* Headings, navigation and code use the monospace face. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.sidebar-brand-text,
+.sidebar-tree .caption,
+.toc-title {
+  font-family: var(--font-stack--headings);
+}
+
+/* Square corners and borders, never shadows. */
+body *,
+body *::before,
+body *::after {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Code and admonitions read as panes: a 1px border on the surface colour. */
+div.highlight,
+.admonition,
+div.admonition,
+.sd-card {
+  border: 1px solid var(--ea-line);
+}
+
+/* Warnings take the Tango yellow, paired with the admonition title word. */
+.admonition.warning,
+.admonition.caution,
+.admonition.attention {
+  border-left: 4px solid var(--ea-yellow);
+}
+
+/* Focus ring: 2px solid, offset 2px, on every interactive element. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+summary:focus-visible,
+label:focus-visible {
+  outline: 2px solid var(--ea-blue);
+  outline-offset: 2px;
+}
+
+/* Keep body prose to a readable line length. */
+article[role="main"] p,
+article[role="main"] li {
+  max-width: 72ch;
+}

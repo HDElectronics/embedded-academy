@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: Embedded Academy contributors
+# SPDX-License-Identifier: MIT
+#
+# Top-level documentation dependencies. Edit this file, then regenerate
+# requirements.txt with:
+#   uv pip compile --universal --python-version 3.13 docs/requirements.in -o docs/requirements.txt
+# uv overwrites the SPDX header in requirements.txt; add the two SPDX lines
+# back at the top after you regenerate it.
+sphinx
+myst-parser
+furo
+sphinx-copybutton
+sphinx-design
+sphinxcontrib-mermaid
