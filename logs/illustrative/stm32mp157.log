@@ -1,0 +1,25 @@
+# board: STM32MP157C-DK2
+# software: not captured; lines modelled on typical TF-A, OP-TEE, U-Boot and kernel output
+# captured: no
+# verification: unverified
+# note: Replace with a capture from a real board. Lessons label this log as illustrative.
+
+@stage rom-code
+(ROM is silent; it falls back to USB or UART download when no image boots)
+@stage tf-a-bl2
+NOTICE:  Model: STMicroelectronics STM32MP157C-DK2 Discovery Board
+NOTICE:  BL2: v2.x(release)
+NOTICE:  BL2: Booting BL32
+@stage op-tee
+I/TC: OP-TEE version: 4.x
+I/TC: Primary CPU initializing
+I/TC: Primary CPU switching to normal world boot
+@stage u-boot
+U-Boot 20xx.xx
+Model: STMicroelectronics STM32MP157C-DK2 Discovery Board
+DRAM:  512 MiB
+Retrieving file: /extlinux/extlinux.conf
+@stage linux
+[    0.000000] Booting Linux on physical CPU 0x0
+[    0.000000] OF: fdt: Machine model: STMicroelectronics STM32MP157C-DK2 Discovery Board
+[    2.300000] Run /sbin/init as init process

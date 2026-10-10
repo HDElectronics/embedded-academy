@@ -1,0 +1,26 @@
+# board: Raspberry Pi 4 Model B
+# software: not captured; lines modelled on typical firmware, U-Boot and kernel output
+# captured: no
+# verification: unverified
+# note: Replace with a capture from a real board. Lessons label this log as illustrative.
+
+@stage boot-rom
+(ROM is silent)
+@stage eeprom
+RPi: BOOTLOADER release ...
+boot mode: SD
+Read start4.elf, fixup4.dat
+@stage firmware
+MESS: Read config.txt
+MESS: Loaded dtb bcm2711-rpi-4-b.dtb
+MESS: Starting ARM
+@stage armstub
+(no output: a short stub at EL3)
+@stage u-boot
+U-Boot 20xx.xx
+Hit any key to stop autoboot:  0
+Scanning for bootflows...
+@stage linux
+[    0.000000] Booting Linux on physical CPU 0x0000000000 [0x410fd083]
+[    0.000000] Machine model: Raspberry Pi 4 Model B
+[    1.900000] Run /sbin/init as init process

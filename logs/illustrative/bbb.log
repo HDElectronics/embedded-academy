@@ -1,0 +1,22 @@
+# board: BeagleBone Black
+# software: not captured; lines modelled on typical U-Boot and kernel output
+# captured: no
+# verification: unverified
+# note: Replace with a capture from a real board. Lessons label this log as illustrative.
+
+@stage rom-code
+(ROM is silent; it prints CCCC only while waiting for a UART boot)
+@stage spl
+U-Boot SPL 20xx.xx
+Trying to boot from MMC1
+@stage u-boot
+U-Boot 20xx.xx
+Model: TI AM335x BeagleBone Black
+DRAM:  512 MiB
+Hit any key to stop autoboot:  0
+@stage zimage
+Starting kernel ...
+@stage linux
+[    0.000000] Booting Linux on physical CPU 0x0
+[    0.000000] OF: fdt: Machine model: TI AM335x BeagleBone Black
+[    2.100000] Run /sbin/init as init process
