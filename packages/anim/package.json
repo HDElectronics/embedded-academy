@@ -1,0 +1,24 @@
+{
+  "name": "@ea/anim",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./anim.css": "./src/anim.css",
+    "./BootChain.astro": "./astro/BootChain.astro",
+    "./SerialConsole.astro": "./astro/SerialConsole.astro",
+    "./MemoryMap.astro": "./astro/MemoryMap.astro"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@ea/boards": "workspace:*",
+    "animejs": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5"
+  }
+}

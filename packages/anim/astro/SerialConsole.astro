@@ -1,0 +1,54 @@
+---
+// SPDX-FileCopyrightText: Embedded Academy contributors
+// SPDX-License-Identifier: MIT
+import { getBoard, type Board } from '@ea/boards';
+import { readBoardLog } from '@ea/boards/node';
+import { renderConsole } from '../src/index.ts';
+
+interface Props {
+  board: Board['id'];
+  pane?: number;
+}
+
+const { board: id, pane = 1 } = Astro.props;
+const board = getBoard(id);
+const log = readBoardLog(board);
+const lines = board.stages.flatMap((s) => log.stages.get(s.id) ?? []);
+const illustrative = log.header.captured !== 'yes';
+const json = JSON.stringify(lines).replace(/</g, '\u003c');
+---
+
+<ea-serial-console>
+  <script is:inline type="application/json" data-log set:html={json} />
+  <section class="ea-pane" aria-label={`Serial console, ${board.name}`}>
+    <div class="ea-pane__bar">
+      <span class="ea-pane__id">{pane}:</span>
+      <span class="ea-pane__title">console</span>
+      <span class="ea-pane__meta">
+        {board.id} · 115200 8N1{illustrative ? ' · illustrative' : ''}
+      </span>
+    </div>
+    <div class="ea-pane__body ea-chain__body">
+      <div class="ea-chain__controls">
+        <button type="button" class="ea-btn ea-btn--primary" data-part="replay">
+          Replay log
+        </button>
+        <button type="button" class="ea-btn" data-part="skip">
+          Show all
+        </button>
+      </div>
+      <div
+        class="ea-console"
+        role="log"
+        tabindex="0"
+        aria-label="Serial console"
+        data-part="console"
+        set:html={renderConsole(lines) + '<span class="ea-console__cursor" aria-hidden="true"></span>'}
+      />
+    </div>
+  </section>
+</ea-serial-console>
+
+<script>
+  import '@ea/anim/client';
+</script>

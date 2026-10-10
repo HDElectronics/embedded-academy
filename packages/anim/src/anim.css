@@ -1,0 +1,181 @@
+/*
+ * SPDX-FileCopyrightText: Embedded Academy contributors
+ * SPDX-License-Identifier: MIT
+ *
+ * Layout for animation components. Colours, spacing and radii come from @ea/ui tokens.
+ */
+
+.ea-chain__body {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.ea-chain__summary {
+  color: var(--ink-muted);
+  max-width: 72ch;
+}
+
+.ea-chain__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.ea-chain__rail {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(176px, 1fr);
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0 0 var(--space-2);
+  list-style: none;
+  overflow-x: auto;
+}
+
+.ea-chain__rail .ea-stage {
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  align-content: start;
+}
+
+.ea-chain__rail .ea-stage:hover {
+  border-color: var(--line-strong);
+}
+
+.ea-chain__rail .ea-stage--active,
+.ea-chain__rail .ea-stage--active:hover {
+  border-color: var(--accent);
+}
+
+.ea-chain__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (width <= 960px) {
+  .ea-chain__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ea-chain__detail {
+  display: grid;
+  gap: var(--space-2);
+  align-content: start;
+  min-width: 0;
+}
+
+.ea-chain__count {
+  color: var(--ink-muted);
+}
+
+.ea-chain__file {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.ea-chain__does {
+  margin: 0;
+  padding-left: var(--space-4);
+  display: grid;
+  gap: var(--space-1);
+}
+
+.ea-chain__sources {
+  color: var(--ink-muted);
+}
+
+.ea-pane__label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  margin-bottom: var(--space-2);
+}
+
+/* Memory map */
+.ea-memmap {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.ea-memmap__region {
+  border: 1px dashed var(--line-strong);
+  padding: var(--space-2) var(--space-3);
+  display: grid;
+  gap: var(--space-2);
+  transition: border-color 150ms ease-out;
+}
+
+.ea-memmap__region.is-lit {
+  border-style: solid;
+  border-color: var(--accent);
+}
+
+.ea-memmap__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-2);
+}
+
+.ea-memmap__label {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.ea-memmap__detail {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ea-memmap__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-height: 24px;
+}
+
+.ea-memmap__chip {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-1);
+  color: var(--ink-muted);
+}
+
+.ea-memmap__chip.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+/* Console extras */
+.ea-console {
+  height: 260px;
+}
+
+.ea-console .note {
+  color: var(--ink-muted);
+  font-style: italic;
+}
+
+.ea-console__line {
+  min-height: 21px;
+}
