@@ -1,0 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: Embedded Academy contributors
+ * SPDX-License-Identifier: MIT
+ *
+ * Self-hosted fonts. Ubuntu Sans and Ubuntu Sans Mono: Ubuntu Font Licence 1.0. VT323: SIL OFL 1.1.
+ */
+@import "@fontsource-variable/ubuntu-sans-mono/index.css";
+@import "@fontsource-variable/ubuntu-sans/index.css";
+@import "@fontsource/vt323/index.css";

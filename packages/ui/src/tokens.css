@@ -1,0 +1,161 @@
+/*
+ * SPDX-FileCopyrightText: Embedded Academy contributors
+ * SPDX-License-Identifier: MIT
+ *
+ * Generated from tokens.json by scripts/build-tokens.mjs. Do not edit by hand.
+ */
+
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111315;
+  --surface: #181b1e;
+  --surface-raised: #1f2327;
+  --line: #3a4045;
+  --line-strong: #6b7378;
+  --ink: #eeeeec;
+  --ink-muted: #a0a6a3;
+  --ansi-red: #f26363;
+  --ansi-green: #8ae234;
+  --ansi-yellow: #fce94f;
+  --ansi-blue: #729fcf;
+  --ansi-magenta: #ad7fa8;
+  --ansi-cyan: #34e2e2;
+  --selection: #2c4a6e;
+  --on-accent: #111315;
+  --accent: var(--ansi-green);
+  --link: var(--ansi-blue);
+  --focus: var(--ansi-yellow);
+  --info: var(--ansi-blue);
+  --warning: var(--ansi-yellow);
+  --danger: var(--ansi-red);
+  --success: var(--ansi-green);
+  --world-secure: var(--ansi-yellow);
+  --world-normal: var(--ansi-cyan);
+  --world-firmware: var(--ansi-magenta);
+  --board-rpi: var(--ansi-red);
+  --board-bbb: var(--ansi-yellow);
+  --board-stm: var(--ansi-blue);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f7f7f5;
+  --surface: #eeeeec;
+  --surface-raised: #e4e5e1;
+  --line: #babdb6;
+  --line-strong: #7d807a;
+  --ink: #2e3436;
+  --ink-muted: #555753;
+  --ansi-red: #a40000;
+  --ansi-green: #376d04;
+  --ansi-yellow: #8f5902;
+  --ansi-blue: #204a87;
+  --ansi-magenta: #5c3566;
+  --ansi-cyan: #05706f;
+  --selection: #c7d6ea;
+  --on-accent: #ffffff;
+}
+
+:root {
+  --font-mono: "Ubuntu Sans Mono Variable", "Ubuntu Sans Mono", "Ubuntu Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+  --font-sans: "Ubuntu Sans Variable", "Ubuntu Sans", Ubuntu, "DejaVu Sans", system-ui, sans-serif;
+  --font-pixel: VT323, "Ubuntu Sans Mono", monospace;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --radius-0: 0px;
+  --radius-1: 2px;
+  --radius-2: 4px;
+}
+
+.t-display {
+  font-family: var(--font-mono);
+  font-size: 48px;
+  line-height: 52px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.t-h1 {
+  font-family: var(--font-mono);
+  font-size: 36px;
+  line-height: 42px;
+  font-weight: 700;
+}
+
+.t-h2 {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  line-height: 32px;
+  font-weight: 700;
+}
+
+.t-h3 {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  line-height: 26px;
+  font-weight: 700;
+}
+
+.t-lead {
+  font-family: var(--font-sans);
+  font-size: 19px;
+  line-height: 30px;
+  font-weight: 400;
+}
+
+.t-body {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 28px;
+  font-weight: 400;
+}
+
+.t-small {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 400;
+}
+
+.t-code {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  line-height: 24px;
+  font-weight: 400;
+}
+
+.t-console {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 21px;
+  font-weight: 400;
+}
+
+.t-ui {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 500;
+}
+
+.t-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.t-banner {
+  font-family: var(--font-pixel);
+  font-size: 32px;
+  line-height: 32px;
+  font-weight: 400;
+}

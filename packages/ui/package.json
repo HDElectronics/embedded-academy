@@ -1,0 +1,23 @@
+{
+  "name": "@ea/ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tokens.json": "./tokens.json",
+    "./tokens.css": "./src/tokens.css",
+    "./components.css": "./src/components.css",
+    "./fonts.css": "./src/fonts.css",
+    "./index.css": "./src/index.css",
+    "./base.css": "./src/base.css"
+  },
+  "scripts": {
+    "build:tokens": "node scripts/build-tokens.mjs",
+    "typecheck": "node scripts/build-tokens.mjs --check"
+  },
+  "dependencies": {
+    "@fontsource-variable/ubuntu-sans": "^5.3.0",
+    "@fontsource-variable/ubuntu-sans-mono": "^5.3.0",
+    "@fontsource/vt323": "^5.3.0"
+  }
+}
