@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: Embedded Academy contributors
+# SPDX-License-Identifier: MIT
+extends: existence
+message: "Cut '%s': say it plainly."
+level: warning
+ignorecase: true
+tokens:
+  - simply
+  - just
+  - basically
+  - obviously
+  - of course
+  - it is worth noting
+  - needless to say

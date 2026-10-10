@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: Embedded Academy contributors
+# SPDX-License-Identifier: MIT
+node_modules/
+dist/
+.astro/
+coverage/
+playwright-report/
+test-results/
+.lighthouseci/
+docs/_build/
+.venv/
+__pycache__/
+.vale/styles/*
+!.vale/styles/EmbeddedAcademy/
+!.vale/styles/config/
+.DS_Store
+*.log
+!logs/**/*.log
+.env
+.env.*

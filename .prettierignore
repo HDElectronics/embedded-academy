@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: Embedded Academy contributors
+# SPDX-License-Identifier: MIT
+dist/
+.astro/
+node_modules/
+docs/_build/
+pnpm-lock.yaml

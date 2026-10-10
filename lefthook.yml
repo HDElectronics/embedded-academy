@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: Embedded Academy contributors
+# SPDX-License-Identifier: MIT
+# Fast checks on staged files only. Typecheck, tests and builds run in CI.
+pre-commit:
+  parallel: true
+  jobs:
+    - name: biome
+      glob: "*.{js,mjs,ts,json,jsonc}"
+      run: pnpm exec biome check --write --no-errors-on-unmatched {staged_files}
+      stage_fixed: true
+    - name: prettier
+      glob: "*.{astro,mdx}"
+      run: pnpm exec prettier --write {staged_files}
+      stage_fixed: true
+    - name: eslint
+      glob: "*.{astro,mdx}"
+      run: pnpm exec eslint {staged_files}
+    - name: stylelint
+      glob: "*.{css,astro}"
+      run: pnpm exec stylelint --allow-empty-input {staged_files}
+    - name: markdownlint
+      glob: "*.md"
+      run: pnpm exec markdownlint-cli2 {staged_files}
+    - name: tokens
+      glob: "packages/ui/tokens.json"
+      run: pnpm --filter @ea/ui build:tokens && git add packages/ui/src/tokens.css
+
+commit-msg:
+  jobs:
+    - name: commitlint
+      run: pnpm exec commitlint --edit {1}

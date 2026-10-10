@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: Embedded Academy contributors
+# SPDX-License-Identifier: MIT
+extends: substitution
+message: "Use '%s' instead of '%s'."
+level: error
+ignorecase: false
+swap:
+  '\b(?:Uboot|U-boot|uboot|UBoot)\b': U-Boot
+  '\b(?:Trustzone|trustzone|Trust Zone)\b': TrustZone
+  '\b(?:TFA|tf-a|ATF)\b': TF-A
+  '\b(?:OPTEE|optee|OP-Tee)\b': OP-TEE
+  '\bdevice-tree\b': Device Tree
+  '\b(?:Beaglebone|BeagleBone black|Beagle Bone)\b': BeagleBone Black
+  '\bRaspberry PI\b': Raspberry Pi
+  '\b(?:Linux Kernel)\b': Linux kernel

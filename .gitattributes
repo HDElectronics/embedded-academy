@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: Embedded Academy contributors
+# SPDX-License-Identifier: MIT
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.woff2 binary

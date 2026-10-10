@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: Embedded Academy contributors
+# SPDX-License-Identifier: MIT
+packages:
+  - apps/*
+  - packages/*
+allowBuilds:
+  '@vvago/vale': true
+  lefthook: true

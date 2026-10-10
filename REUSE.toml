@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: Embedded Academy contributors
+# SPDX-License-Identifier: MIT
+version = 1
+
+# Files that can't carry comment headers.
+[[annotations]]
+path = [
+  "package.json",
+  "pnpm-lock.yaml",
+  "apps/*/package.json",
+  "packages/*/package.json",
+  "**/tsconfig.json",
+  "tsconfig.base.json",
+  "biome.json",
+  ".prettierrc.json",
+  "lighthouserc.json",
+  "release-please-config.json",
+  ".release-please-manifest.json",
+  "renovate.json",
+  "packages/ui/tokens.json",
+  ".claude/launch.json",
+  ".nvmrc",
+  ".vale/styles/config/vocabularies/**",
+]
+SPDX-FileCopyrightText = "Embedded Academy contributors"
+SPDX-License-Identifier = "MIT"
+
+# Lessons and captured logs are content.
+[[annotations]]
+path = ["content/**/*.mdx", "logs/**"]
+SPDX-FileCopyrightText = "Embedded Academy contributors"
+SPDX-License-Identifier = "CC-BY-SA-4.0"
