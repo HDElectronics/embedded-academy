@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: Embedded Academy contributors
+# SPDX-License-Identifier: MIT
+
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/HDElectronics/embedded-academy/discussions
+    about: Ask questions about the courses or discuss ideas in GitHub Discussions.

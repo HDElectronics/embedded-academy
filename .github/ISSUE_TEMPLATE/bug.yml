@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: Embedded Academy contributors
+# SPDX-License-Identifier: MIT
+
+name: Bug
+description: Something on the site or in a lab does not work as it should.
+title: "fix: "
+labels: ["type:fix"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a wrong technical fact in a lesson, use the "Technical inaccuracy" form instead.
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the page URL and what you clicked or typed.
+      placeholder: |
+        1. Open ...
+        2. Press ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual
+      description: Screenshots or console errors help.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and device
+      description: Browser and version, OS, device; theme (dark or light) and whether reduced motion is on, if relevant.
+      placeholder: Firefox 140, Ubuntu 24.04, laptop, dark theme
+    validations:
+      required: true

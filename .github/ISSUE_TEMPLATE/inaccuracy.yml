@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: Embedded Academy contributors
+# SPDX-License-Identifier: MIT
+
+name: Technical inaccuracy
+description: Report a wrong address, stage order, command, log or other technical fact.
+title: "fix: "
+labels: ["type:fix", "area:content"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. A wrong fact teaches learners something false, so these reports come first. Please cite a primary source: a vendor TRM or datasheet, upstream docs (kernel, U-Boot, TF-A, OP-TEE), upstream source code, or a vendor app note. Blog posts and forum answers cannot be the citation.
+  - type: input
+    id: page
+    attributes:
+      label: Page URL
+      description: The lesson or docs page with the error.
+      placeholder: https://...
+    validations:
+      required: true
+  - type: textarea
+    id: wrong
+    attributes:
+      label: What is wrong
+      description: Quote the sentence, value or log line that is wrong.
+    validations:
+      required: true
+  - type: textarea
+    id: correct
+    attributes:
+      label: Correct fact
+      description: What should it say instead?
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Source
+      description: Document, section and page (or file and line in upstream source) that supports the correct fact.
+    validations:
+      required: true

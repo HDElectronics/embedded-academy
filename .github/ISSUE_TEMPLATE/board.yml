@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: Embedded Academy contributors
+# SPDX-License-Identifier: MIT
+
+name: Board request
+description: Propose a new board for the courses.
+title: "feat(boards): add "
+labels: ["type:feat", "area:boards"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Board facts must come from vendor documentation, so public reference manuals matter more than popularity.
+  - type: input
+    id: board
+    attributes:
+      label: Board name
+      placeholder: Vendor and board, with revision
+    validations:
+      required: true
+  - type: input
+    id: soc
+    attributes:
+      label: SoC
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why this board
+      description: What would learners gain that the current boards do not cover?
+    validations:
+      required: true
+  - type: textarea
+    id: docs
+    attributes:
+      label: Available TRM and docs
+      description: Links to the public technical reference manual, datasheet, boot ROM documentation and upstream support (TF-A, U-Boot, kernel).
+    validations:
+      required: true
+  - type: dropdown
+    id: logs
+    attributes:
+      label: Can you capture serial logs on this board?
+      description: Lessons replay real serial captures, so someone with the board has to record them.
+      options:
+        - "Yes, I have the board and a serial adapter"
+        - "Maybe, I have the board but no serial setup yet"
+        - "No"
+    validations:
+      required: true

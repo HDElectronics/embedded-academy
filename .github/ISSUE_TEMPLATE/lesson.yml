@@ -1,0 +1,66 @@
+# SPDX-FileCopyrightText: Embedded Academy contributors
+# SPDX-License-Identifier: MIT
+
+name: Lesson
+description: Propose a new lesson page or a change to an existing one.
+title: "content(mNN): "
+labels: ["type:content", "area:content"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        One issue per lesson page. Every page has exactly one Diataxis type, and every fact a learner could act on needs a source (vendor TRM or datasheet, upstream docs, upstream source, vendor app notes; not blog posts or forum answers).
+  - type: dropdown
+    id: module
+    attributes:
+      label: Module
+      description: Which module of the course does this lesson belong to?
+      options:
+        - m00
+        - m01
+        - m02
+        - m03
+        - m04
+        - m05
+        - m06
+        - m07
+        - m08
+        - m09
+        - m10
+    validations:
+      required: true
+  - type: checkboxes
+    id: boards
+    attributes:
+      label: Boards
+      description: Which boards does the lesson cover?
+      options:
+        - label: Raspberry Pi 4 (rpi4)
+        - label: BeagleBone Black (bbb)
+        - label: STM32MP157 DK2 (stm32mp157)
+  - type: dropdown
+    id: diataxis
+    attributes:
+      label: Diataxis type
+      description: Pick the one type this page has.
+      options:
+        - tutorial (lab)
+        - how-to (build recipe)
+        - reference (board facts)
+        - explanation (concept)
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Learning goal
+      description: What can the learner do or explain after this page? One or two sentences, addressed to "you".
+    validations:
+      required: true
+  - type: textarea
+    id: sources
+    attributes:
+      label: Sources
+      description: Links to the TRM, datasheet, upstream docs or source code this lesson will cite. Mark anything you have not checked as unverified.
+    validations:
+      required: true

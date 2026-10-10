@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: Embedded Academy contributors
+# SPDX-License-Identifier: MIT
+
+name: Animation
+description: Propose a new animation component or a change to one in packages/anim.
+title: "feat(anim): "
+labels: ["type:feat", "area:anim"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Animations are driven by data from packages/boards and never hard-code an address, stage, file name or size. Each one needs a stepped mode with keyboard control and must read correctly at rest and with reduced motion.
+  - type: textarea
+    id: shows
+    attributes:
+      label: What it shows
+      description: What does the learner see, step by step? Describe the state at the end of each step.
+    validations:
+      required: true
+  - type: textarea
+    id: lessons
+    attributes:
+      label: Lessons that use it
+      description: Which lesson pages (module and page) will embed this animation?
+    validations:
+      required: true
+  - type: textarea
+    id: board-data
+    attributes:
+      label: Board data needed
+      description: Which fields from packages/boards does it need (addresses, stages, sizes)? Name any that do not exist yet, with their sources.
+    validations:
+      required: true

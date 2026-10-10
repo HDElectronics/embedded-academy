@@ -1,0 +1,117 @@
+# SPDX-FileCopyrightText: Embedded Academy contributors
+# SPDX-License-Identifier: MIT
+
+# Weekly external link check of the README, docs and lessons, plus the
+# Sphinx linkcheck builder. On failure it opens (or comments on) one issue.
+name: Links (weekly)
+
+on:
+  schedule:
+    - cron: "17 5 * * 1" # Mondays 05:17 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  links:
+    name: links
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Check links with lychee
+        id: lychee
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --no-progress
+            --exclude-all-private
+            --max-concurrency 8
+            --accept '200..=299, 429'
+            --exclude '^https://www.raspberrypi.com/'
+            --exclude '^https://(www|wiki).st.com/'
+            README.md
+            'docs/**/*.md'
+            'content/**/*.md'
+            'content/**/*.mdx'
+          output: lychee/out.md
+          fail: false
+          failIfEmpty: false
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: docs/requirements.txt
+      - run: pnpm install --frozen-lockfile
+
+      - name: Sphinx linkcheck
+        id: sphinx
+        run: |
+          set +e
+          pnpm docs:linkcheck 2>&1 | tee sphinx-linkcheck.log
+          status=${PIPESTATUS[0]}
+          echo "exit_code=${status}" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Open or update the link-check issue
+        if: ${{ steps.lychee.outputs.exit_code != '0' || steps.sphinx.outputs.exit_code != '0' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          LYCHEE_EXIT: ${{ steps.lychee.outputs.exit_code }}
+          SPHINX_EXIT: ${{ steps.sphinx.outputs.exit_code }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          title="Weekly link check failed"
+          {
+            echo "The weekly link check found broken links. Run: ${RUN_URL}"
+            echo
+            echo "## lychee (README, docs, lessons): exit ${LYCHEE_EXIT}"
+            echo
+            if [ -f lychee/out.md ]; then cat lychee/out.md; else echo "No lychee report was written."; fi
+            echo
+            echo "## Sphinx linkcheck: exit ${SPHINX_EXIT}"
+            echo
+            echo '```text'
+            if [ -f docs/_build/linkcheck/output.txt ]; then
+              cat docs/_build/linkcheck/output.txt
+            else
+              tail -n 100 sphinx-linkcheck.log
+            fi
+            echo '```'
+          } > link-report.md
+          # GitHub caps issue and comment bodies at 65536 characters.
+          head -c 60000 link-report.md > link-report-trimmed.md
+          existing=$(gh issue list --state open --search "in:title \"${title}\"" \
+            --json number,title --jq ".[] | select(.title == \"${title}\") | .number" | head -n 1)
+          if [ -n "${existing}" ]; then
+            gh issue comment "${existing}" --body-file link-report-trimmed.md
+            echo "Commented on issue #${existing}."
+          else
+            gh issue create --title "${title}" --body-file link-report-trimmed.md \
+              --label "type:fix" --label "area:docs" --label "area:content"
+            echo "Opened a new issue."
+          fi
+
+      - name: Fail when links are broken
+        if: ${{ steps.lychee.outputs.exit_code != '0' || steps.sphinx.outputs.exit_code != '0' }}
+        run: |
+          echo "::error::Broken links found (lychee exit ${{ steps.lychee.outputs.exit_code }}, Sphinx linkcheck exit ${{ steps.sphinx.outputs.exit_code }})."
+          exit 1
