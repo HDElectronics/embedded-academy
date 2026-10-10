@@ -1,0 +1,86 @@
+---
+// SPDX-FileCopyrightText: Embedded Academy contributors
+// SPDX-License-Identifier: MIT
+import { VERIFICATION_LABEL } from '@ea/anim';
+import { getCollection, getEntry, render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import { courseLessons, lessonHref, type Lesson } from '../../lib/lessons.ts';
+
+export async function getStaticPaths() {
+  const lessons = await getCollection('lessons', ({ data }) => import.meta.env.DEV || !data.draft);
+  return lessons.map((lesson) => ({ params: { lesson: lesson.id }, props: { lesson } }));
+}
+
+interface Props {
+  lesson: Lesson;
+}
+
+const { lesson } = Astro.props;
+const { Content } = await render(lesson);
+const course = await getEntry('courses', lesson.data.course);
+if (!course) throw new Error(`Lesson ${lesson.id} names unknown course ${lesson.data.course}`);
+const module = course.data.modules.find((m) => m.id === lesson.data.module);
+const siblings = await courseLessons(course.id);
+const position = siblings.findIndex((l) => l.id === lesson.id);
+const prev = siblings[position - 1];
+const next = siblings[position + 1];
+---
+
+<Base title={lesson.data.title} description={lesson.data.description}>
+  <article class="prose wide">
+    <header class="prose">
+      <p class="t-label">
+        <a href={`/courses/${course.id}/`}>{course.id}</a> · {lesson.data.module} · {module?.title}
+      </p>
+      <h1>{lesson.data.title}</h1>
+      <div class="lesson-meta">
+        <span class="ea-tag">{lesson.data.type}</span>
+        {lesson.data.boards.map((b) => (
+          <span class="ea-tag">{b}</span>
+        ))}
+        <span class="ea-tag">{VERIFICATION_LABEL[lesson.data.verification]}</span>
+        {lesson.data.draft && <span class="ea-tag ea-tag--secure">draft</span>}
+      </div>
+    </header>
+    <div class="prose wide">
+      <Content />
+    </div>
+    <section class="lesson-sources t-small" aria-labelledby="sources-title">
+      <h2 class="t-label" id="sources-title">
+        Sources
+      </h2>
+      <ol>
+        {lesson.data.sources.map((s) => (
+          <li>
+            {s.url ? <a href={s.url}>{s.title}</a> : s.title}
+            {s.section && `, ${s.section}`}
+          </li>
+        ))}
+      </ol>
+    </section>
+    <nav class="ea-chain__controls" aria-label="Lesson">
+      {prev && (
+        <a class="ea-btn" href={lessonHref(prev)}>
+          Previous: {prev.data.title}
+        </a>
+      )}
+      {next && (
+        <a class="ea-btn ea-btn--primary" href={lessonHref(next)}>
+          Next: {next.data.title}
+        </a>
+      )}
+    </nav>
+  </article>
+  <div class="status-bar" slot="status">
+    <div class="ea-status">
+      <span class="ea-status__mode">LEARN</span>
+      <span class="ea-status__seg">{course.id}</span>
+      <span class="ea-status__seg">
+        {lesson.data.module} <b>{module?.title}</b>
+      </span>
+      <span class="ea-status__right">
+        lesson {position + 1}/{siblings.length}
+      </span>
+    </div>
+  </div>
+</Base>

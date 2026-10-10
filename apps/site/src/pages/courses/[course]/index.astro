@@ -1,0 +1,59 @@
+---
+// SPDX-FileCopyrightText: Embedded Academy contributors
+// SPDX-License-Identifier: MIT
+import { getCollection } from 'astro:content';
+import Base from '../../../layouts/Base.astro';
+import { courseLessons, lessonHref } from '../../../lib/lessons.ts';
+
+export async function getStaticPaths() {
+  const courses = await getCollection('courses');
+  return courses.map((course) => ({ params: { course: course.id }, props: { course } }));
+}
+
+const { course } = Astro.props;
+const lessons = await courseLessons(course.id);
+---
+
+<Base title={course.data.title} description={course.data.description}>
+  <section class="hero">
+    <p class="t-label">course · {course.id}</p>
+    <h1>{course.data.title}</h1>
+    <p class="t-lead">{course.data.description}</p>
+  </section>
+
+  <section class="ea-pane" aria-labelledby="modules-title">
+    <div class="ea-pane__bar">
+      <span class="ea-pane__id">0:</span>
+      <span class="ea-pane__title" id="modules-title">
+        modules
+      </span>
+      <span class="ea-pane__meta">
+        {course.data.modules.length} modules · {lessons.length} lessons
+      </span>
+    </div>
+    <div class="ea-pane__body">
+      {course.data.modules.map((m) => {
+        const own = lessons.filter((l) => l.data.module === m.id);
+        return (
+          <div class="module">
+            <h2 class="t-h3">
+              {m.id} · {m.title}
+            </h2>
+            <p class="lesson-sources">{m.summary}</p>
+            {own.length > 0 ? (
+              <ul class="index-list">
+                {own.map((l) => (
+                  <li>
+                    <a href={lessonHref(l)}>{l.data.title}</a> <span class="ea-tag">{l.data.type}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p class="lesson-sources t-small">[ WAIT ] No lessons yet.</p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  </section>
+</Base>

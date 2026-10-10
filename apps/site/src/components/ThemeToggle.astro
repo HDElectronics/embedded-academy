@@ -1,0 +1,34 @@
+---
+// SPDX-FileCopyrightText: Embedded Academy contributors
+// SPDX-License-Identifier: MIT
+---
+
+<button type="button" class="ea-btn theme-toggle" data-theme-toggle aria-pressed="false">
+  theme: tty
+</button>
+
+<script>
+  const NAMES = { dark: 'tty', light: 'paper' } as const;
+
+  function apply(button: HTMLButtonElement): void {
+    const theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+    button.textContent = `theme: ${NAMES[theme]}`;
+    button.setAttribute('aria-pressed', String(theme === 'light'));
+    button.setAttribute(
+      'aria-label',
+      `Theme: ${NAMES[theme]}. Switch to ${theme === 'light' ? 'tty (dark)' : 'paper (light)'}`,
+    );
+  }
+
+  for (const button of document.querySelectorAll<HTMLButtonElement>('[data-theme-toggle]')) {
+    apply(button);
+    button.addEventListener('click', () => {
+      const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+      document.documentElement.dataset.theme = next;
+      try {
+        localStorage.setItem('ea-theme', next);
+      } catch {}
+      apply(button);
+    });
+  }
+</script>

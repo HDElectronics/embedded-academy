@@ -1,0 +1,87 @@
+// SPDX-FileCopyrightText: Embedded Academy contributors
+// SPDX-License-Identifier: MIT
+
+import AxeBuilder from '@axe-core/playwright';
+import { expect, type Page, test } from '@playwright/test';
+
+const LESSON = '/courses/linux-boot-arm/00-orientation/01-the-boot-chain-at-a-glance/';
+
+function collectErrors(page: Page): string[] {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+  return errors;
+}
+
+test('home page shows a complete boot chain before any interaction', async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto('/');
+  await expect(page.getByRole('heading', { level: 1, name: 'Embedded Academy' })).toBeVisible();
+  const chain = page.locator('ea-boot-chain');
+  await expect(chain).toHaveAttribute('data-ready', '');
+  await expect(chain.locator('[aria-current="step"]')).toHaveCount(1);
+  await expect(chain.locator('.ea-chain__name')).toHaveText('Boot ROM');
+  expect(errors).toEqual([]);
+});
+
+test('Next and Previous move through the stages', async ({ page }) => {
+  await page.goto('/');
+  const chain = page.locator('ea-boot-chain');
+  await chain.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(chain.locator('.ea-chain__count')).toHaveText(/^Stage 2 of \d+$/);
+  await expect(chain.locator('.ea-stage__state--ok')).toHaveCount(1);
+  await chain.getByRole('button', { name: 'Previous' }).click();
+  await expect(chain.locator('.ea-chain__count')).toHaveText(/^Stage 1 of \d+$/);
+});
+
+test('Play runs the chain and types console output', async ({ page }) => {
+  await page.goto('/');
+  const chain = page.locator('ea-boot-chain');
+  await chain.getByRole('button', { name: 'Play boot' }).click();
+  await expect(chain.getByRole('button', { name: 'Pause' })).toBeVisible();
+  await expect(chain.locator('.ea-chain__count')).toHaveText(/^Stage 3 of \d+$/, { timeout: 15_000 });
+  await expect(chain.locator('[data-part="console"] .ea-console__line')).not.toHaveCount(0);
+});
+
+test('arrow keys switch boards on the tabs', async ({ page }) => {
+  await page.goto('/');
+  const tabs = page.getByRole('tablist', { name: 'Board' });
+  await tabs.getByRole('tab', { selected: true }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(tabs.getByRole('tab', { selected: true })).toHaveText('1:bbb');
+  await expect(tabs.getByRole('tab', { selected: true })).toBeFocused();
+  await expect(page.locator('[data-part="meta"]')).toContainText('AM3358');
+});
+
+test('theme toggle switches to paper and remembers it', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /^Theme: tty/ }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+});
+
+test.describe('with reduced motion', () => {
+  test.use({ reducedMotion: 'reduce' });
+
+  test('Play becomes Next and output appears at once', async ({ page }) => {
+    await page.goto('/');
+    const chain = page.locator('ea-boot-chain');
+    const play = chain.getByRole('button', { name: 'Next stage' });
+    await expect(play).toBeVisible();
+    await play.click();
+    await expect(chain.locator('.ea-chain__count')).toHaveText(/^Stage 2 of \d+$/);
+    await expect(chain.locator('[data-part="console"] .ea-console__cursor')).toHaveCount(1);
+  });
+});
+
+for (const theme of ['dark', 'light'] as const) {
+  for (const path of ['/', '/courses/linux-boot-arm/', LESSON]) {
+    test(`no accessibility violations on ${path} (${theme})`, async ({ page }) => {
+      await page.addInitScript((t) => localStorage.setItem('ea-theme', t), theme);
+      await page.goto(path);
+      const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.nodes.length} × ${v.help}`)).toEqual([]);
+    });
+  }
+}

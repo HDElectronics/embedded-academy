@@ -1,0 +1,67 @@
+---
+title: The boot chain at a glance
+description: Every ARM board boots in stages, each loading the next. See the chain on three boards before we take it apart.
+course: linux-boot-arm
+module: m00
+order: 1
+type: explanation
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'Linux kernel documentation: Booting ARM Linux'
+    url: https://docs.kernel.org/arch/arm/booting.html
+  - title: 'Linux kernel documentation: Booting AArch64 Linux'
+    url: https://docs.kernel.org/arch/arm64/booting.html
+  - title: 'Raspberry Pi documentation: Raspberry Pi hardware, boot sequence and boot EEPROM'
+    url: https://www.raspberrypi.com/documentation/computers/raspberry-pi.html
+  - title: 'U-Boot documentation: AM335x generic boards'
+    url: https://docs.u-boot.org/en/latest/board/ti/am335x_evm.html
+  - title: 'Trusted Firmware-A documentation: STMicroelectronics STM32MP1'
+    url: https://trustedfirmware-a.readthedocs.io/en/latest/plat/st/stm32mp1.html
+---
+
+import BootChain from '@ea/anim/BootChain.astro';
+import MemoryMap from '@ea/anim/MemoryMap.astro';
+import SerialConsole from '@ea/anim/SerialConsole.astro';
+
+<p class="t-lead">
+  When you power on an ARM board, the first code that runs is not yours. It is a small program inside the chip: the boot
+  ROM. Its job is to find the next program and run it. That program finds the next one, and so on, until the Linux
+  kernel starts the first user process, PID 1. This sequence is the boot chain.
+</p>
+
+## Each stage does a little, then hands over
+
+The boot ROM can't start Linux directly. When it runs, the board's main memory (DRAM) is not set up yet, so only a small on-chip memory is usable. The first loader has to fit there, and its main job is to bring up DRAM so the next, larger stage has room.
+
+<BootChain />
+
+Play the chain on each board and watch three things:
+
+1. **Where code runs** moves from ROM, to on-chip memory, to DRAM.
+2. **Who runs first** differs. On the Raspberry Pi 4 the VideoCore GPU starts before the Arm cores. On the BeagleBone Black and the STM32MP157, an Arm core runs the boot ROM.
+3. **The world changes.** On the STM32MP157 the early stages run in the secure world, and U-Boot and Linux run in the normal world.
+
+## Memory decides the order
+
+<MemoryMap board="bbb" pane={1} />
+
+The BeagleBone Black's ROM copies the first loader, U-Boot SPL, into internal SRAM, because DDR is not ready yet. SPL sets up DDR, then loads the full U-Boot into it. You will see the same pattern on every board, with different names.
+
+## The console tells you where you are
+
+<SerialConsole board="stm32mp157" pane={2} />
+
+Each stage prints its own banner on the serial console. Reading those banners is the fastest way to find which stage failed when a board does not boot.
+
+<aside class="ea-callout ea-callout--info">
+  <span class="ea-callout__level">&lt;6&gt; info</span>
+  <p class="ea-callout__body">
+    The console output on this page is illustrative until it is replaced with captures from real boards. Every fact here
+    is marked not yet verified: it comes from vendor and upstream documentation, listed under Sources.
+  </p>
+</aside>
+
+## What comes next
+
+Module 01 covers the ARM architecture you need to follow these stages: exception levels and processor modes, and how the CPU moves from one stage to the next.

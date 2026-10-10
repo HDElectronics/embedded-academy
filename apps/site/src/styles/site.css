@@ -1,0 +1,187 @@
+/*
+ * SPDX-FileCopyrightText: Embedded Academy contributors
+ * SPDX-License-Identifier: MIT
+ *
+ * Page layout for the site. Colours and spacing come from @ea/ui tokens.
+ */
+
+body {
+  display: grid;
+  grid-template-rows: auto 1fr auto auto;
+  min-height: 100dvh;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--space-4);
+  top: -48px;
+  background: var(--accent);
+  color: var(--on-accent);
+  padding: var(--space-1) var(--space-3);
+  font-family: var(--font-mono);
+  z-index: 10;
+}
+
+.skip-link:focus {
+  top: var(--space-2);
+}
+
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-2) var(--space-8);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-raised);
+  font-family: var(--font-mono);
+}
+
+.site-prompt {
+  display: inline-flex;
+  text-decoration: none;
+  font-size: 15px;
+}
+
+.site-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: 14px;
+}
+
+.site-main {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-8);
+  display: grid;
+  gap: var(--space-6);
+  align-content: start;
+}
+
+.site-footer {
+  padding: var(--space-4) var(--space-8);
+  border-top: 1px solid var(--line);
+  color: var(--ink-muted);
+  font-size: 14px;
+  line-height: 22px;
+}
+
+@media (width <= 640px) {
+  .site-header,
+  .site-main,
+  .site-footer {
+    padding-inline: var(--space-4);
+  }
+}
+
+/* Hero */
+.hero {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 72ch;
+}
+
+.hero h1 {
+  font-size: clamp(36px, 7vw, 48px);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+/* Lists of courses and lessons */
+.index-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.index-list a {
+  font-family: var(--font-mono);
+}
+
+.index-list .muted {
+  color: var(--ink-muted);
+}
+
+.module {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.module + .module {
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-4);
+}
+
+/* Lesson prose */
+.prose {
+  max-width: 72ch;
+  display: grid;
+  gap: var(--space-4);
+}
+
+.prose > :is(h2, h3) {
+  margin-top: var(--space-6);
+}
+
+.prose ul,
+.prose ol {
+  margin: 0;
+  padding-left: var(--space-6);
+  display: grid;
+  gap: var(--space-1);
+}
+
+.prose pre.astro-code {
+  border: 1px solid var(--line);
+  padding: var(--space-3) var(--space-4);
+  overflow-x: auto;
+  font-size: 15px;
+  line-height: 24px;
+}
+
+.lesson-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.lesson-sources {
+  color: var(--ink-muted);
+}
+
+.lesson-sources ol {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-6);
+}
+
+.wide {
+  max-width: none;
+}
+
+.status-bar {
+  position: sticky;
+  bottom: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  background: var(--surface-raised);
+}
+
+/* Shiki css-variables theme, mapped to tokens */
+:root {
+  --astro-code-foreground: var(--ink);
+  --astro-code-background: var(--bg);
+  --astro-code-token-constant: var(--ansi-magenta);
+  --astro-code-token-string: var(--ansi-green);
+  --astro-code-token-comment: var(--ink-muted);
+  --astro-code-token-keyword: var(--ansi-blue);
+  --astro-code-token-parameter: var(--ansi-yellow);
+  --astro-code-token-function: var(--ansi-cyan);
+  --astro-code-token-string-expression: var(--ansi-green);
+  --astro-code-token-punctuation: var(--ink-muted);
+  --astro-code-token-link: var(--link);
+}

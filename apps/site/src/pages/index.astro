@@ -1,0 +1,42 @@
+---
+// SPDX-FileCopyrightText: Embedded Academy contributors
+// SPDX-License-Identifier: MIT
+import BootChain from '@ea/anim/BootChain.astro';
+import { getCollection } from 'astro:content';
+import Base from '../layouts/Base.astro';
+
+const courses = await getCollection('courses');
+---
+
+<Base
+  title="Embedded Academy"
+  description="Open-source, animated courses on embedded systems. Start with how Linux boots on ARM."
+>
+  <section class="hero">
+    <h1>Embedded Academy</h1>
+    <p class="t-lead">
+      Open-source, animated courses on embedded systems. The first one follows three ARM boards from the first
+      instruction in the boot ROM to PID 1.
+    </p>
+  </section>
+
+  <BootChain />
+
+  <section class="ea-pane" aria-labelledby="courses-title">
+    <div class="ea-pane__bar">
+      <span class="ea-pane__id">1:</span>
+      <span class="ea-pane__title" id="courses-title">
+        courses
+      </span>
+    </div>
+    <div class="ea-pane__body">
+      <ul class="index-list">
+        {courses.map((c) => (
+          <li>
+            <a href={`/courses/${c.id}/`}>{c.id}</a> <span class="muted">{c.data.description}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+</Base>

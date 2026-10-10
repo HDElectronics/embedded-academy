@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: Embedded Academy contributors
+# SPDX-License-Identifier: CC-BY-SA-4.0
+title: How Linux boots on ARM
+description: Follow three ARM boards from the first instruction in the boot ROM to PID 1, and build every piece yourself.
+boards: [rpi4, bbb, stm32mp157]
+modules:
+  - id: m00
+    title: Orientation
+    summary: The whole journey on one screen, and the lab setup.
+  - id: m01
+    title: ARM for booting
+    summary: Just enough architecture to read every later stage.
+  - id: m02
+    title: Power-on and the boot ROM
+    summary: What happens before any code you wrote runs.
+  - id: m03
+    title: TrustZone and secure boot
+    summary: Two worlds, one monitor, and a chain of trust.
+  - id: m04
+    title: First stage and DRAM
+    summary: Why on-chip SRAM is small and DDR must be set up before use.
+  - id: m05
+    title: Trusted Firmware-A
+    summary: The standard secure boot pipeline.
+  - id: m06
+    title: U-Boot
+    summary: The bootloader you will spend the most time in.
+  - id: m07
+    title: Device Tree
+    summary: How the kernel learns what hardware exists.
+  - id: m08
+    title: Building everything
+    summary: From sources to a bootable SD card image, by hand first.
+  - id: m09
+    title: Linux takes over
+    summary: From the bootloader's jump to the first user process.
+  - id: m10
+    title: Capstones and debugging
+    summary: Full traces per board, and what breaks.

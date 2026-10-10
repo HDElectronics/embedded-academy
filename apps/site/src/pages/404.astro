@@ -1,0 +1,20 @@
+---
+// SPDX-FileCopyrightText: Embedded Academy contributors
+// SPDX-License-Identifier: MIT
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="Not found" description="This page does not exist.">
+  <section class="ea-pane">
+    <div class="ea-pane__bar">
+      <span class="ea-pane__id">0:</span>
+      <span class="ea-pane__title">error</span>
+    </div>
+    <div class="ea-pane__body prose">
+      <p class="ea-console">bash: cd: {Astro.url.pathname}: No such file or directory</p>
+      <p>
+        <a href="/">Back to the start page</a>
+      </p>
+    </div>
+  </section>
+</Base>

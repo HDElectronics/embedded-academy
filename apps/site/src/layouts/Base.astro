@@ -1,0 +1,57 @@
+---
+// SPDX-FileCopyrightText: Embedded Academy contributors
+// SPDX-License-Identifier: MIT
+import '@ea/ui/index.css';
+import '@ea/anim/anim.css';
+import '../styles/site.css';
+import ThemeToggle from '../components/ThemeToggle.astro';
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+const fullTitle = title === 'Embedded Academy' ? title : `${title} · Embedded Academy`;
+---
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="color-scheme" content="dark light" />
+    <title>{fullTitle}</title>
+    <script is:inline>
+      try {
+        const saved = localStorage.getItem('ea-theme');
+        if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved;
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">
+      Skip to content
+    </a>
+    <header class="site-header">
+      <a class="site-prompt" href="/">
+        <span class="ea-prompt__user">learner@embedded-academy</span>
+        <span class="ea-prompt__sigil">:</span>
+        <span class="ea-prompt__path">~</span>
+        <span class="ea-prompt__sigil">$</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="/courses/linux-boot-arm/">courses</a>
+        <ThemeToggle />
+      </nav>
+    </header>
+    <main id="main" class="site-main">
+      <slot />
+    </main>
+    <slot name="status" />
+    <footer class="site-footer">
+      <p>Embedded Academy is open source. Code under MIT, lessons under CC BY-SA 4.0.</p>
+    </footer>
+  </body>
+</html>
