@@ -1,0 +1,170 @@
+# board: QEMU virt (cortex-a57), 1 GiB RAM
+# software: U-Boot v2026.07 (qemu_arm64_defconfig), GCC 14.2.0 (aarch64-linux-gnu)
+# command: qemu-system-aarch64 -machine virt -nographic -cpu cortex-a57 -m 1G -global virtio-net-pci.romfile= -bios $HOME/work/build/qemu_arm64/u-boot.bin
+# captured: 2026-10-11 (UTC), embedded-academy-lab container (Debian 13.7, QEMU 10.0.13)
+# note: lab image built without trixie-updates; the container clock matched an HTTP Date header at capture time, so build dates in the output are real UTC
+# note: -global virtio-net-pci.romfile= is not in the lesson; without it QEMU stops with "failed to find romfile "efi-virtio.rom"" because the lab image lacks ipxe-qemu
+# input: a key during the countdown, then the commands of the lab in order, a key during the countdown after reset, then Ctrl-A X
+# verification: emulated
+
+Bloblist at 0 not found (err=-2)
+alloc space exhausted ptr 400 limit 0
+Bloblist at 0 not found (err=-2)
+
+
+U-Boot 2026.07 (Oct 11 2026 - 21:10:33 +0000)
+
+DRAM:  1 GiB
+using memory 0x7e64f000-0x7f68f000 for malloc()
+Core:  51 devices, 14 uclasses, devicetree: board
+Flash: 64 MiB
+Loading Environment from Flash... *** Warning - bad CRC, using default environment
+
+In:    serial,usbkbd
+Out:   serial,vidconsole
+Err:   serial,vidconsole
+No USB controllers found
+Net:   eth0: virtio-net#32
+
+Hit any key to stop autoboot: 2Hit any key to stop autoboot: 0
+=> bdinfo
+boot_params = 0x0000000000000000
+DRAM bank   = 0x0000000000000000
+-> start    = 0x0000000040000000
+-> size     = 0x0000000040000000
+flashstart  = 0x0000000000000000
+flashsize   = 0x0000000004000000
+flashoffset = 0x000000000016e9b0
+baudrate    = 115200 bps
+relocaddr   = 0x000000007f68f000
+reloc off   = 0x000000007f68f000
+Build       = 64-bit
+current eth = virtio-net#32
+ethaddr     = 52:54:00:12:34:56
+IP addr     = <NULL>
+fdt_blob    = 0x000000007e54ed80
+lmb_dump_all:
+ memory.count = 0x1
+ memory[0]	[0x40000000-0x7fffffff], 0x40000000 bytes, flags: none
+ reserved.count = 0x2
+ reserved[0]	[0x7d52a000-0x7d52cfff], 0x3000 bytes, flags: no-notify, no-overwrite
+ reserved[1]	[0x7d52dff0-0x7fffffff], 0x2ad2010 bytes, flags: no-overwrite
+devicetree  = board
+serial addr = 0x0000000009000000
+ width      = 0x0000000000000004
+ shift      = 0x0000000000000002
+ offset     = 0x0000000000000000
+ clock      = 0x0000000000000000
+arch_number = 0x0000000000000000
+TLB addr    = 0x000000007ffe0000
+irq_sp      = 0x000000007e52dff0
+sp start    = 0x000000007e52dff0
+Early malloc usage: e88 / 2000
+=> printenv
+arch=arm
+baudrate=115200
+board=qemu-arm
+board_name=qemu-arm
+boot_targets=qfw usb scsi virtio nvme dhcp
+bootcmd=bootflow scan -lb
+bootdelay=2
+cpu=armv8
+ethaddr=52:54:00:12:34:56
+fdt_addr=0x40000000
+fdtcontroladdr=7e54ed80
+kernel_addr_r=0x40400000
+loadaddr=0x40200000
+preboot=usb start
+pxefile_addr_r=0x40300000
+ramdisk_addr_r=0x44000000
+scriptaddr=0x40200000
+stderr=serial,vidconsole
+stdin=serial,usbkbd
+stdout=serial,vidconsole
+usb_ignorelist=0x1050:*,
+vendor=emulation
+
+Environment size: 471/262140 bytes
+=> printenv bootcmd bootdelay boot_targets
+bootcmd=bootflow scan -lb
+bootdelay=2
+boot_targets=qfw usb scsi virtio nvme dhcp
+=> printenv kernel_addr_r ramdisk_addr_r
+kernel_addr_r=0x40400000
+ramdisk_addr_r=0x44000000
+=> setenv bootdelay 5
+=> printenv bootdelay
+bootdelay=5
+=> reset
+resetting ...
+Bloblist at 0 not found (err=-2)
+alloc space exhausted ptr 400 limit 0
+Bloblist at 0 not found (err=-2)
+
+
+U-Boot 2026.07 (Oct 11 2026 - 21:10:33 +0000)
+
+DRAM:  1 GiB
+using memory 0x7e64f000-0x7f68f000 for malloc()
+Core:  51 devices, 14 uclasses, devicetree: board
+Flash: 64 MiB
+Loading Environment from Flash... *** Warning - bad CRC, using default environment
+
+In:    serial,usbkbd
+Out:   serial,vidconsole
+Err:   serial,vidconsole
+No USB controllers found
+Net:   eth0: virtio-net#32
+
+Hit any key to stop autoboot: 2Hit any key to stop autoboot: 1Hit any key to stop autoboot: 0
+=> bootdev list
+Seq  Probed  Status  Uclass    Name
+---  ------  ------  --------  ------------------
+  0   [   ]      OK  qfw       fw-cfg@9020000.bootdev
+  1   [   ]      OK  ethernet  virtio-net#32.bootdev
+---  ------  ------  --------  ------------------
+(2 bootdevs)
+=> bootmeth list
+Order  Seq  Name                Description
+-----  ---  ------------------  ------------------
+    0    0  extlinux            Extlinux boot from a block device
+    1    1  script              Script boot from a block device
+ glob    2  efi_mgr             EFI bootmgr flow
+    3    3  efi                 EFI boot from an .efi file
+    4    4  qfw                 QEMU boot using firmware interface
+    5    5  pxe                 PXE boot from a network device
+ glob    6  vbe_simple          VBE simple
+-----  ---  ------------------  ------------------
+(7 bootmeths)
+=> bootflow scan -l
+Scanning for bootflows in all bootdevs
+Seq  Method       State   Uclass    Part  Name                      Filename
+---  -----------  ------  --------  ----  ------------------------  ----------------
+Scanning global bootmeth 'efi_mgr':
+Cannot persist EFI variables without system partition
+Missing TPMv2 device for EFI_TCG_PROTOCOL
+Missing RNG device for EFI_RNG_PROTOCOL
+Scanning bootdev 'fw-cfg@9020000.bootdev':
+fatal: no kernel available
+scanning bus for devices...
+Scanning bootdev 'virtio-net#32.bootdev':
+BOOTP broadcast 1
+DHCP client bound to address 10.0.2.15 (3 ms)
+*** Warning: no boot file name; using '0A00020F.img'
+Using virtio-net#32 device
+TFTP from server 10.0.2.2; our IP address is 10.0.2.15
+Filename '0A00020F.img'.
+Load address: 0x40400000
+Loading: *
+TFTP error: 'Access violation' (2)
+Not retrying...
+No more bootdevs
+---  -----------  ------  --------  ----  ------------------------  ----------------
+(0 bootflows, 0 valid)
+=> bootflow list
+Showing all bootflows
+Seq  Method       State   Uclass    Part  Name                      Filename
+---  -----------  ------  --------  ----  ------------------------  ----------------
+---  -----------  ------  --------  ----  ------------------------  ----------------
+(0 bootflows, 0 valid)
+=> QEMU: Terminated

@@ -1,0 +1,30 @@
+# board: none; build only, target STM32MP157C-DK2 (stm32mp15_defconfig)
+# software: U-Boot v2026.07, GCC 14.2.0 (arm-linux-gnueabihf)
+# command: make O=$HOME/work/build/stm32mp15 CROSS_COMPILE=arm-linux-gnueabihf- DEVICE_TREE=st/stm32mp157c-dk2-scmi -j$(nproc) all
+# command: make O=$HOME/work/build/stm32mp15-noprefix CROSS_COMPILE=arm-linux-gnueabihf- DEVICE_TREE=stm32mp157c-dk2-scmi -j$(nproc) all
+# captured: 2026-10-11 (UTC), embedded-academy-lab container (Debian 13.7, QEMU 10.0.13)
+# note: lab image built without trixie-updates; the container clock matched an HTTP Date header at capture time, so build dates in the output are real UTC
+# note: both run in ~/work/src/u-boot, each after stm32mp15_defconfig in its own O= folder
+# verification: emulated
+
+# $ make O=$HOME/work/build/stm32mp15 CROSS_COMPILE=arm-linux-gnueabihf- DEVICE_TREE=st/stm32mp157c-dk2-scmi -j$(nproc) all
+# ... (993 lines cut)
+  DTC     dts/upstream/src/arm/st/stm32mp157c-ultra-fly-sbc.dtb
+  DTC     dts/upstream/src/arm/st/stm32mp157f-dk2.dtb
+  COPY    dts/dt.dtb
+  CAT     u-boot-dtb.bin
+  COPY    u-boot.dtb
+  COPY    u-boot.bin
+  BINMAN  .binman_stamp
+  OFCHK   .config
+# $ make O=$HOME/work/build/stm32mp15-noprefix CROSS_COMPILE=arm-linux-gnueabihf- DEVICE_TREE=stm32mp157c-dk2-scmi -j$(nproc) all
+# ... (994 lines cut)
+  DTC     dts/upstream/src/arm/st/stm32mp157f-dk2.dtb
+
+Device Tree Source (dts/upstream/src/arm/stm32mp157c-dk2-scmi.dtb) is not correctly specified.
+Please define 'CONFIG_DEFAULT_DEVICE_TREE'
+or build with 'DEVICE_TREE=<device_tree>' argument
+
+make[2]: *** [/home/learner/work/src/u-boot/dts/Makefile:54: dts/upstream/src/arm/stm32mp157c-dk2-scmi.dtb] Error 1
+make[1]: *** [/home/learner/work/src/u-boot/Makefile:1427: dts/dt.dtb] Error 2
+make: *** [Makefile:189: __sub-make] Error 2

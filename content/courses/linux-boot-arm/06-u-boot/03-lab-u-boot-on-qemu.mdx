@@ -41,8 +41,10 @@ import Callout from '@ea/ui/Callout.astro';
 import Deeper from '@ea/ui/Deeper.astro';
 
 <Callout level="warning">
-  Nobody has run these steps in the lab container yet. If a step fails or behaves differently from what this page says,
-  report it with the `inaccuracy` issue form.
+  The steps on this page were run in the lab container on 2026-10-11. The build worked, but both QEMU commands stop with
+  `failed to find romfile "efi-virtio.rom"`: the current lab image lacks QEMU's network boot ROMs. With `-global
+  virtio-net-pci.romfile=` added to the QEMU command, every step behaved as this page describes. Until the lab image is
+  fixed, the page stays unverified. If a step behaves differently for you, report it with the `inaccuracy` issue form.
 </Callout>
 
 <div class="t-lead">

@@ -42,9 +42,10 @@ import Deeper from '@ea/ui/Deeper.astro';
   build. Writing them to an SD card is part of module 08.
 </div>
 
-<Callout level="warning">
-  Nobody has run these builds in the lab container or booted the results on a board yet. If a step fails, report it with
-  the `inaccuracy` issue form.
+<Callout level="info">
+  The builds on this page were run in the lab container on 2026-10-11, with GCC 14.2.0. All three ended without an error
+  and made the files each section names. Nobody has booted the results on a board yet, so the page stays unverified. If
+  a step fails for you, report it with the `inaccuracy` issue form.
 </Callout>
 
 ## Before you start
@@ -118,7 +119,7 @@ The defconfig defaults to the device tree of the ev1 board. Pick the DK2 with `D
 
 <Callout level="warning">
 
-The STM32MP1 documentation writes the name without the `st/` prefix, as in `DEVICE_TREE=stm32mp157c-ev1-scmi`. At `v2026.07` this board takes its device trees from `dts/upstream/src/arm/st/`, and the defconfig's own default is `st/stm32mp157c-ev1`. The build looks for `dts/upstream/src/arm/` followed by the `DEVICE_TREE` value, so this page keeps the `st/` prefix.[^dtsmake] [^control] Nobody has checked this with a build yet.
+The STM32MP1 documentation writes the name without the `st/` prefix, as in `DEVICE_TREE=stm32mp157c-ev1-scmi`. At `v2026.07` this board takes its device trees from `dts/upstream/src/arm/st/`, and the defconfig's own default is `st/stm32mp157c-ev1`. The build looks for `dts/upstream/src/arm/` followed by the `DEVICE_TREE` value, so this page keeps the `st/` prefix.[^dtsmake] [^control] A build in the lab container confirmed it: without the prefix, `make` stops with `Device Tree Source (dts/upstream/src/arm/stm32mp157c-dk2-scmi.dtb) is not correctly specified.`[^dtlog]
 
 </Callout>
 
@@ -158,3 +159,5 @@ List each build folder and look for the files named in each section.
 [^dtsmake]: U-Boot source, `dts/Makefile` and `configs/stm32mp15_defconfig` (`CONFIG_DEFAULT_DEVICE_TREE`).
 
 [^control]: U-Boot documentation, Devicetree Control in U-Boot: upstream device trees use `<vendor>/<name>`.
+
+[^dtlog]: Lab container run of 2026-10-11, captured in `logs/qemu/m06-stm32mp15-device-tree.log`.
