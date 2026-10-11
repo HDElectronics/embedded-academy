@@ -1,0 +1,244 @@
+---
+title: 'Lab: read a QEMU Device Tree and build a board dtb'
+description: Dump the Device Tree QEMU generates for its virt machine, decompile it with dtc, then compile the Raspberry Pi 4 dtb from Linux.
+course: linux-boot-arm
+module: m07
+order: 3
+type: tutorial
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'QEMU source v10.0.0: hw/core/machine.c (dumpdtb machine property)'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/hw/core/machine.c
+  - title: 'QEMU source v10.0.0: hw/arm/virt.c (generated tree, dtb-randomness)'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/hw/arm/virt.c
+  - title: "QEMU documentation v10.0.0: 'virt' generic virtual platform"
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/docs/system/arm/virt.rst
+    section: 'Hardware configuration information for bare-metal programming'
+  - title: 'QEMU source v10.0.0: hw/arm/boot.c (memory nodes and /chosen/bootargs)'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/hw/arm/boot.c
+  - title: 'Devicetree Specification, Release v0.4'
+    url: https://github.com/devicetree-org/devicetree-specification/releases/tag/v0.4
+    section: '2.3.5 #address-cells and #size-cells; 3.6 /chosen; 5.2 Header'
+  - title: 'Linux kernel documentation: Booting AArch64 Linux'
+    url: https://www.kernel.org/doc/html/v6.18/arch/arm64/booting.html
+    section: '4. Call the kernel image (enable-method)'
+  - title: 'Linux kernel documentation: Linux kernel release 6.x (admin-guide README)'
+    url: https://www.kernel.org/doc/html/v6.18/admin-guide/README.html
+    section: 'Build directory for the kernel'
+  - title: 'Linux source v6.18.55: Makefile (dtbs_prepare and %.dtb targets)'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/Makefile?h=v6.18.55
+  - title: 'Linux source v6.18.55: arch/arm64/boot/dts/broadcom/Makefile'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm64/boot/dts/broadcom/Makefile?h=v6.18.55
+  - title: 'Linux source v6.18.55: arch/arm/configs/multi_v7_defconfig'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm/configs/multi_v7_defconfig?h=v6.18.55
+  - title: 'Linux source v6.18.55: scripts/dtc/dtc.c and scripts/dtc/fdtget.c (usage text)'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/scripts/dtc?h=v6.18.55
+---
+
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+import Prompt from '@ea/ui/Prompt.astro';
+
+<Callout level="warning">
+  Nobody has run these steps yet. If a command fails or behaves differently from what this page describes, open an issue
+  with the inaccuracy form and paste what you saw.
+</Callout>
+
+<p class="t-lead">
+  In this lab you capture the Device Tree that QEMU builds for its virt machine, turn it back into source, and find the
+  nodes from the previous pages. Then you build the Raspberry Pi 4 dtb from the Linux tree and check it against its
+  source.
+</p>
+
+Everything runs in the lab container. Part 1 uses QEMU's `virt` machine, but no guest code runs: QEMU writes the tree to a file and exits. Part 2 builds a file for the Raspberry Pi 4 and does not run it. No board is emulated.
+
+Before you start, open the lab container with `sh labs/lab.sh` and fetch the sources with `sh ~/course/fetch-sources.sh`, as `labs/README.md` describes.
+
+## Part 1: QEMU writes its Device Tree to a file
+
+QEMU's `virt` machine has no fixed hardware description. QEMU generates a Device Tree for the machine you configure and hands it to the guest.[^virtdoc] A machine property, `dumpdtb`, writes that tree to a file and exits.[^machine]
+
+### Make a work folder
+
+<Prompt cmd="mkdir -p ~/work/m07" />
+
+<Prompt cmd="cd ~/work/m07" />
+
+### Find the properties you need
+
+<Prompt dir="~/work/m07" cmd="qemu-system-aarch64 -machine virt,help | grep dtb" />
+
+In the list, look for two properties:
+
+- `dumpdtb`, described in the QEMU source as "Dump current dtb to a file and quit".[^machine]
+- `dtb-randomness`. By default `virt` writes random seeds, `kaslr-seed` and `rng-seed`, into `/chosen`. Turning it off makes two dumps of the same machine identical.[^virt]
+
+### Dump the tree
+
+<Prompt
+  dir="~/work/m07"
+  cmd="qemu-system-aarch64 -machine virt,dtb-randomness=off,dumpdtb=virt.dtb -cpu cortex-a72 -m 1G -nographic"
+/>
+
+QEMU builds the machine, writes `virt.dtb` and quits before any guest code runs.[^machine]
+
+### Check the magic number
+
+<Prompt dir="~/work/m07" cmd="od -A x -t x1 -N 4 virt.dtb" />
+
+`od` shows the first four bytes in hex. Every dtb starts with the header magic `0xD00DFEED`, stored big-endian, so the bytes appear in that order.[^spec] If they don't, the file is not a dtb.
+
+### Decompile it
+
+<Prompt dir="~/work/m07" cmd="dtc -I dtb -O dts -o virt.dts virt.dtb" />
+
+`-I` and `-O` pick the input and output formats; `dtb` and `dts` are two of the formats `dtc` lists in its usage text.[^dtc] `dtc` may print warnings about the tree. Only errors stop it from writing the output file.[^dtc]
+
+<Prompt dir="~/work/m07" cmd="less virt.dts" />
+
+Find these nodes. Press `/` in `less` to search.
+
+1. **The root node**, at the top. Its `compatible` and `model` are both `linux,dummy-virt`. `#address-cells` and `#size-cells` are both 2, so every `reg` in the root's children uses two cells for an address and two for a size.[^virt][^cells]
+2. **A node named `memory@40000000`.** Its `reg` has four cells: the first two give the address `0x4000_0000`, the last two the size, 1 GiB. The QEMU documentation says RAM on `virt` starts at that address.[^virtdoc][^boot]
+3. **`/chosen`.** It has a `stdout-path` that points at a node whose name starts with `pl011@`, the UART. It has no `bootargs`: QEMU adds the command line only when you pass one with `-append`, which needs a kernel.[^virt][^boot]
+4. **`/cpus`.** It has one child, `cpu@0`, with `compatible = "arm,cortex-a72"`.[^virt]
+
+You can also ask for one property without decompiling. `fdtget` takes the blob, a node path and a property name.[^dtc]
+
+<Prompt dir="~/work/m07" cmd="fdtget virt.dtb / compatible" />
+
+<Prompt dir="~/work/m07" cmd="fdtget virt.dtb /chosen stdout-path" />
+
+### Change the machine and compare
+
+Dump a second machine with two CPUs and 2 GiB of RAM.
+
+<Prompt
+  dir="~/work/m07"
+  cmd="qemu-system-aarch64 -machine virt,dtb-randomness=off,dumpdtb=virt-smp2.dtb -cpu cortex-a72 -m 2G -smp 2 -nographic"
+/>
+
+<Prompt dir="~/work/m07" cmd="dtc -I dtb -O dts -o virt-smp2.dts virt-smp2.dtb" />
+
+<Prompt dir="~/work/m07" cmd="diff virt.dts virt-smp2.dts" />
+
+Among the differences, look for:
+
+- the size cells of `memory@40000000`, which now describe 2 GiB;
+- a second CPU node, `cpu@1`;
+- an `enable-method = "psci"` line in each CPU node. QEMU adds it when the machine has more than one CPU.[^virt] The arm64 boot protocol requires an `enable-method` in every CPU node when the kernel brings up secondary CPUs.[^a64]
+
+The Device Tree describes the machine you configured, not a fixed board. That is why the kernel can't hard-code it.
+
+## Part 2: build the Raspberry Pi 4 dtb from Linux
+
+Now compile a real board's `.dts` with the kernel's own build. The sources are in `~/work/src/linux`, at `v6.18.55`.
+
+### Configure a build folder
+
+A dtb target needs a kernel configuration, because the build reads `include/config/kernel.release` first.[^make] Keep the build output out of the source tree with `O=`, and pass the same `O=` to every `make` call.[^readme]
+
+<Prompt
+  dir="~/work/src/linux"
+  cmd="make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- O=$HOME/work/m07/build-arm64 defconfig"
+/>
+
+<Callout level="warning">
+  If `make` stops and says the source tree is not clean, another lab has configured `~/work/src/linux` in place. Run the
+  two `make` commands without `O=...`. The dtb then lands in `~/work/src/linux/arch/arm64/boot/dts/broadcom/`: run the
+  `fdtget` and `dtc` steps from there.
+</Callout>
+
+### Build one dtb
+
+<Prompt
+  dir="~/work/src/linux"
+  cmd="make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- O=$HOME/work/m07/build-arm64 broadcom/bcm2711-rpi-4-b.dtb"
+/>
+
+The top-level `Makefile` builds `dtc` from `scripts/dtc` first, then compiles the file under `arch/arm64/boot/dts/`.[^make]
+
+<Prompt cmd="cd ~/work/m07/build-arm64/arch/arm64/boot/dts/broadcom" />
+
+<Prompt dir="~/work/m07/build-arm64/arch/arm64/boot/dts/broadcom" cmd="fdtget bcm2711-rpi-4-b.dtb / compatible" />
+
+<Prompt
+  dir="~/work/m07/build-arm64/arch/arm64/boot/dts/broadcom"
+  cmd="fdtget bcm2711-rpi-4-b.dtb /chosen stdout-path"
+/>
+
+Compare both answers with the source file on the board reference page, the last page of this module. The compatible should list `raspberrypi,4-model-b` then `brcm,bcm2711`, and the console should be `serial1:115200n8`, the value the board file sets over the one in `bcm283x.dtsi`.
+
+<Prompt dir="~/work/m07/build-arm64/arch/arm64/boot/dts/broadcom" cmd="fdtget bcm2711-rpi-4-b.dtb /memory@0 reg" />
+
+All the cells are zero. In `bcm2711-rpi.dtsi` this node carries the comment that the bootloader fills it in: the source can't know how much RAM your Pi 4 has.
+
+### Decompile your build
+
+<Prompt
+  dir="~/work/m07/build-arm64/arch/arm64/boot/dts/broadcom"
+  cmd="dtc -I dtb -O dts -o ~/work/m07/rpi4.dts bcm2711-rpi-4-b.dtb"
+/>
+
+<Prompt dir="~/work/m07" cmd="less rpi4.dts" />
+
+Compare it with `arch/arm/boot/dts/broadcom/bcm2711-rpi-4-b.dts` in the source tree. The `#include` lines are gone: the preprocessor and `dtc` merged every `.dtsi` into one tree. References such as `&uart1` have become numbers that match `phandle` properties. You may also find a `__symbols__` node: `arch/arm64/boot/dts/broadcom/Makefile` sets `DTC_FLAGS := -@`, with the comment that it enables overlay support, and `-@` records label names there.[^make]
+
+<Deeper depth="practitioner" title="Build the BeagleBone Black and STM32MP157 dtbs">
+
+Both boards are 32-bit, so use `ARCH=arm` and a separate build folder. `multi_v7_defconfig` enables `CONFIG_SOC_AM33XX` and `CONFIG_ARCH_STM32`, the symbols that list both dtbs in their folder's `Makefile`.[^make]
+
+<Prompt
+  dir="~/work/src/linux"
+  cmd="make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- O=$HOME/work/m07/build-arm multi_v7_defconfig"
+/>
+
+<Prompt
+  dir="~/work/src/linux"
+  cmd="make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- O=$HOME/work/m07/build-arm ti/omap/am335x-boneblack.dtb"
+/>
+
+<Prompt
+  dir="~/work/src/linux"
+  cmd="make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- O=$HOME/work/m07/build-arm st/stm32mp157c-dk2.dtb"
+/>
+
+Read each root `compatible` with `fdtget` and check it against the reference page. On the BeagleBone Black, also read `/memory@80000000 reg`: the size should be the 512 MB from `am335x-boneblack-common.dtsi`, not the 256 MB from `am335x-bone-common.dtsi`.
+
+</Deeper>
+
+<Deeper depth="expert" title="Every dtb at once">
+
+The `dtbs` target builds every dtb whose `dtb-$(CONFIG_...)` line the configuration enables.[^make] With `defconfig` on arm64 that is many boards, so expect a longer build.
+
+<Prompt
+  dir="~/work/src/linux"
+  cmd="make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- O=$HOME/work/m07/build-arm64 dtbs"
+/>
+
+</Deeper>
+
+## What you did
+
+You captured a generated Device Tree, read its root, memory, `/chosen` and CPU nodes, and watched it change with the machine. Then you built a board dtb from Linux and traced its values back to the `.dts` and `.dtsi` files. The next page adds Raspberry Pi overlays on top of a base tree.
+
+[^virtdoc]: QEMU documentation, `docs/system/arm/virt.rst` at v10.0.0, "Hardware configuration information for bare-metal programming".
+
+[^machine]: `hw/core/machine.c` at QEMU v10.0.0: the `dumpdtb` property and `handle_machine_dumpdtb()`, which dumps the tree and exits once the machine is set up.
+
+[^virt]: `hw/arm/virt.c` at QEMU v10.0.0: `create_fdt()`, `create_randomness()`, `fdt_add_cpu_nodes()` and the `dtb-randomness` property; the Cortex-A72 compatible string comes from `target/arm/tcg/cpu64.c`.
+
+[^boot]: `hw/arm/boot.c` at QEMU v10.0.0: `fdt_add_memory_node()` and `arm_load_dtb()`, which sets `/chosen/bootargs` only when a kernel command line is given.
+
+[^spec]: Devicetree Specification v0.4, section 5.2, "Header".
+
+[^cells]: Devicetree Specification v0.4, section 2.3.5, "#address-cells and #size-cells".
+
+[^dtc]: `scripts/dtc/dtc.c` (usage text and formats), `scripts/dtc/checks.c` (errors abort output) and `scripts/dtc/fdtget.c` (usage text) at Linux v6.18.55, which carry the upstream `dtc` sources.
+
+[^a64]: Linux kernel documentation, "Booting AArch64 Linux", section 4, on `enable-method`.
+
+[^make]: Top-level `Makefile` at Linux v6.18.55: `dtbs_prepare` depends on `include/config/kernel.release` and `scripts_dtc`; the `%.dtb` and `dtbs` rules. The `dtb-$(CONFIG_...)` lines are in each vendor folder's `Makefile`; `arch/arm64/boot/dts/broadcom/Makefile` also sets `DTC_FLAGS := -@`. `CONFIG_SOC_AM33XX` and `CONFIG_ARCH_STM32` are set in `arch/arm/configs/multi_v7_defconfig`.
+
+[^readme]: Linux kernel documentation, admin-guide README, "Build directory for the kernel".

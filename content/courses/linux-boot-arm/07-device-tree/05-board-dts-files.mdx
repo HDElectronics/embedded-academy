@@ -1,0 +1,204 @@
+---
+title: Device Tree sources for the three boards
+description: Where each board's .dts lives in Linux v6.18.55, what it includes, and its exact root compatible, model, console and memory.
+course: linux-boot-arm
+module: m07
+order: 5
+type: reference
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'Linux source v6.18.55: arch/arm64/boot/dts/broadcom/bcm2711-rpi-4-b.dts'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm64/boot/dts/broadcom/bcm2711-rpi-4-b.dts?h=v6.18.55
+  - title: 'Linux source v6.18.55: arch/arm/boot/dts/broadcom/'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm/boot/dts/broadcom?h=v6.18.55
+    section: 'bcm2711-rpi-4-b.dts, bcm2711.dtsi, bcm2711-rpi.dtsi, bcm283x.dtsi, bcm2835-rpi.dtsi, Makefile'
+  - title: 'Linux source v6.18.55: arch/arm/boot/dts/ti/omap/'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm/boot/dts/ti/omap?h=v6.18.55
+    section: 'am335x-boneblack.dts, am33xx.dtsi, am335x-bone-common.dtsi, am335x-boneblack-common.dtsi, Makefile'
+  - title: 'Linux source v6.18.55: arch/arm/boot/dts/st/'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm/boot/dts/st?h=v6.18.55
+    section: 'stm32mp157c-dk2.dts, stm32mp157.dtsi, stm32mp153.dtsi, stm32mp151.dtsi, stm32mp15xx-dkx.dtsi, Makefile'
+  - title: 'Linux source v6.18.55: scripts/dtc/include-prefixes/'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/scripts/dtc/include-prefixes?h=v6.18.55
+  - title: 'Linux source v6.18.55: Makefile (dtbs and %.dtb targets)'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/Makefile?h=v6.18.55
+---
+
+import CodeBlock from '@ea/ui/CodeBlock.astro';
+import Callout from '@ea/ui/Callout.astro';
+
+<p class="t-lead">
+  This page lists the Device Tree source of each course board in Linux v6.18.55. Every path, string and include was
+  copied from that tag.
+</p>
+
+<Callout level="info">
+  These are the mainline Linux sources. Vendor kernels, such as the Raspberry Pi kernel that Raspberry Pi OS ships,
+  carry their own Device Tree sources, which can differ from these.
+</Callout>
+
+## Files and build targets
+
+| Board            | Top-level source                                   | Arch    | Single `make` target           | Built when            |
+| ---------------- | -------------------------------------------------- | ------- | ------------------------------ | --------------------- |
+| Raspberry Pi 4   | `arch/arm64/boot/dts/broadcom/bcm2711-rpi-4-b.dts` | `arm64` | `broadcom/bcm2711-rpi-4-b.dtb` | `CONFIG_ARCH_BCM2835` |
+| BeagleBone Black | `arch/arm/boot/dts/ti/omap/am335x-boneblack.dts`   | `arm`   | `ti/omap/am335x-boneblack.dtb` | `CONFIG_SOC_AM33XX`   |
+| STM32MP157 DK2   | `arch/arm/boot/dts/st/stm32mp157c-dk2.dts`         | `arm`   | `st/stm32mp157c-dk2.dtb`       | `CONFIG_ARCH_STM32`   |
+
+The top-level `Makefile` turns a goal such as `broadcom/bcm2711-rpi-4-b.dtb` into a build of that file under `arch/$(SRCARCH)/boot/dts/`. The `dtbs` target builds every dtb whose `dtb-$(CONFIG_...)` line is enabled in the directory's `Makefile`; the last column names that symbol.[^make]
+
+The Raspberry Pi 4 file under `arch/arm64` is a one-line wrapper. It includes `arm/broadcom/bcm2711-rpi-4-b.dts`, which the build finds through `scripts/dtc/include-prefixes/arm`, a link to `arch/arm/boot/dts`.[^rpi]
+
+## Include chains
+
+Each list starts at the top-level file and shows the `.dts` and `.dtsi` files it pulls in, in include order. Headers from `include/dt-bindings/` are left out.
+
+**Raspberry Pi 4**, under `arch/arm/boot/dts/broadcom/` unless a path is given:[^rpi]
+
+- `arch/arm64/boot/dts/broadcom/bcm2711-rpi-4-b.dts`
+  - `bcm2711-rpi-4-b.dts`
+    - `bcm2711.dtsi`
+      - `bcm283x.dtsi`
+    - `bcm2711-rpi.dtsi`
+      - `bcm2835-rpi.dtsi`
+    - `bcm283x-rpi-led-deprecated.dtsi`
+    - `bcm283x-rpi-usb-peripheral.dtsi`
+    - `bcm283x-rpi-wifi-bt.dtsi`
+
+**BeagleBone Black**, under `arch/arm/boot/dts/ti/omap/` unless a path is given:[^bbb]
+
+- `am335x-boneblack.dts`
+  - `am33xx.dtsi`
+    - `am33xx-l4.dtsi`
+    - `am33xx-clocks.dtsi`
+  - `am335x-bone-common.dtsi`
+    - `arch/arm/boot/dts/tps65217.dtsi`, through `/include/ "../../tps65217.dtsi"`
+  - `am335x-boneblack-common.dtsi`
+  - `am335x-boneblack-hdmi.dtsi`
+
+**STM32MP157 DK2**, under `arch/arm/boot/dts/st/`:[^st]
+
+- `stm32mp157c-dk2.dts`
+  - `stm32mp157.dtsi`
+    - `stm32mp153.dtsi`
+      - `stm32mp151.dtsi`
+  - `stm32mp15xc.dtsi`
+  - `stm32mp15-pinctrl.dtsi`
+  - `stm32mp15xxac-pinctrl.dtsi`
+  - `stm32mp15xx-dkx.dtsi`
+
+## Root node, console and memory
+
+| Board            | Root `compatible`                                       | Root `model`                                           |
+| ---------------- | ------------------------------------------------------- | ------------------------------------------------------ |
+| Raspberry Pi 4   | `"raspberrypi,4-model-b", "brcm,bcm2711"`               | `"Raspberry Pi 4 Model B"`                             |
+| BeagleBone Black | `"ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx"` | `"TI AM335x BeagleBone Black"`                         |
+| STM32MP157 DK2   | `"st,stm32mp157c-dk2", "st,stm32mp157"`                 | `"STMicroelectronics STM32MP157C-DK2 Discovery Board"` |
+
+| Board            | `/chosen/stdout-path`                                  | Alias it uses      | `/memory` node in the source                                                  |
+| ---------------- | ------------------------------------------------------ | ------------------ | ----------------------------------------------------------------------------- |
+| Raspberry Pi 4   | `"serial1:115200n8"`, set in `bcm2711-rpi-4-b.dts`     | `serial1 = &uart1` | `memory@0`, `reg = <0 0 0>`, commented as filled in by the bootloader         |
+| BeagleBone Black | `"serial0:115200n8"`, set in `am335x-bone-common.dtsi` | `serial0 = &uart0` | `memory@80000000`, `reg = <0x80000000 0x20000000>`                            |
+| STM32MP157 DK2   | `"serial0:115200n8"`, set in `stm32mp157c-dk2.dts`     | `serial0 = &uart4` | `memory@c0000000`, `reg = <0xc0000000 0x20000000>`, in `stm32mp15xx-dkx.dtsi` |
+
+The aliases are set in `bcm283x.dtsi`, `am33xx.dtsi` and `stm32mp15xx-dkx.dtsi`. Two entries show the override rule at work:
+
+- `bcm283x.dtsi` sets `stdout-path = "serial0:115200n8"`. The Raspberry Pi 4 file sets it again to `serial1`, with a comment that the board uses the 8250 auxiliary UART instead of the PL011.
+- `am335x-bone-common.dtsi` describes 256 MB at `0x8000_0000`. `am335x-boneblack-common.dtsi`, included later, redefines the same node with 512 MB.
+
+## Top-level files
+
+The Raspberry Pi 4 board file. Its license tag is `GPL-2.0`; it has no copyright line.
+
+<CodeBlock path="arch/arm/boot/dts/broadcom/bcm2711-rpi-4-b.dts" project="Linux v6.18.55" lang="dts" simplified>
+
+```dts
+/dts-v1/;
+#include "bcm2711.dtsi"
+#include "bcm2711-rpi.dtsi"
+#include "bcm283x-rpi-led-deprecated.dtsi"
+#include "bcm283x-rpi-usb-peripheral.dtsi"
+#include "bcm283x-rpi-wifi-bt.dtsi"
+#include <dt-bindings/leds/common.h>
+
+/ {
+	compatible = "raspberrypi,4-model-b", "brcm,bcm2711";
+	model = "Raspberry Pi 4 Model B";
+
+	chosen {
+		/* 8250 auxiliary UART instead of pl011 */
+		stdout-path = "serial1:115200n8";
+	};
+	/* ... */
+};
+```
+
+</CodeBlock>
+
+The BeagleBone Black board file. License `GPL-2.0-only`, copyright 2012 Texas Instruments Incorporated.
+
+<CodeBlock path="arch/arm/boot/dts/ti/omap/am335x-boneblack.dts" project="Linux v6.18.55" lang="dts" simplified>
+
+```dts
+/dts-v1/;
+
+#include "am33xx.dtsi"
+#include "am335x-bone-common.dtsi"
+#include "am335x-boneblack-common.dtsi"
+#include "am335x-boneblack-hdmi.dtsi"
+
+/ {
+	model = "TI AM335x BeagleBone Black";
+	compatible = "ti,am335x-bone-black", "ti,am335x-bone", "ti,am33xx";
+};
+/* ... */
+```
+
+</CodeBlock>
+
+The STM32MP157 DK2 board file. License `GPL-2.0+ OR BSD-3-Clause`, copyright STMicroelectronics 2019.
+
+<CodeBlock path="arch/arm/boot/dts/st/stm32mp157c-dk2.dts" project="Linux v6.18.55" lang="dts" simplified>
+
+```dts
+/dts-v1/;
+
+#include "stm32mp157.dtsi"
+#include "stm32mp15xc.dtsi"
+#include "stm32mp15-pinctrl.dtsi"
+#include "stm32mp15xxac-pinctrl.dtsi"
+#include "stm32mp15xx-dkx.dtsi"
+
+/ {
+	model = "STMicroelectronics STM32MP157C-DK2 Discovery Board";
+	compatible = "st,stm32mp157c-dk2", "st,stm32mp157";
+
+	aliases {
+		ethernet0 = &ethernet0;
+		serial3 = &usart2;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+	/* ... */
+};
+/* ... */
+```
+
+</CodeBlock>
+
+## Related variants in the same folders
+
+- `arch/arm64/boot/dts/broadcom/`: `bcm2711-rpi-400.dts` and `bcm2711-rpi-cm4-io.dts` cover the Raspberry Pi 400 and the Compute Module 4 IO board.
+- `arch/arm/boot/dts/ti/omap/`: `am335x-boneblack-wireless.dts` covers the BeagleBone Black Wireless.
+- `arch/arm/boot/dts/st/`: `stm32mp157c-dk2-scmi.dts` includes `stm32mp157c-dk2.dts` and `stm32mp15-scmi.dtsi`, with the root compatible `"st,stm32mp157c-dk2-scmi", "st,stm32mp157"`.
+
+[^make]: Top-level `Makefile` at Linux v6.18.55: `dtstree := arch/$(SRCARCH)/boot/dts`, the `%.dtb` rule and the `dtbs` target. The `dtb-$(CONFIG_...)` lines are in `arch/arm64/boot/dts/broadcom/Makefile`, `arch/arm/boot/dts/ti/omap/Makefile` and `arch/arm/boot/dts/st/Makefile`.
+
+[^rpi]: `arch/arm64/boot/dts/broadcom/bcm2711-rpi-4-b.dts`, `scripts/dtc/include-prefixes/arm` and the files in `arch/arm/boot/dts/broadcom/` at Linux v6.18.55.
+
+[^bbb]: `arch/arm/boot/dts/ti/omap/` and `arch/arm/boot/dts/tps65217.dtsi` at Linux v6.18.55.
+
+[^st]: `arch/arm/boot/dts/st/` at Linux v6.18.55.
