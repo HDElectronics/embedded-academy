@@ -1,0 +1,146 @@
+---
+title: The first loader runs from on-chip SRAM
+description: DRAM does not work at power-on. Its controller and PHY need setting up first, so the first loader runs from small on-chip SRAM.
+course: linux-boot-arm
+module: m04
+order: 1
+type: explanation
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: TI AM335x and AMIC110 Sitara Processors Technical Reference Manual (SPRUH73Q)
+    url: https://www.ti.com/lit/ug/spruh73q/spruh73q.pdf
+    section: 2.1 Table 2-1 L3 Memory Map; 7.3.1 EMIF features and Table 7-204; 26.1.4.2 Public RAM Memory Map; 26.1.9.2
+  - title: 'U-Boot v2026.07 source: arch/arm/include/asm/arch-am33xx/omap.h'
+    url: https://github.com/u-boot/u-boot/blob/v2026.07/arch/arm/include/asm/arch-am33xx/omap.h
+  - title: 'U-Boot v2026.07 source: board/ti/am335x/board.c'
+    url: https://github.com/u-boot/u-boot/blob/v2026.07/board/ti/am335x/board.c
+  - title: 'U-Boot v2026.07 documentation: STM32MP1 boards, boot sequences'
+    url: https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html
+  - title: 'Trusted Firmware-A lts-v2.14.10 documentation: STM32 MPUs'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/st/stm32mpus.html
+  - title: 'TF-A lts-v2.14.10 source: plat/st/stm32mp1/stm32mp1_def.h'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/st/stm32mp1/stm32mp1_def.h
+  - title: 'TF-A lts-v2.14.10 source: drivers/st/ddr/stm32mp1_ddr.c and stm32mp1_ram.c'
+    url: https://github.com/ARM-software/arm-trusted-firmware/tree/lts-v2.14.10/drivers/st/ddr
+  - title: 'Raspberry Pi documentation: EEPROM boot flow'
+    url: https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#eeprom-boot-flow
+---
+
+import CodeBlock from '@ea/ui/CodeBlock.astro';
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+import MemoryMap from '@ea/anim/MemoryMap.astro';
+
+<p class="t-lead">
+  Your board has hundreds of megabytes of DRAM, yet the first program after the boot ROM runs in a few hundred kilobytes
+  of memory inside the chip. That is not a design accident. At power-on, DRAM cannot store a single byte until software
+  has set it up, and that software has to live somewhere else.
+</p>
+
+## DRAM does not work until software sets it up
+
+DRAM chips sit outside the SoC. The SoC reaches them through two blocks: a memory controller, which turns reads and writes into DRAM commands, and a PHY, which drives the electrical signals on the board. Both start unconfigured.
+
+Before the first access, software has to tell them about the memory that is soldered to this board: its type, its size, its timings and how often it must be refreshed. The AM335x technical reference manual lists these as programmable features of its memory controller: SDRAM timing parameters, the refresh rate, and leveling, calibration and data eye training.[^emif] Training means measuring the delays on the actual board traces and tuning the PHY to match.
+
+None of this is fixed by the chip. The same SoC can be wired to different memory parts on different boards, so the boot ROM cannot do it for you. The settings come with the board's own software.
+
+## On-chip SRAM works from power-on
+
+SRAM inside the SoC needs no setup. The boot ROM can copy a program into it and jump there at once. The catch is size: there is not much of it.
+
+<MemoryMap board="bbb" pane={1} />
+
+On the BeagleBone Black, the AM335x boot ROM uses on-chip RAM from `0x402F0400` to `0x4030FFFF`. The image it loads goes at the bottom of that range, and the manual limits it to 109 KB on general-purpose devices.[^am335x-ram] U-Boot's AM335x header marks the end of that download area at `0x4030B800`.[^omap-h] DRAM, by contrast, has a 1 GB window starting at `0x80000000`.[^am335x-map] Find both regions on the memory map.
+
+<MemoryMap board="stm32mp157" pane={2} />
+
+On the STM32MP157 the ROM loads its first image into SYSRAM, 256 KB at `0x2FFC0000`, and DDR starts at `0xC0000000`.[^tfa-def] SYSRAM is tight enough that TF-A's platform guide tells you to build BL2 with one boot device only, so that it does not overflow SYSRAM.[^tfa-sysram]
+
+## The first loader brings up DRAM, then hands over
+
+The size limit decides what the first loader contains. It carries only what it needs to reach DRAM and the next stage:
+
+- clock and power setup, because the memory controller needs a stable clock and supply;
+- the memory controller and PHY setup for this board's DRAM;
+- a driver for the boot device, to read the next stage;
+- often a serial console, so you can see where it got to.
+
+Everything else waits for the next stage, which runs from DRAM and can be far larger. Each board names these programs differently:
+
+- **BeagleBone Black:** U-Boot SPL, in a file called `MLO`, sets up DDR3L and loads the full U-Boot into it.[^bbb-sdram]
+- **STM32MP157:** TF-A BL2 runs from SYSRAM, initializes the DDR, then loads OP-TEE and U-Boot from the FIP.[^uboot-stm32]
+- **Raspberry Pi 4:** the second-stage bootloader in the SPI EEPROM starts by initializing clocks and SDRAM, then loads the GPU firmware.[^rpi-flow]
+
+<Callout level="info">
+  The Raspberry Pi documentation does not say where the EEPROM bootloader runs before SDRAM is up. The memory map for
+  that board marks the region as not yet confirmed.
+</Callout>
+
+The next page looks at SPL, U-Boot's name for this kind of first stage.
+
+<Deeper depth="practitioner" title="How TF-A trains the DDR on the STM32MP157">
+
+TF-A BL2 calls `stm32mp1_ddr_probe()` from `bl2_plat_setup.c`. The driver reads the DDR settings from the Device Tree. For the DK2 they come from `fdts/stm32mp15-ddr3-1x4Gb-1066-binG.dtsi`, which `fdts/stm32mp15xx-dkx.dtsi` includes.[^tfa-ddr]
+
+The sequence in `drivers/st/ddr/stm32mp1_ddr.c` then:
+
+1. writes the controller and PHY registers, including the timing registers, from that configuration;
+2. starts the PHY with DLL lock, impedance calibration and DRAM initialization, and waits for it to finish;
+3. runs DQS gate training with refresh paused, then restores refresh.
+
+Before BL2 trusts the memory, `stm32mp1_ram.c` runs a data bus test and an address bus test and checks the size against the Device Tree. A failure stops the boot with `panic()`.
+
+</Deeper>
+
+<Deeper depth="expert" title="The AM335x has no usable hardware leveling">
+
+The AM335x manual lists hardware leveling as unsupported because of a silicon bug, and says a software leveling procedure must be used.[^emif] U-Boot's SPL for the BeagleBone Black therefore programs fixed values. The board file names them after the Micron `MT41K256M16HA-125E` DDR3L part and passes them to `config_ddr()`:
+
+<CodeBlock
+  path="board/ti/am335x/board.c"
+  project="U-Boot"
+  lang="c"
+  href="https://github.com/u-boot/u-boot/blob/v2026.07/board/ti/am335x/board.c"
+  simplified
+>
+
+```c
+void sdram_init(void)
+{
+	...
+	else if (board_is_pb() || board_is_bone_lt())
+		config_ddr(400, &ioregs_bonelt,
+			   &ddr3_beagleblack_data,
+			   &ddr3_beagleblack_cmd_ctrl_data,
+			   &ddr3_beagleblack_emif_reg_data, 0);
+	...
+}
+```
+
+</CodeBlock>
+
+The excerpt is U-Boot code under `GPL-2.0+`. `ddr3_beagleblack_data` holds the PHY ratio values, and `ddr3_beagleblack_emif_reg_data` holds the controller timings. The values themselves live in `arch/arm/include/asm/arch-am33xx/ddr_defs.h`. If you change the memory part, these are the numbers you would have to redo.
+
+</Deeper>
+
+[^emif]: TI SPRUH73Q, section 7.3.1.1 "Features" and Table 7-204 "Unsupported EMIF Features".
+
+[^am335x-ram]: TI SPRUH73Q, section 26.1.4.2 "Public RAM Memory Map", Figure 26-6, and section 26.1.9.2 "Boot Image Location and Size".
+
+[^omap-h]: U-Boot v2026.07, `arch/arm/include/asm/arch-am33xx/omap.h`: `NON_SECURE_SRAM_START` and `NON_SECURE_SRAM_IMG_END`.
+
+[^am335x-map]: TI SPRUH73Q, Table 2-1 "L3 Memory Map", row EMIF0 SDRAM.
+
+[^tfa-def]: TF-A lts-v2.14.10, `plat/st/stm32mp1/stm32mp1_def.h`: `STM32MP_SYSRAM_BASE`, `STM32MP_SYSRAM_SIZE` and `STM32MP_DDR_BASE` for STM32MP15.
+
+[^tfa-sysram]: Trusted Firmware-A lts-v2.14.10 documentation, STM32 MPUs, "Build Instructions".
+
+[^bbb-sdram]: U-Boot v2026.07, `arch/arm/mach-omap2/am33xx/board.c`, `board_init_f()`, which calls `sdram_init()` in `board/ti/am335x/board.c`.
+
+[^uboot-stm32]: U-Boot v2026.07 documentation, STM32MP1 boards, "Boot Sequences".
+
+[^rpi-flow]: Raspberry Pi documentation, "EEPROM boot flow", "Second stage bootloader".
+
+[^tfa-ddr]: TF-A lts-v2.14.10, `plat/st/stm32mp1/bl2_plat_setup.c`, `drivers/st/ddr/stm32mp1_ddr.c` and `drivers/st/ddr/stm32mp1_ram.c`.
