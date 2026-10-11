@@ -1,9 +1,9 @@
 ---
 // SPDX-FileCopyrightText: Embedded Academy contributors
 // SPDX-License-Identifier: MIT
-import { getBoard, type Board } from '@ea/boards';
+import { type Board, getBoard } from '@ea/boards';
 import { readBoardLog } from '@ea/boards/node';
-import { renderConsole } from '../src/index.ts';
+import { renderSerial, renderStrip, toChainBoard, toSerialLog } from '../src/index.ts';
 
 interface Props {
   board: Board['id'];
@@ -12,39 +12,49 @@ interface Props {
 
 const { board: id, pane = 1 } = Astro.props;
 const board = getBoard(id);
-const log = readBoardLog(board);
-const lines = board.stages.flatMap((s) => log.stages.get(s.id) ?? []);
-const illustrative = log.header.captured !== 'yes';
-const json = JSON.stringify(lines).replace(/</g, '\u003c');
+const chain = toChainBoard(board, readBoardLog(board));
+const log = toSerialLog(chain);
+const all = log.lines.length;
+const json = JSON.stringify(log).replace(/</g, '<');
 ---
 
-<ea-serial-console>
+<ea-serial-console class="ea-serial">
   <script is:inline type="application/json" data-log set:html={json} />
   <section class="ea-pane" aria-label={`Serial console, ${board.name}`}>
     <div class="ea-pane__bar">
       <span class="ea-pane__id">{pane}:</span>
-      <span class="ea-pane__title">console</span>
+      <span class="ea-pane__title">serial</span>
       <span class="ea-pane__meta">
-        {board.id} · 115200 8N1{illustrative ? ' · illustrative' : ''}
+        {board.id} · 115200 8N1{chain.logIllustrative ? ' · illustrative' : ''}
       </span>
     </div>
     <div class="ea-pane__body ea-chain__body">
-      <div class="ea-chain__controls">
-        <button type="button" class="ea-btn ea-btn--primary" data-part="replay">
-          Replay log
-        </button>
-        <button type="button" class="ea-btn" data-part="skip">
-          Show all
-        </button>
-      </div>
+      <ol class="ea-serial__strip" aria-label="Jump to a stage" data-part="strip" set:html={renderStrip(log, all)} />
+      <label class="ea-serial__scrub">
+        <span data-part="where">
+          line {all}/{all}
+        </span>
+        <input type="range" min="1" max={all} value={all} data-part="scrub" aria-label="Position in the log" />
+      </label>
       <div
-        class="ea-console"
+        class="ea-console ea-serial__out"
         role="log"
         tabindex="0"
         aria-label="Serial console"
         data-part="console"
-        set:html={renderConsole(lines) + '<span class="ea-console__cursor" aria-hidden="true"></span>'}
+        set:html={renderSerial(log, all)}
       />
+      <div class="ea-chain__controls">
+        <button type="button" class="ea-btn" data-part="prev">
+          Previous line
+        </button>
+        <button type="button" class="ea-btn ea-btn--primary" data-part="play" aria-pressed="false">
+          Replay log
+        </button>
+        <button type="button" class="ea-btn" data-part="next">
+          Next line
+        </button>
+      </div>
     </div>
   </section>
 </ea-serial-console>

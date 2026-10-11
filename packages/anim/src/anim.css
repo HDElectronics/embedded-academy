@@ -522,7 +522,7 @@
   max-width: 72ch;
 }
 
-.ea-ladder__trail {
+.ea-ladder .ea-ladder__trail {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1) var(--space-4);
@@ -541,4 +541,124 @@
 
 .ea-ladder__step.is-current {
   font-weight: 700;
+}
+
+/* Serial console timeline. Selectors carry the block class so lesson prose list styles do not leak in. */
+.ea-serial .ea-serial__strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ea-serial__seg {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-muted);
+  font: 400 14px/20px var(--font-mono);
+  text-align: left;
+  cursor: pointer;
+}
+
+.ea-serial__seg:hover {
+  border-color: var(--line-strong);
+}
+
+.ea-serial__seg.is-ok,
+.ea-serial__seg.is-run {
+  border-top-color: var(--accent);
+}
+
+.ea-serial__seg.is-run {
+  background: var(--surface-raised);
+  color: var(--ink);
+}
+
+.ea-serial__seg .ea-stage__state {
+  white-space: pre;
+}
+
+.ea-serial__name {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+}
+
+.ea-serial__scrub {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+
+.ea-serial__scrub span {
+  flex: none;
+}
+
+.ea-serial__scrub input {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+}
+
+.ea-serial__out {
+  height: 360px;
+  font-size: 15px;
+  line-height: 24px;
+}
+
+.ea-serial__line {
+  display: grid;
+  grid-template-columns: 14ch minmax(0, 1fr);
+  gap: var(--space-3);
+  cursor: pointer;
+}
+
+.ea-serial__line:hover {
+  background: var(--surface-raised);
+}
+
+.ea-serial__line.is-current .ea-serial__src {
+  color: var(--accent);
+}
+
+.ea-serial__src {
+  overflow: hidden;
+  color: var(--ink-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ea-serial__text.is-typing {
+  animation: ea-type 1s steps(24) both;
+}
+
+@keyframes ea-type {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+
+  to {
+    clip-path: inset(0);
+  }
+}
+
+@media (width <= 640px) {
+  .ea-serial__line {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
 }
