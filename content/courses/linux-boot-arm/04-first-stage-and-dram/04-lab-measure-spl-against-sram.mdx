@@ -6,7 +6,7 @@ module: m04
 order: 4
 type: tutorial
 boards: [bbb]
-verification: unverified
+verification: emulated
 sources:
   - title: TI AM335x and AMIC110 Sitara Processors Technical Reference Manual (SPRUH73Q)
     url: https://www.ti.com/lit/ug/spruh73q/spruh73q.pdf
@@ -30,9 +30,10 @@ import Callout from '@ea/ui/Callout.astro';
 import Deeper from '@ea/ui/Deeper.astro';
 import MemoryMap from '@ea/anim/MemoryMap.astro';
 
-<Callout level="warning">
-  Nobody has run this lab yet. Its steps follow the U-Boot v2026.07 sources and documentation, but they have not been
-  tested in the lab container. If a step fails or a number does not add up, report it with the inaccuracy issue form.
+<Callout level="info">
+  Every step of this lab was run in the lab container on 2026-10-11, with U-Boot v2026.07 and GCC 14.2.0, and gave the
+  results this page describes. If a step fails or a number does not add up for you, report it with the inaccuracy issue
+  form.
 </Callout>
 
 <div class="t-lead">
@@ -112,13 +113,14 @@ Compare the size of `spl/u-boot-spl.bin` with limit B. Then answer:
 1. Does it fit? The linker checks code and data against limit B, so it normally does. The practitioner panel at the end explains the one case that check does not catch.
 2. How many bytes are left before limit B? That margin is all the room you have to add features to SPL, such as another file system or a network driver.
 
-Now compare `MLO` with `spl/u-boot-spl.bin`. `MLO` is larger by the header that `mkimage` puts in front: a 512-byte table of contents and the 8-byte GP header.[^omapimage] The difference you see should be about that size.
+Now compare `MLO` with `spl/u-boot-spl.bin`. `MLO` is larger by the header that `mkimage` puts in front: a 512-byte table of contents and the 8-byte GP header.[^omapimage] The difference should be exactly 520 bytes.
 
 The GP header holds two 32-bit words: the image size, then the address to copy it to.[^gp] Show the two words, which start 512 bytes into the file:
 
 <Prompt dir="~/work/build/u-boot-bbb" cmd="od -A d -t x4 -j 512 -N 8 MLO" />
 
-Compare the second word with `0x402F0400`, the address from step 3.
+Compare the second word with `0x402F0400`, the address from step 3. The first word is the size of `MLO` minus the
+512-byte table of contents.[^omapimage]
 
 ## Step 6: see what does not count against SRAM
 
@@ -148,6 +150,9 @@ You now have three numbers:
 - limit B, the same area minus the 1 KiB U-Boot keeps for itself;
 - the size of your SPL, and how far below limit B it sits.
 
+When this lab was run in the lab container with GCC 14.2.0, `spl/u-boot-spl.bin` was 110408 bytes: only 184 bytes
+below limit B.[^run] Another compiler version can give another size.
+
 You also saw that SPL's BSS sits in DRAM, and how `u-boot.img` compares with the SRAM limit. Keep the build folder: module 08 puts these files on an SD card.
 
 <Deeper depth="practitioner" title="Why the file can be larger than text plus data">
@@ -173,3 +178,5 @@ The linker's check covers only text, data, read-only data and linker lists.[^kco
 [^lds]: U-Boot v2026.07, `arch/arm/mach-omap2/u-boot-spl.lds`: the `.bss` section goes in the `.sdram` region at `CONFIG_SPL_BSS_START_ADDR`.
 
 [^xpl]: U-Boot v2026.07, `scripts/Makefile.xpl`, rules for `$(SPL_BIN).bin`.
+
+[^run]: Lab container run of 2026-10-11, captured in `logs/qemu/m04-spl-measure.log`.

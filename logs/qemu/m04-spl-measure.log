@@ -1,0 +1,55 @@
+# board: none; build only, target AM335x (am335x_evm_defconfig)
+# software: U-Boot v2026.07, GCC 14.2.0 (arm-linux-gnueabihf)
+# command: the ls of the m04 build how-to and the commands of steps 3 to 7 of the m04 lab, in ~/work/build/u-boot-bbb
+# captured: 2026-10-11 (UTC), embedded-academy-lab container (Debian 13.7, QEMU 10.0.13)
+# note: lab image built without trixie-updates; the container clock matched an HTTP Date header at capture time, so build dates in the output are real UTC
+# note: each line starting with "$ " was printed by the capture loop before its command
+# verification: emulated
+
+$ ls -l MLO u-boot.img spl/u-boot-spl.bin
+-rw-r--r-- 1 learner learner  110928 Oct 11 21:09 MLO
+-rwxr-xr-x 1 learner learner  110408 Oct 11 21:09 spl/u-boot-spl.bin
+-rw-r--r-- 1 learner learner 1570776 Oct 11 21:09 u-boot.img
+$ echo $((109 * 1024))
+111616
+$ echo $((0x4030B800 - 0x402F0400))
+111616
+$ grep CONFIG_SPL_MAX_SIZE .config
+CONFIG_SPL_MAX_SIZE=0x1b000
+$ echo $((0x1b000))
+110592
+$ ls -l spl/u-boot-spl.bin MLO
+-rw-r--r-- 1 learner learner 110928 Oct 11 21:09 MLO
+-rwxr-xr-x 1 learner learner 110408 Oct 11 21:09 spl/u-boot-spl.bin
+$ od -A d -t x4 -j 512 -N 8 MLO
+0000512 0001af50 402f0400
+0000520
+$ arm-linux-gnueabihf-size spl/u-boot-spl
+   text	   data	    bss	    dec	    hex	filename
+ 104911	   5491	  14440	 124842	  1e7aa	spl/u-boot-spl
+$ grep CONFIG_SPL_BSS_START_ADDR .config
+CONFIG_SPL_BSS_START_ADDR=0x80a00000
+$ ls -l u-boot.img
+-rw-r--r-- 1 learner learner 1570776 Oct 11 21:09 u-boot.img
+$ ls spl
+arch
+board
+boot
+built-in.a
+cmd
+common
+disk
+drivers
+dts
+env
+fs
+include
+lib
+net
+u-boot-spl
+u-boot-spl-nodtb.bin
+u-boot-spl.bin
+u-boot-spl.lds
+u-boot-spl.map
+u-boot-spl.sym
+u-boot.cfg
