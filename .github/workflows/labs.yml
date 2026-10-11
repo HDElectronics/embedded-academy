@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: Embedded Academy contributors
+# SPDX-License-Identifier: MIT
+
+# Builds the lab container image and checks that the tools the lessons use
+# run in it. Runs on changes under labs/ and once a week, because the image
+# follows Debian trixie and a package can change without any commit here.
+# Not a required check: lessons do not depend on it to merge.
+name: Labs
+
+on:
+  push:
+    branches: [main]
+    paths: ["labs/**", ".github/workflows/labs.yml"]
+  pull_request:
+    paths: ["labs/**", ".github/workflows/labs.yml"]
+  schedule:
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lab-image:
+    name: lab-image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Build the image as labs/lab.sh does
+        run: docker build -t embedded-academy-lab -f labs/Containerfile labs
+      - name: Check the lesson tools
+        run: |
+          docker run --rm embedded-academy-lab bash -euo pipefail -c '
+            cat /etc/debian_version
+            qemu-system-aarch64 --version | head -n 1
+            qemu-system-arm --version | head -n 1
+            qemu-system-aarch64 -machine help | grep -E "^(raspi4b|virt) "
+            aarch64-linux-gnu-gcc --version | head -n 1
+            arm-linux-gnueabihf-gcc --version | head -n 1
+            dtc --version
+            mkimage -V
+            sfdisk --version
+            id -un
+          '
+      - name: Check every pinned tag exists upstream
+        run: |
+          . labs/linux-boot-arm/versions.env
+          for p in LINUX UBOOT TFA OPTEE BUILDROOT; do
+            eval "repo=\$${p}_REPO tag=\$${p}_TAG"
+            git ls-remote --exit-code --tags "$repo" "refs/tags/$tag" > /dev/null
+            echo "$p $tag found in $repo"
+          done
