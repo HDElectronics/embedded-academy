@@ -1,0 +1,137 @@
+---
+// SPDX-FileCopyrightText: Embedded Academy contributors
+// SPDX-License-Identifier: MIT
+import type { MapModule, MapWorld } from '../src/types.ts';
+
+interface Props {
+  modules: MapModule[];
+  pane?: number;
+}
+
+const WORLD: Record<MapWorld, string> = {
+  firmware: 'firmware',
+  secure: 'secure world',
+  normal: 'normal world',
+  mixed: 'varies by board',
+};
+
+const { modules, pane = 0 } = Astro.props;
+const firstStop = modules.findIndex((m) => m.chain);
+const stops = modules.filter((m) => m.chain);
+const before = modules.filter((m, k) => !m.chain && k < firstStop);
+const after = modules.filter((m, k) => !m.chain && k > firstStop);
+const selected = (modules.find((m) => m.lessons.length > 0) ?? modules[0])?.id;
+const count = (m: MapModule) =>
+  m.lessons.length > 0 ? `[  OK  ] ${m.lessons.length} lesson${m.lessons.length > 1 ? 's' : ''}` : '[ WAIT ] planned';
+---
+
+<ea-course-map class="ea-map">
+  <section class="ea-pane" aria-label="Course map">
+    <div class="ea-pane__bar">
+      <span class="ea-pane__id">{pane}:</span>
+      <span class="ea-pane__title">boot-path</span>
+      <span class="ea-pane__meta">reset → PID 1</span>
+    </div>
+    <div class="ea-pane__body ea-map__body">
+      {before.length > 0 && (
+        <div class="ea-map__group">
+          <span class="t-label">Before power-on</span>
+          {before.map((m) => (
+            <button
+              type="button"
+              class="ea-btn ea-map__chip"
+              data-module={m.id}
+              aria-pressed={String(m.id === selected)}
+              aria-controls={`map-${m.id}`}
+            >
+              {m.id} {m.title}
+            </button>
+          ))}
+        </div>
+      )}
+      <div class="ea-map__line" data-part="line">
+        <span class="ea-map__end t-label">reset</span>
+        <ol class="ea-map__stops" aria-label="Modules along the boot path">
+          {stops.map((m, k) => (
+            <li class:list={['ea-map__stop', `is-${m.chain?.world}`, k % 2 ? 'is-below' : 'is-above']}>
+              <span class="ea-map__node" data-node={m.id} aria-hidden="true" />
+              <button
+                type="button"
+                class="ea-map__card"
+                data-module={m.id}
+                aria-pressed={String(m.id === selected)}
+                aria-controls={`map-${m.id}`}
+              >
+                <span class="ea-map__meta">
+                  {m.id} · {m.chain && WORLD[m.chain.world]}
+                </span>
+                <span class="ea-map__short">{m.chain?.short}</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+        <span class="ea-map__end ea-map__end--last t-label">PID 1</span>
+        <span class="ea-map__marker" data-part="marker" aria-hidden="true" hidden></span>
+      </div>
+      {after.length > 0 && (
+        <div class="ea-map__group">
+          <span class="t-label">Then</span>
+          {after.map((m) => (
+            <button
+              type="button"
+              class="ea-btn ea-map__chip"
+              data-module={m.id}
+              aria-pressed={String(m.id === selected)}
+              aria-controls={`map-${m.id}`}
+            >
+              {m.id} {m.title}
+            </button>
+          ))}
+        </div>
+      )}
+      {modules.map((m) => (
+        <section
+          class="ea-pane ea-pane--active ea-map__detail"
+          id={`map-${m.id}`}
+          data-panel={m.id}
+          aria-labelledby={`map-${m.id}-title`}
+          hidden={m.id !== selected}
+        >
+          <div class="ea-pane__bar">
+            <span class="ea-pane__id">*</span>
+            <span class="ea-pane__title">{m.id}</span>
+            <span class="ea-pane__meta ea-map__count">{count(m)}</span>
+          </div>
+          <div class="ea-pane__body ea-map__detail-body">
+            <div class="ea-map__about">
+              <h2 class="t-h2" id={`map-${m.id}-title`}>
+                {m.title}
+              </h2>
+              <p class="ea-map__summary">{m.summary}</p>
+            </div>
+            {m.lessons.length > 0 ? (
+              <div class="ea-map__lessons">
+                <ul>
+                  {m.lessons.map((l) => (
+                    <li>
+                      <a href={l.href}>{l.title}</a> <span class="ea-tag">{l.type}</span>
+                    </li>
+                  ))}
+                </ul>
+                <a class="ea-btn ea-btn--primary" href={m.lessons[0]?.href}>
+                  Start {m.id}
+                </a>
+              </div>
+            ) : (
+              <p class="ea-map__summary">[ WAIT ] No lessons yet.</p>
+            )}
+          </div>
+        </section>
+      ))}
+    </div>
+  </section>
+</ea-course-map>
+
+<script>
+  import '@ea/anim/client';
+</script>

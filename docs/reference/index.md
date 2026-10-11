@@ -12,6 +12,7 @@ Reference pages state exact facts about the project: commands, fields, conventio
 
 commands
 commit-conventions
+course-file
 lesson-frontmatter
 project-fields
 repository-layout

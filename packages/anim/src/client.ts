@@ -4,7 +4,9 @@
 // Browser entry: registers the custom elements.
 
 import { defineBootChain } from './boot-chain.ts';
+import { defineCourseMap } from './course-map.ts';
 import { defineSerialConsole } from './serial-console.ts';
 
 defineBootChain();
+defineCourseMap();
 defineSerialConsole();

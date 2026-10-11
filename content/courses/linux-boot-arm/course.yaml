@@ -13,27 +13,34 @@ modules:
   - id: m02
     title: Power-on and the boot ROM
     summary: What happens before any code you wrote runs.
+    chain: { short: Boot ROM, world: firmware }
   - id: m03
     title: TrustZone and secure boot
     summary: Two worlds, one monitor, and a chain of trust.
+    chain: { short: TrustZone, world: secure }
   - id: m04
     title: First stage and DRAM
     summary: Why on-chip SRAM is small and DDR must be set up before use.
+    chain: { short: SRAM and DDR, world: mixed }
   - id: m05
     title: Trusted Firmware-A
     summary: The standard secure boot pipeline.
+    chain: { short: TF-A, world: secure }
   - id: m06
     title: U-Boot
     summary: The bootloader you will spend the most time in.
+    chain: { short: U-Boot, world: normal }
   - id: m07
     title: Device Tree
     summary: How the kernel learns what hardware exists.
+    chain: { short: Device Tree, world: normal }
   - id: m08
     title: Building everything
     summary: From sources to a bootable SD card image, by hand first.
   - id: m09
     title: Linux takes over
     summary: From the bootloader's jump to the first user process.
+    chain: { short: Linux, world: normal }
   - id: m10
     title: Capstones and debugging
     summary: Full traces per board, and what breaks.

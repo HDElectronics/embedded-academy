@@ -73,6 +73,17 @@ test('theme toggle switches to paper and remembers it', async ({ page }) => {
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 });
 
+test('the course map shows the module you pick', async ({ page }) => {
+  await page.goto('/courses/linux-boot-arm/');
+  const map = page.locator('ea-course-map');
+  await expect(map).toHaveAttribute('data-ready', '');
+  await expect(map.getByRole('heading', { level: 2, name: 'Orientation' })).toBeVisible();
+  await map.getByRole('button', { name: /U-Boot/ }).click();
+  await expect(map.getByRole('button', { name: /U-Boot/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(map.getByRole('heading', { level: 2, name: 'U-Boot' })).toBeVisible();
+  await expect(map.getByRole('heading', { level: 2, name: 'Orientation' })).toBeHidden();
+});
+
 test.describe('with reduced motion', () => {
   test.use({ reducedMotion: 'reduce' });
 
