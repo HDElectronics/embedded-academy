@@ -1,0 +1,10 @@
+# board: none (host tool in the lab container)
+# software: TF-A lts-v2.14.10 fiptool, FIP from the PLAT=qemu release build with U-Boot v2026.07 as BL33
+# command: ./tools/fiptool/fiptool info build/qemu/release/fip.bin
+# captured: 2026-10-11, embedded-academy-lab container (Debian 13.7, QEMU 10.0.13)
+# note: lab image built without trixie-updates
+# verification: emulated
+
+Trusted Boot Firmware BL2: offset=0xB0, size=0x6204, cmdline="--tb-fw"
+EL3 Runtime Firmware BL31: offset=0x62B4, size=0xD06F, cmdline="--soc-fw"
+Non-Trusted Firmware BL33: offset=0x13323, size=0x16E9B0, cmdline="--nt-fw"
