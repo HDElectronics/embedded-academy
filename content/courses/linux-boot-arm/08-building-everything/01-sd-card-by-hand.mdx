@@ -1,0 +1,291 @@
+---
+title: Build a bootable SD card by hand
+description: Build the kernel, bootloaders and firmware for each board from the pinned sources, and put each file where the boot ROM expects it.
+course: linux-boot-arm
+module: m08
+order: 1
+type: how-to
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'Linux kernel documentation: Kbuild, environment variables'
+    url: https://docs.kernel.org/kbuild/kbuild.html
+    section: ARCH; CROSS_COMPILE
+  - title: 'Linux kernel documentation: README, build directory for the kernel'
+    url: https://docs.kernel.org/admin-guide/README.html
+  - title: 'Linux source v6.18.55: arch/arm64/Kconfig.platforms'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm64/Kconfig.platforms?h=v6.18.55
+  - title: 'Linux source v6.18.55: arch/arm64/Makefile'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm64/Makefile?h=v6.18.55
+  - title: 'Raspberry Pi documentation: boot folder contents'
+    url: https://www.raspberrypi.com/documentation/computers/configuration.html#boot-folder-contents
+  - title: 'Raspberry Pi documentation: config.txt boot options'
+    url: https://www.raspberrypi.com/documentation/computers/config_txt.html#boot-options
+  - title: 'Raspberry Pi documentation: build the kernel'
+    url: https://www.raspberrypi.com/documentation/computers/linux_kernel.html#building
+  - title: 'Raspberry Pi firmware repository: boot folder'
+    url: https://github.com/raspberrypi/firmware/tree/master/boot
+  - title: 'U-Boot v2026.07 documentation: building with GCC'
+    url: https://docs.u-boot.org/en/v2026.07/build/gcc.html
+  - title: 'U-Boot v2026.07 documentation: Raspberry Pi'
+    url: https://docs.u-boot.org/en/v2026.07/board/broadcom/raspberrypi.html
+  - title: 'U-Boot v2026.07 documentation: AM335x generation'
+    url: https://docs.u-boot.org/en/v2026.07/board/ti/am335x_evm.html
+  - title: 'U-Boot v2026.07 documentation: PXE boot and extlinux.conf'
+    url: https://docs.u-boot.org/en/v2026.07/usage/pxe.html
+  - title: 'U-Boot v2026.07 documentation: STM32MP1xx boards'
+    url: https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html
+    section: Build procedure; Prepare an SD card
+  - title: 'Trusted Firmware-A lts-v2.14.10 documentation: STMicroelectronics STM32MP1'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/st/stm32mp1.html
+  - title: 'Trusted Firmware-A lts-v2.14.10 documentation: STMicroelectronics STM32 MPUs'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/st/stm32mpus.html
+    section: Populate SD-card
+  - title: 'OP-TEE 4.10.0 documentation: STM32MP1'
+    url: https://optee.readthedocs.io/en/4.10.0/building/devices/stm32mp1.html
+  - title: 'Buildroot 2026.02.3 source: board/raspberrypi'
+    url: https://gitlab.com/buildroot.org/buildroot/-/tree/2026.02.3/board/raspberrypi
+  - title: 'Buildroot 2026.02.3 source: board/beagleboard/beaglebone'
+    url: https://gitlab.com/buildroot.org/buildroot/-/tree/2026.02.3/board/beagleboard/beaglebone
+  - title: 'Buildroot 2026.02.3 source: configs/stm32mp157c_dk2_defconfig'
+    url: https://gitlab.com/buildroot.org/buildroot/-/blob/2026.02.3/configs/stm32mp157c_dk2_defconfig
+---
+
+import Prompt from '@ea/ui/Prompt.astro';
+import CodeBlock from '@ea/ui/CodeBlock.astro';
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<p class="t-lead">
+  This guide builds every boot file for the three boards from the sources the course pins, then tells you which
+  partition each file goes in. It covers the boot pieces. For the root filesystem, use the `rootfs.ext4` that a
+  Buildroot build gives you; the Buildroot pages of this module show how.
+</p>
+
+<Callout level="warning">
+  Nobody has run these steps yet. Every command here is checked against upstream documentation and source, not against a
+  board. If a step fails, report it with the inaccuracy issue form. Partitioning and `dd` destroy the data on the device
+  you name: check the device with `lsblk` first.
+</Callout>
+
+Run the build commands in the lab container, after `sh ~/course/fetch-sources.sh` has cloned the sources into `~/work/src`. Partition and write the card on a Linux machine with a card reader: the lab container has no access to your SD card.
+
+## Build two kernels, one per architecture
+
+The kernel takes the target architecture in `ARCH` and the compiler prefix in `CROSS_COMPILE`.[^kbuild] `O=` puts the build output in its own directory, so one source tree can hold both builds; pass it to every `make` call of a build.[^readme]
+
+The Raspberry Pi 4 runs a 64-bit kernel. Mainline Linux has a single arm64 configuration, `defconfig`. It enables `CONFIG_ARCH_BCM2835`, which covers the BCM2711:[^bcm]
+
+<Prompt
+  dir="~/work/src/linux"
+  cmd="make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- O=$HOME/work/build/linux-arm64 defconfig"
+/>
+<Prompt
+  dir="~/work/src/linux"
+  cmd="make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- O=$HOME/work/build/linux-arm64 Image dtbs"
+/>
+
+The kernel is `arch/arm64/boot/Image` and the Device Tree is `arch/arm64/boot/dts/broadcom/bcm2711-rpi-4-b.dtb`, both inside the build directory.[^arm64mk]
+
+The BeagleBone Black and the STM32MP157 are 32-bit. At `v6.18.55`, `multi_v7_defconfig` enables both the AM33xx and the STM32 platforms, so one build serves both boards:
+
+<Prompt
+  dir="~/work/src/linux"
+  cmd="make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- O=$HOME/work/build/linux-arm multi_v7_defconfig"
+/>
+<Prompt
+  dir="~/work/src/linux"
+  cmd="make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- O=$HOME/work/build/linux-arm zImage dtbs"
+/>
+
+You get `arch/arm/boot/zImage`, `arch/arm/boot/dts/ti/omap/am335x-boneblack.dtb` and `arch/arm/boot/dts/st/stm32mp157c-dk2.dtb`. This guide does not install kernel modules.
+
+<Callout level="warning">
+  The Raspberry Pi documentation builds its own kernel fork with `bcm2711_defconfig`.[^rpikernel] That configuration
+  does not exist in mainline `v6.18.55`, which is why this guide uses `defconfig`. Booting a mainline kernel and Device
+  Tree with the Raspberry Pi firmware is not described in the Raspberry Pi documentation and is unverified here.
+</Callout>
+
+## Raspberry Pi 4: firmware files on a FAT partition
+
+The firmware loads its files from the boot partition, which Raspberry Pi OS puts first on the card, formatted FAT.[^rpiboot] Lay the card out like Buildroot does for this board: an MBR table, partition 1 of type `0xC` (FAT32), marked bootable, and partition 2 of type `0x83` for the root filesystem.[^brrpi]
+
+Put these files at the root of partition 1:
+
+| File                  | Comes from                                                      |
+| --------------------- | --------------------------------------------------------------- |
+| `start4.elf`          | Raspberry Pi firmware repository, `boot/`: closed-source binary |
+| `fixup4.dat`          | the same folder; it must match `start4.elf`                     |
+| `config.txt`          | you write it                                                    |
+| `cmdline.txt`         | you write it: the kernel command line                           |
+| `bcm2711-rpi-4-b.dtb` | your arm64 kernel build                                         |
+| `Image`               | your arm64 kernel build                                         |
+
+The Pi 4 does not use `bootcode.bin`: that stage lives in the EEPROM.[^rpiboot] The firmware picks the Device Tree by board model, by file name.[^rpiboot] It loads `kernel8.img` unless `config.txt` names another file with `kernel=`, and it starts the Pi 4 in 64-bit mode by default.[^rpiconfig]
+
+Buildroot's `config.txt` for this board is a working example. It targets the Raspberry Pi kernel fork, not mainline:
+
+<CodeBlock path="board/raspberrypi/config_4_64bit.txt" project="Buildroot" simplified>
+
+```ini
+start_file=start4.elf
+fixup_file=fixup4.dat
+
+kernel=Image
+
+# Enable UART0 for serial console on ttyAMA0
+dtoverlay=miniuart-bt
+
+# enable 64bits support
+arm_64bit=1
+```
+
+</CodeBlock>
+
+The `miniuart-bt` overlay comes from the Raspberry Pi firmware's `overlays/` folder. Whether it applies to the mainline `bcm2711-rpi-4-b.dtb` is unverified. Buildroot's `cmdline.txt` holds `root=/dev/mmcblk0p2 rootwait console=tty1 console=ttyAMA0,115200`; the device name is what the Raspberry Pi kernel uses, and the mainline name is unverified.[^brrpi]
+
+<Deeper depth="practitioner" title="Put U-Boot between the firmware and the kernel">
+U-Boot's `rpi_4_defconfig` targets the Pi 4 in 64-bit mode.[^ubrpi] Pass the compiler prefix on the `make` command line.[^ubgcc]
+
+<Prompt
+  dir="~/work/src/u-boot"
+  cmd="make CROSS_COMPILE=aarch64-linux-gnu- O=$HOME/work/build/u-boot-rpi4 rpi_4_defconfig"
+/>
+<Prompt dir="~/work/src/u-boot" cmd="make CROSS_COMPILE=aarch64-linux-gnu- O=$HOME/work/build/u-boot-rpi4" />
+
+Copy `u-boot.bin` to partition 1 and set `kernel=u-boot.bin` in `config.txt`: the `kernel` option takes any file name.[^rpiconfig] U-Boot then looks for an `extlinux.conf` to find the kernel; the BeagleBone Black section shows one. The U-Boot documentation lists the defconfigs but does not describe this SD card setup, so treat it as unverified.
+
+</Deeper>
+
+## BeagleBone Black: MLO and U-Boot next to the kernel
+
+Build U-Boot with `am335x_evm_defconfig`. One binary serves the BeagleBone family: it reads the board EEPROM to tell boards apart.[^ubam335x]
+
+<Prompt
+  dir="~/work/src/u-boot"
+  cmd="make CROSS_COMPILE=arm-linux-gnueabihf- O=$HOME/work/build/u-boot-bbb am335x_evm_defconfig"
+/>
+<Prompt dir="~/work/src/u-boot" cmd="make CROSS_COMPILE=arm-linux-gnueabihf- O=$HOME/work/build/u-boot-bbb" />
+
+The build directory now holds `MLO`, the U-Boot SPL image for SD card boot, and `u-boot.img`. Buildroot's layout for this board uses an MBR table: partition 1 of type `0xC`, marked bootable, holds `MLO`, `u-boot.img`, `zImage`, the `dtb` files and `extlinux/extlinux.conf`; partition 2 of type `0x83` holds the root filesystem.[^brbbb] The U-Boot documentation also describes the FAT partition as marked bootable.[^ubam335x]
+
+U-Boot finds the kernel through `extlinux/extlinux.conf`. This is Buildroot's file for the board:
+
+<CodeBlock path="board/beagleboard/beaglebone/extlinux.conf" project="Buildroot">
+
+```text
+label beaglebone-buildroot
+  kernel /zImage
+  fdtdir /
+  append console=ttyS0,115200n8 root=/dev/mmcblk0p2 rw rootfstype=ext4 rootwait
+```
+
+</CodeBlock>
+
+`fdtdir` tells U-Boot to load the Device Tree named by its `fdtfile` variable from that folder.[^pxe] Buildroot builds its kernel with `omap2plus_defconfig`, not `multi_v7_defconfig`; whether the `mmcblk0p2` name holds with `multi_v7_defconfig` is unverified.
+
+## STM32MP157: three builds packed into a FIP
+
+On this board TF-A BL2 loads a FIP, a single file that holds OP-TEE and U-Boot. Build OP-TEE and U-Boot first, then TF-A.
+
+OP-TEE takes the board as a platform flavour. The documentation lists `stm32mp1-157C_DK2` and `stm32mp1-157C_DK2_SCMI` for the DK2.[^optee] This guide uses the plain flavour, which matches the plain `stm32mp157c-dk2.dtb` your kernel build made:
+
+<Prompt dir="~/work/src/optee_os" cmd="make CROSS_COMPILE=arm-linux-gnueabihf- ARCH=arm PLATFORM=stm32mp1-157C_DK2" />
+
+It writes `tee-header_v2.bin`, `tee-pager_v2.bin` and `tee-pageable_v2.bin` to `out/arm-plat-stm32mp1/core/`. For U-Boot, `stm32mp15_defconfig` is the configuration for TF-A with FIP support:[^ubstm]
+
+<Prompt
+  dir="~/work/src/u-boot"
+  cmd="make CROSS_COMPILE=arm-linux-gnueabihf- O=$HOME/work/build/u-boot-dk2 stm32mp15_defconfig"
+/>
+<Prompt
+  dir="~/work/src/u-boot"
+  cmd="make CROSS_COMPILE=arm-linux-gnueabihf- O=$HOME/work/build/u-boot-dk2 DEVICE_TREE=st/stm32mp157c-dk2 all"
+/>
+
+It produces `u-boot-nodtb.bin` and `u-boot.dtb`.[^ubstm] Now build TF-A BL2 for SD card boot, then the FIP with OP-TEE as BL32 and U-Boot as BL33:[^tfa]
+
+<Prompt
+  dir="~/work/src/trusted-firmware-a"
+  cmd="make CROSS_COMPILE=arm-linux-gnueabihf- PLAT=stm32mp1 ARCH=aarch32 ARM_ARCH_MAJOR=7 DTB_FILE_NAME=stm32mp157c-dk2.dtb STM32MP_SDMMC=1"
+/>
+<Prompt
+  dir="~/work/src/trusted-firmware-a"
+  cmd="make CROSS_COMPILE=arm-linux-gnueabihf- PLAT=stm32mp1 ARCH=aarch32 ARM_ARCH_MAJOR=7 AARCH32_SP=optee DTB_FILE_NAME=stm32mp157c-dk2.dtb BL33=$HOME/work/build/u-boot-dk2/u-boot-nodtb.bin BL33_CFG=$HOME/work/build/u-boot-dk2/u-boot.dtb BL32=$HOME/work/src/optee_os/out/arm-plat-stm32mp1/core/tee-header_v2.bin BL32_EXTRA1=$HOME/work/src/optee_os/out/arm-plat-stm32mp1/core/tee-pager_v2.bin BL32_EXTRA2=$HOME/work/src/optee_os/out/arm-plat-stm32mp1/core/tee-pageable_v2.bin fip"
+/>
+
+The outputs are `build/stm32mp1/release/tf-a-stm32mp157c-dk2.stm32` and `build/stm32mp1/release/fip.bin`. The card needs a GPT table, not MBR. The U-Boot documentation gives the layout and the commands:[^ubstm]
+
+<CodeBlock path="doc/board/st/stm32mp1.rst" project="U-Boot" lang="sh" simplified>
+
+```sh
+# sgdisk --resize-table=128 -a 1 \
+-n 1:34:545		-c 1:fsbl1 \
+-n 2:546:1057		-c 2:fsbl2 \
+-n 3:1058:9249		-c 3:fip \
+-n 4:9250:			-c 4:rootfs -A 4:set:2 \
+-p /dev/<SD card dev>
+
+# dd if=tf-a.stm32 of=/dev/mmcblk0p1
+# dd if=tf-a.stm32 of=/dev/mmcblk0p2
+# dd if=fip.bin of=/dev/mmcblk0p3
+```
+
+</CodeBlock>
+
+`fsbl1` and `fsbl2` hold the same BL2 image, `fip` holds `fip.bin`, and partition 4 is marked bootable with attribute bit 2. `sgdisk` comes from the `gdisk` package. Partition 4 is the root filesystem: put `zImage` and `stm32mp157c-dk2.dtb` in its `/boot` folder with an `extlinux.conf` like Buildroot's:
+
+<CodeBlock path="board/stmicroelectronics/stm32mp157c-dk2/overlay/boot/extlinux/extlinux.conf" project="Buildroot">
+
+```text
+label stm32mp157c-dk2-buildroot
+  kernel /boot/zImage
+  devicetree /boot/stm32mp157c-dk2.dtb
+  append root=/dev/mmcblk0p4 rootwait
+```
+
+</CodeBlock>
+
+## Where the sources disagree
+
+- **TF-A compiler.** The TF-A examples use `arm-none-eabi-`, which the lab container does not have. This guide uses `arm-linux-gnueabihf-`, and that is unverified for TF-A.[^tfa]
+- **U-Boot defconfig with FIP.** The TF-A documentation builds U-Boot with `stm32mp15_trusted_defconfig`. The U-Boot documentation says that configuration is for TF-A without FIP support and names `stm32mp15_defconfig` for FIP.[^ubstm] This guide follows U-Boot.
+- **`DEVICE_TREE` spelling.** The U-Boot documentation writes `DEVICE_TREE=stm32mp157c-ev1`, without a folder. But `configs/stm32mp15_defconfig` sets its default Device Tree to `st/stm32mp157c-ev1`, with a folder, and Buildroot 2026.02.3 passes `DEVICE_TREE=st/stm32mp157c-dk2`.[^brstm] This guide uses the `st/` form; it is unverified at `v2026.07`.
+- **BL2 file and partition names.** U-Boot calls the image `tf-a.stm32` and requires partitions named `fsbl1` and `fsbl2`. TF-A writes `tf-a-<dtb name>.stm32` and describes one `fsbl` partition, usually two copies.[^tfampus]
+- **OP-TEE or SP_min.** Both projects also document SP_min as BL32. Buildroot's DK2 configuration uses SP_min and builds no OP-TEE.[^brstm] TF-A calls OP-TEE the recommended choice.[^tfa]
+
+[^kbuild]: Linux kernel documentation, Kbuild: `ARCH` and `CROSS_COMPILE`.
+
+[^readme]: Linux kernel documentation, README: build directory for the kernel.
+
+[^bcm]: `arch/arm64/Kconfig.platforms` at `v6.18.55`: `ARCH_BCM2835` supports the BCM2837 and BCM2711.
+
+[^arm64mk]: `arch/arm64/Makefile` at `v6.18.55`: the `Image` target writes `arch/arm64/boot/Image`.
+
+[^rpikernel]: Raspberry Pi documentation, build the kernel.
+
+[^rpiboot]: Raspberry Pi documentation, boot folder contents; Device Trees, overlays and parameters.
+
+[^rpiconfig]: Raspberry Pi documentation, `config.txt` boot options: `kernel`, `arm_64bit`.
+
+[^brrpi]: Buildroot 2026.02.3, `board/raspberrypi/genimage.cfg.in` and `board/raspberrypi/cmdline.txt`.
+
+[^ubrpi]: U-Boot documentation, Raspberry Pi.
+
+[^ubgcc]: U-Boot documentation, building with GCC.
+
+[^ubam335x]: U-Boot documentation, AM335x generation: hardware; Falcon Mode, FAT SD cards.
+
+[^brbbb]: Buildroot 2026.02.3, `board/beagleboard/beaglebone/genimage.cfg` and `post-build.sh`.
+
+[^pxe]: U-Boot documentation, PXE boot and `extlinux.conf`: `fdtdir`.
+
+[^optee]: OP-TEE documentation, STM32MP1.
+
+[^ubstm]: U-Boot documentation, STM32MP1xx boards: build procedure; prepare an SD card.
+
+[^tfa]: TF-A documentation, STMicroelectronics STM32MP1: build instructions.
+
+[^tfampus]: TF-A documentation, STMicroelectronics STM32 MPUs: populate SD-card.
+
+[^brstm]: Buildroot 2026.02.3, `configs/stm32mp157c_dk2_defconfig`.
