@@ -6,7 +6,7 @@ module: m07
 order: 3
 type: tutorial
 boards: [rpi4, bbb, stm32mp157]
-verification: unverified
+verification: emulated
 sources:
   - title: 'QEMU source v10.0.0: hw/core/machine.c (dumpdtb machine property)'
     url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/hw/core/machine.c
@@ -34,15 +34,20 @@ sources:
     url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm/configs/multi_v7_defconfig?h=v6.18.55
   - title: 'Linux source v6.18.55: scripts/dtc/dtc.c and scripts/dtc/fdtget.c (usage text)'
     url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/scripts/dtc?h=v6.18.55
+  - title: 'QEMU source v10.0.0: qemu-options.hx (-nic none)'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/qemu-options.hx
+  - title: 'Debian trixie manual page: more(1)'
+    url: https://manpages.debian.org/trixie/util-linux/more.1.en.html
 ---
 
 import Callout from '@ea/ui/Callout.astro';
 import Deeper from '@ea/ui/Deeper.astro';
 import Prompt from '@ea/ui/Prompt.astro';
 
-<Callout level="warning">
-  Nobody has run these steps yet. If a command fails or behaves differently from what this page describes, open an issue
-  with the inaccuracy form and paste what you saw.
+<Callout level="info">
+  Every command on this page, including the two deeper sections, was run in the lab container on 2026-10-11, with QEMU
+  10.0.13, DTC 1.7.2 and Linux `v6.18.55`, so it is marked emulated. If a command fails or behaves differently from what
+  this page describes, open an issue with the inaccuracy form and paste what you saw.
 </Callout>
 
 <div class="t-lead">
@@ -78,10 +83,12 @@ In the list, look for two properties:
 
 <Prompt
   dir="~/work/m07"
-  cmd="qemu-system-aarch64 -machine virt,dtb-randomness=off,dumpdtb=virt.dtb -cpu cortex-a72 -m 1G -nographic"
+  cmd="qemu-system-aarch64 -machine virt,dtb-randomness=off,dumpdtb=virt.dtb -cpu cortex-a72 -m 1G -nic none -nographic"
 />
 
-QEMU builds the machine, writes `virt.dtb` and quits before any guest code runs.[^machine]
+QEMU builds the machine, writes `virt.dtb` and quits before any guest code runs.[^machine] It prints nothing when it succeeds.
+
+`-nic none` leaves out the network card QEMU adds by default.[^nic] Without it, QEMU in the lab container stops with `failed to find romfile "efi-virtio.rom"`: the card's boot ROM is not installed in the image.
 
 ### Check the magic number
 
@@ -95,14 +102,14 @@ QEMU builds the machine, writes `virt.dtb` and quits before any guest code runs.
 
 `-I` and `-O` pick the input and output formats; `dtb` and `dts` are two of the formats `dtc` lists in its usage text.[^dtc] `dtc` may print warnings about the tree. Only errors stop it from writing the output file.[^dtc]
 
-<Prompt dir="~/work/m07" cmd="less virt.dts" />
+<Prompt dir="~/work/m07" cmd="more virt.dts" />
 
-Find these nodes. Press `/` in `less` to search.
+Find these nodes. `more` shows one screen at a time: press Space for the next one, or type `/` and a pattern to search.[^more]
 
 1. **The root node**, at the top. Its `compatible` and `model` are both `linux,dummy-virt`. `#address-cells` and `#size-cells` are both 2, so every `reg` in the root's children uses two cells for an address and two for a size.[^virt][^cells]
 2. **A node named `memory@40000000`.** Its `reg` has four cells: the first two give the address `0x4000_0000`, the last two the size, 1 GiB. The QEMU documentation says RAM on `virt` starts at that address.[^virtdoc][^boot]
 3. **`/chosen`.** It has a `stdout-path` that points at a node whose name starts with `pl011@`, the UART. It has no `bootargs`: QEMU adds the command line only when you pass one with `-append`, which needs a kernel.[^virt][^boot]
-4. **`/cpus`.** It has one child, `cpu@0`, with `compatible = "arm,cortex-a72"`.[^virt]
+4. **`/cpus`.** It has one CPU node, `cpu@0`, with `compatible = "arm,cortex-a72"`, and a `cpu-map` node that places that CPU in a socket and a cluster.[^virt]
 
 You can also ask for one property without decompiling. `fdtget` takes the blob, a node path and a property name.[^dtc]
 
@@ -116,7 +123,7 @@ Dump a second machine with two CPUs and 2 GiB of RAM.
 
 <Prompt
   dir="~/work/m07"
-  cmd="qemu-system-aarch64 -machine virt,dtb-randomness=off,dumpdtb=virt-smp2.dtb -cpu cortex-a72 -m 2G -smp 2 -nographic"
+  cmd="qemu-system-aarch64 -machine virt,dtb-randomness=off,dumpdtb=virt-smp2.dtb -cpu cortex-a72 -m 2G -smp 2 -nic none -nographic"
 />
 
 <Prompt dir="~/work/m07" cmd="dtc -I dtb -O dts -o virt-smp2.dts virt-smp2.dtb" />
@@ -181,7 +188,9 @@ All the cells are zero. In `bcm2711-rpi.dtsi` this node carries the comment that
   cmd="dtc -I dtb -O dts -o ~/work/m07/rpi4.dts bcm2711-rpi-4-b.dtb"
 />
 
-<Prompt dir="~/work/m07" cmd="less rpi4.dts" />
+`dtc` prints seven warnings from its checks, for example `unit_address_vs_reg` for `/soc` and two for properties under `__symbols__`. They are warnings, not errors, so `rpi4.dts` is written.[^dtc]
+
+<Prompt dir="~/work/m07" cmd="more rpi4.dts" />
 
 Compare it with `arch/arm/boot/dts/broadcom/bcm2711-rpi-4-b.dts` in the source tree. The `#include` lines are gone: the preprocessor and `dtc` merged every `.dtsi` into one tree. References such as `&uart1` have become numbers that match `phandle` properties. You may also find a `__symbols__` node: `arch/arm64/boot/dts/broadcom/Makefile` sets `DTC_FLAGS := -@`, with the comment that it enables overlay support, and `-@` records label names there.[^make]
 
@@ -204,7 +213,20 @@ Both boards are 32-bit, so use `ARCH=arm` and a separate build folder. `multi_v7
   cmd="make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- O=$HOME/work/m07/build-arm st/stm32mp157c-dk2.dtb"
 />
 
-Read each root `compatible` with `fdtget` and check it against the reference page. On the BeagleBone Black, also read `/memory@80000000 reg`: the size should be the 512 MB from `am335x-boneblack-common.dtsi`, not the 256 MB from `am335x-bone-common.dtsi`.
+Read each root `compatible` and check it against the reference page:
+
+<Prompt dir="~/work/m07" cmd="fdtget build-arm/arch/arm/boot/dts/ti/omap/am335x-boneblack.dtb / compatible" />
+
+<Prompt dir="~/work/m07" cmd="fdtget build-arm/arch/arm/boot/dts/st/stm32mp157c-dk2.dtb / compatible" />
+
+On the BeagleBone Black, also read the memory node. `-t x` prints the cells in hex; without it, `fdtget` prints signed decimal and the address `0x8000_0000` comes out negative.[^dtc]
+
+<Prompt
+  dir="~/work/m07"
+  cmd="fdtget -t x build-arm/arch/arm/boot/dts/ti/omap/am335x-boneblack.dtb /memory@80000000 reg"
+/>
+
+It prints `80000000 20000000`. The size, `0x2000_0000`, is the 512 MB from `am335x-boneblack-common.dtsi`, not the 256 MB from `am335x-bone-common.dtsi`.
 
 </Deeper>
 
@@ -242,3 +264,7 @@ You captured a generated Device Tree, read its root, memory, `/chosen` and CPU n
 [^make]: Top-level `Makefile` at Linux v6.18.55: `dtbs_prepare` depends on `include/config/kernel.release` and `scripts_dtc`; the `%.dtb` and `dtbs` rules. The `dtb-$(CONFIG_...)` lines are in each vendor folder's `Makefile`; `arch/arm64/boot/dts/broadcom/Makefile` also sets `DTC_FLAGS := -@`. `CONFIG_SOC_AM33XX` and `CONFIG_ARCH_STM32` are set in `arch/arm/configs/multi_v7_defconfig`.
 
 [^readme]: Linux kernel documentation, admin-guide README, "Build directory for the kernel".
+
+[^nic]: `qemu-options.hx` at QEMU v10.0.0: `-nic none` configures no network devices and overrides the default network card.
+
+[^more]: Debian trixie manual page more(1), "Commands": Space and `/pattern`.

@@ -1,0 +1,182 @@
+# board: none (Linux dtb builds in the lab container, no emulation; dtbs for rpi4, bbb and stm32mp157)
+# software: Linux v6.18.55, GCC 14.2.0 (Debian 14.2.0-19) aarch64-linux-gnu and arm-linux-gnueabihf, GNU Make 4.4.1, DTC 1.7.2 (Debian) for dtc, fdtget and more
+# command: the Part 2 and deeper-section commands of 07-device-tree/03-lab-read-and-build-a-dtb.mdx, in order; each run line below names one
+# captured: 2026-10-11 (UTC), embedded-academy-lab container (Debian 13.7, QEMU 10.0.13)
+# note: lab image built without trixie-updates; the host and container UTC clocks matched the Date headers of google.com, github.com and deb.debian.org at capture, so timestamps in the output are real UTC
+# verification: emulated
+# --- run: cd ~/work/src/linux
+# --- run: make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- O=$HOME/work/m07/build-arm64 defconfig
+make[1]: Entering directory '/home/learner/work/m07/build-arm64'
+  GEN     Makefile
+  HOSTCC  scripts/basic/fixdep
+  HOSTCC  scripts/kconfig/conf.o
+  HOSTCC  scripts/kconfig/confdata.o
+  HOSTCC  scripts/kconfig/expr.o
+  LEX     scripts/kconfig/lexer.lex.c
+  YACC    scripts/kconfig/parser.tab.[ch]
+  HOSTCC  scripts/kconfig/lexer.lex.o
+  HOSTCC  scripts/kconfig/menu.o
+  HOSTCC  scripts/kconfig/parser.tab.o
+  HOSTCC  scripts/kconfig/preprocess.o
+  HOSTCC  scripts/kconfig/symbol.o
+  HOSTCC  scripts/kconfig/util.o
+  HOSTLD  scripts/kconfig/conf
+*** Default configuration is based on 'defconfig'
+#
+# configuration written to .config
+#
+make[1]: Leaving directory '/home/learner/work/m07/build-arm64'
+# --- run: make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- O=$HOME/work/m07/build-arm64 broadcom/bcm2711-rpi-4-b.dtb
+make[1]: Entering directory '/home/learner/work/m07/build-arm64'
+  UPD     include/config/kernel.release
+  HOSTCC  scripts/dtc/dtc.o
+  HOSTCC  scripts/dtc/flattree.o
+  HOSTCC  scripts/dtc/fstree.o
+  HOSTCC  scripts/dtc/data.o
+  HOSTCC  scripts/dtc/livetree.o
+  HOSTCC  scripts/dtc/treesource.o
+  HOSTCC  scripts/dtc/srcpos.o
+  HOSTCC  scripts/dtc/checks.o
+  HOSTCC  scripts/dtc/util.o
+  LEX     scripts/dtc/dtc-lexer.lex.c
+  YACC    scripts/dtc/dtc-parser.tab.[ch]
+  HOSTCC  scripts/dtc/dtc-lexer.lex.o
+  HOSTCC  scripts/dtc/dtc-parser.tab.o
+  HOSTLD  scripts/dtc/dtc
+  HOSTCC  scripts/dtc/libfdt/fdt.o
+  HOSTCC  scripts/dtc/libfdt/fdt_ro.o
+  HOSTCC  scripts/dtc/libfdt/fdt_wip.o
+  HOSTCC  scripts/dtc/libfdt/fdt_sw.o
+  HOSTCC  scripts/dtc/libfdt/fdt_rw.o
+  HOSTCC  scripts/dtc/libfdt/fdt_strerror.o
+  HOSTCC  scripts/dtc/libfdt/fdt_empty_tree.o
+  HOSTCC  scripts/dtc/libfdt/fdt_addresses.o
+  HOSTCC  scripts/dtc/libfdt/fdt_overlay.o
+  HOSTCC  scripts/dtc/fdtoverlay.o
+  HOSTLD  scripts/dtc/fdtoverlay
+  DTC     arch/arm64/boot/dts/broadcom/bcm2711-rpi-4-b.dtb
+make[1]: Leaving directory '/home/learner/work/m07/build-arm64'
+# --- run: cd ~/work/m07/build-arm64/arch/arm64/boot/dts/broadcom
+# --- run: fdtget bcm2711-rpi-4-b.dtb / compatible
+raspberrypi,4-model-b brcm,bcm2711
+# --- run: fdtget bcm2711-rpi-4-b.dtb /chosen stdout-path
+serial1:115200n8
+# --- run: fdtget bcm2711-rpi-4-b.dtb /memory@0 reg
+0 0 0
+# --- run: dtc -I dtb -O dts -o ~/work/m07/rpi4.dts bcm2711-rpi-4-b.dtb
+/home/learner/work/m07/rpi4.dts: Warning (unit_address_vs_reg): /soc: node has a reg or ranges property, but no unit name
+/home/learner/work/m07/rpi4.dts: Warning (unit_address_vs_reg): /emmc2bus: node has a reg or ranges property, but no unit name
+/home/learner/work/m07/rpi4.dts: Warning (unit_address_vs_reg): /scb: node has a reg or ranges property, but no unit name
+/home/learner/work/m07/rpi4.dts: Warning (simple_bus_reg): /soc/firmware: missing or empty reg/ranges property
+/home/learner/work/m07/rpi4.dts: Warning (simple_bus_reg): /soc/power: missing or empty reg/ranges property
+/home/learner/work/m07/rpi4.dts: Warning (clocks_property): /__symbols__:clocks: property size (21) is invalid, expected multiple of 4
+/home/learner/work/m07/rpi4.dts: Warning (gpios_property): /__symbols__:gpio: property size (19) is invalid, expected multiple of 4
+# --- run: cd ~/work/m07
+# --- run: more rpi4.dts
+::::::::::::::
+rpi4.dts
+::::::::::::::
+/dts-v1/;
+
+/memreserve/	0x0000000000000000 0x0000000000001000;
+/ {
+	compatible = "raspberrypi,4-model-b", "brcm,bcm2711";
+	model = "Raspberry Pi 4 Model B";
+	#address-cells = <0x02>;
+	#size-cells = <0x01>;
+	interrupt-parent = <0x01>;
+
+	aliases {
+		serial0 = "/soc/serial@7e201000";
+		serial1 = "/soc/serial@7e215040";
+		emmc2bus = "/emmc2bus";
+		ethernet0 = "/scb/ethernet@7d580000";
+		pcie0 = "/scb/pcie@7d500000";
+		blconfig = "/reserved-memory/nvram@0";
+	};
+
+	chosen {
+		stdout-path = "serial1:115200n8";
+	};
+# ... (2032 lines cut)
+# --- run: cd ~/work/src/linux
+# --- run: make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- O=$HOME/work/m07/build-arm multi_v7_defconfig
+make[1]: Entering directory '/home/learner/work/m07/build-arm'
+  GEN     Makefile
+  HOSTCC  scripts/basic/fixdep
+  HOSTCC  scripts/kconfig/conf.o
+  HOSTCC  scripts/kconfig/confdata.o
+  HOSTCC  scripts/kconfig/expr.o
+  LEX     scripts/kconfig/lexer.lex.c
+  YACC    scripts/kconfig/parser.tab.[ch]
+  HOSTCC  scripts/kconfig/lexer.lex.o
+  HOSTCC  scripts/kconfig/menu.o
+  HOSTCC  scripts/kconfig/parser.tab.o
+  HOSTCC  scripts/kconfig/preprocess.o
+  HOSTCC  scripts/kconfig/symbol.o
+  HOSTCC  scripts/kconfig/util.o
+  HOSTLD  scripts/kconfig/conf
+#
+# configuration written to .config
+#
+make[1]: Leaving directory '/home/learner/work/m07/build-arm'
+# --- run: make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- O=$HOME/work/m07/build-arm ti/omap/am335x-boneblack.dtb
+make[1]: Entering directory '/home/learner/work/m07/build-arm'
+  UPD     include/config/kernel.release
+  HOSTCC  scripts/dtc/dtc.o
+  HOSTCC  scripts/dtc/flattree.o
+  HOSTCC  scripts/dtc/fstree.o
+  HOSTCC  scripts/dtc/data.o
+  HOSTCC  scripts/dtc/livetree.o
+  HOSTCC  scripts/dtc/treesource.o
+  HOSTCC  scripts/dtc/srcpos.o
+  HOSTCC  scripts/dtc/checks.o
+  HOSTCC  scripts/dtc/util.o
+  LEX     scripts/dtc/dtc-lexer.lex.c
+  YACC    scripts/dtc/dtc-parser.tab.[ch]
+  HOSTCC  scripts/dtc/dtc-lexer.lex.o
+  HOSTCC  scripts/dtc/dtc-parser.tab.o
+  HOSTLD  scripts/dtc/dtc
+  HOSTCC  scripts/dtc/libfdt/fdt.o
+  HOSTCC  scripts/dtc/libfdt/fdt_ro.o
+  HOSTCC  scripts/dtc/libfdt/fdt_wip.o
+  HOSTCC  scripts/dtc/libfdt/fdt_sw.o
+  HOSTCC  scripts/dtc/libfdt/fdt_rw.o
+  HOSTCC  scripts/dtc/libfdt/fdt_strerror.o
+  HOSTCC  scripts/dtc/libfdt/fdt_empty_tree.o
+  HOSTCC  scripts/dtc/libfdt/fdt_addresses.o
+  HOSTCC  scripts/dtc/libfdt/fdt_overlay.o
+  HOSTCC  scripts/dtc/fdtoverlay.o
+  HOSTLD  scripts/dtc/fdtoverlay
+  DTC     arch/arm/boot/dts/ti/omap/am335x-boneblack.dtb
+make[1]: Leaving directory '/home/learner/work/m07/build-arm'
+# --- run: make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- O=$HOME/work/m07/build-arm st/stm32mp157c-dk2.dtb
+make[1]: Entering directory '/home/learner/work/m07/build-arm'
+  DTC     arch/arm/boot/dts/st/stm32mp157c-dk2.dtb
+make[1]: Leaving directory '/home/learner/work/m07/build-arm'
+# --- run: cd ~/work/m07
+# --- run: fdtget build-arm/arch/arm/boot/dts/ti/omap/am335x-boneblack.dtb / compatible
+ti,am335x-bone-black ti,am335x-bone ti,am33xx
+# --- run: fdtget build-arm/arch/arm/boot/dts/st/stm32mp157c-dk2.dtb / compatible
+st,stm32mp157c-dk2 st,stm32mp157
+# --- run: fdtget -t x build-arm/arch/arm/boot/dts/ti/omap/am335x-boneblack.dtb /memory@80000000 reg
+80000000 20000000
+# --- run: cd ~/work/src/linux
+# --- run: make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- O=$HOME/work/m07/build-arm64 dtbs
+make[1]: Entering directory '/home/learner/work/m07/build-arm64'
+  DTC     arch/arm64/boot/dts/actions/s700-cubieboard7.dtb
+  DTC     arch/arm64/boot/dts/actions/s900-bubblegum-96.dtb
+  DTC     arch/arm64/boot/dts/airoha/en7581-evb.dtb
+  DTC     arch/arm64/boot/dts/allwinner/sun50i-a64-amarula-relic.dtb
+  DTC     arch/arm64/boot/dts/allwinner/sun50i-a64-bananapi-m64.dtb
+  DTC     arch/arm64/boot/dts/allwinner/sun50i-a64-nanopi-a64.dtb
+  DTC     arch/arm64/boot/dts/allwinner/sun50i-a64-oceanic-5205-5inmfd.dtb
+  DTC     arch/arm64/boot/dts/allwinner/sun50i-a64-olinuxino.dtb
+  DTC     arch/arm64/boot/dts/allwinner/sun50i-a64-olinuxino-emmc.dtb
+  DTC     arch/arm64/boot/dts/allwinner/sun50i-a64-orangepi-win.dtb
+  DTC     arch/arm64/boot/dts/allwinner/sun50i-a64-pine64-lts.dtb
+# ... (1731 lines cut)
+  OVL     arch/arm64/boot/dts/xilinx/zynqmp-sm-k24-revA-sck-kr-g-revB.dtb
+  OVL     arch/arm64/boot/dts/xilinx/zynqmp-smk-k24-revA-sck-kr-g-revB.dtb
+  DTC     arch/arm64/boot/dts/xilinx/versal-net-vn-x-b2197-01-revA.dtb
+make[1]: Leaving directory '/home/learner/work/m07/build-arm64'
