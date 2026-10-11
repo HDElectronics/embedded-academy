@@ -22,6 +22,17 @@ describe.each(boards.map((b) => [b.id, b] as const))('board %s', (_id, board) =>
     for (const stage of board.stages) expect(regionIds, stage.id).toContain(stage.region);
   });
 
+  it('loads images only into regions it defines, inside their bounds', () => {
+    const regions = new Map(board.regions.map((r) => [r.id, r]));
+    for (const load of board.stages.flatMap((s) => s.loads ?? [])) {
+      const region = regions.get(load.to);
+      expect(region, load.file).toBeDefined();
+      if (load.address === undefined || region?.base === undefined) continue;
+      expect(load.address, load.file).toBeGreaterThanOrEqual(region.base);
+      if (region.size !== undefined) expect(load.address, load.file).toBeLessThan(region.base + region.size);
+    }
+  });
+
   it('starts in ROM and ends in Linux', () => {
     const first = board.stages.at(0);
     const last = board.stages.at(-1);

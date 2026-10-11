@@ -382,3 +382,32 @@
     max-width: none;
   }
 }
+
+/* Memory map: images in storage and in each region */
+.ea-memmap__storage {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.ea-memmap__store {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.ea-memmap__runs {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--accent);
+}
+
+.ea-memmap__at {
+  font-weight: 400;
+}
+
+.ea-memmap__store .ea-memmap__chip {
+  border-style: dashed;
+}

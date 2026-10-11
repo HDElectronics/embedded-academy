@@ -74,24 +74,41 @@ export function renderDetail(board: ChainBoard, state: ChainState): string {
   );
 }
 
+function renderImage(file: string, address = '', fresh = false): string {
+  return (
+    `<span class="ea-memmap__chip${fresh ? ' is-active' : ''}" data-file="${esc(file)}">${esc(file)}` +
+    (address ? `<span class="ea-memmap__at"> @ ${esc(address)}</span>` : '') +
+    '</span>'
+  );
+}
+
+/** Memory regions, top to bottom as the board lists them. With a state, also the images in them and in storage. */
 export function renderMemory(board: ChainBoard, state?: ChainState): string {
-  return board.regions
+  const storage = (state?.storage ?? [])
+    .map(
+      (g) =>
+        `<div class="ea-memmap__store"><span class="ea-memmap__label">${esc(g.from)}</span>` +
+        `<div class="ea-memmap__chips">${g.files.map((f) => renderImage(f)).join('')}</div></div>`,
+    )
+    .join('');
+  const regions = board.regions
     .map((r, k) => {
       const rs = state?.regions.at(k);
-      const chips = (rs?.chips ?? [])
-        .map(
-          (c) =>
-            `<span class="ea-memmap__chip${c.active ? ' is-active' : ''}" data-chip="${esc(c.stageId)}">${esc(c.label)}</span>`,
-        )
-        .join('');
+      const images = (rs?.images ?? []).map((m) => renderImage(m.file, m.address, m.fresh)).join('');
       return (
         `<div class="ea-memmap__region${rs?.lit ? ' is-lit' : ''}" data-region="${esc(r.id)}">` +
         `<div class="ea-memmap__head"><span class="ea-memmap__label">${esc(r.label)}</span><span class="ea-memmap__detail">${esc(r.detail)}</span></div>` +
-        (state ? `<div class="ea-memmap__chips">${chips}</div>` : '') +
+        (rs?.lit && state ? `<p class="ea-memmap__runs">* runs here: ${esc(state.stage.name)}</p>` : '') +
+        (state ? `<div class="ea-memmap__chips">${images}</div>` : '') +
         '</div>'
       );
     })
     .join('');
+  return (
+    (storage
+      ? `<div class="ea-memmap__storage" role="group" aria-label="Storage"><p class="ea-memmap__runs">waiting in storage</p>${storage}</div>`
+      : '') + regions
+  );
 }
 
 const TIMESTAMP = /^(\[\s*\d+\.\d+\])(.*)$/;
