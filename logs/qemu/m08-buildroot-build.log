@@ -1,0 +1,67 @@
+# board: none; Buildroot build for QEMU virt (aarch64) in the lab container
+# software: Buildroot 2026.02.3 qemu_aarch64_virt_defconfig, host GCC 14.2.0 (Debian 14.2.0-19)
+# command: sh ~/course/fetch-sources.sh && cd ~/work/src/buildroot && make qemu_aarch64_virt_defconfig && grep BR2_LINUX_KERNEL_CUSTOM_VERSION_VALUE .config && time make; ls output/images
+# captured: 2026-10-11, embedded-academy-lab container (Debian 13.7, QEMU 10.0.13), 8 CPUs
+# note: lab image built without trixie-updates; at capture the host clock matched the Date header of www.google.com, so build dates are as captured
+# note: the real/user/sys lines come from bash time; cut spans also drop date and exit-status lines the wrapper printed
+# verification: emulated
+skip   linux (already in /home/learner/work/src/linux)
+skip   u-boot (already in /home/learner/work/src/u-boot)
+skip   trusted-firmware-a (already in /home/learner/work/src/trusted-firmware-a)
+skip   optee_os (already in /home/learner/work/src/optee_os)
+skip   buildroot (already in /home/learner/work/src/buildroot)
+mkdir -p /home/learner/work/src/buildroot/output/build/buildroot-config/lxdialog
+PKG_CONFIG_PATH="" make CC="/usr/bin/gcc" HOSTCC="/usr/bin/gcc" \
+    obj=/home/learner/work/src/buildroot/output/build/buildroot-config -C support/kconfig -f Makefile.br conf
+make[1]: Entering directory '/home/learner/work/src/buildroot/support/kconfig'
+/usr/bin/gcc -DCURSES_LOC="<curses.h>" -DLOCALE  -I/home/learner/work/src/buildroot/output/build/buildroot-config -DCONFIG_=\"\"  -MM *.c > /home/learner/work/src/buildroot/output/build/buildroot-config/.depend 2>/dev/null || :
+/usr/bin/gcc -DCURSES_LOC="<curses.h>" -DLOCALE  -I/home/learner/work/src/buildroot/output/build/buildroot-config -DCONFIG_=\"\"   -c conf.c -o /home/learner/work/src/buildroot/output/build/buildroot-config/conf.o
+/usr/bin/gcc -DCURSES_LOC="<curses.h>" -DLOCALE  -I/home/learner/work/src/buildroot/output/build/buildroot-config -DCONFIG_=\"\"  -I. -c /home/learner/work/src/buildroot/output/build/buildroot-config/zconf.tab.c -o /home/learner/work/src/buildroot/output/build/buildroot-config/zconf.tab.o
+/usr/bin/gcc -DCURSES_LOC="<curses.h>" -DLOCALE  -I/home/learner/work/src/buildroot/output/build/buildroot-config -DCONFIG_=\"\"   /home/learner/work/src/buildroot/output/build/buildroot-config/conf.o /home/learner/work/src/buildroot/output/build/buildroot-config/zconf.tab.o  -o /home/learner/work/src/buildroot/output/build/buildroot-config/conf
+rm /home/learner/work/src/buildroot/output/build/buildroot-config/zconf.tab.c
+make[1]: Leaving directory '/home/learner/work/src/buildroot/support/kconfig'
+#
+# configuration written to /home/learner/work/src/buildroot/.config
+#
+BR2_LINUX_KERNEL_CUSTOM_VERSION_VALUE="6.18.7"
+# ... (1 lines cut)
+/usr/bin/make -j1  O=/home/learner/work/src/buildroot/output HOSTCC="/usr/bin/gcc" HOSTCXX="/usr/bin/g++" syncconfig
+make[1]: Entering directory '/home/learner/work/src/buildroot'
+make[1]: Leaving directory '/home/learner/work/src/buildroot'
+>>> host-skeleton  Extracting
+# ... (95515 lines cut)
+echo "find /home/learner/work/src/buildroot/output/build/buildroot-fs/ext2/target/run/ -mindepth 1 -prune -print0 | xargs -0r rm -rf --" >> /home/learner/work/src/buildroot/output/build/buildroot-fs/ext2/fakeroot
+echo "find /home/learner/work/src/buildroot/output/build/buildroot-fs/ext2/target/tmp/ -mindepth 1 -prune -print0 | xargs -0r rm -rf --" >> /home/learner/work/src/buildroot/output/build/buildroot-fs/ext2/fakeroot
+printf '   \n' >> /home/learner/work/src/buildroot/output/build/buildroot-fs/ext2/fakeroot
+printf '   \n' >> /home/learner/work/src/buildroot/output/build/buildroot-fs/ext2/fakeroot
+printf '   	rm -f /home/learner/work/src/buildroot/output/images/rootfs.ext2\n	/home/learner/work/src/buildroot/output/host/sbin/mkfs.ext4 -d /home/learner/work/src/buildroot/output/build/buildroot-fs/ext2/target -N 0 -m 5 -L "rootfs" -I 256 -O ^64bit /home/learner/work/src/buildroot/output/images/rootfs.ext2 "60M" || { ret=$?; echo "*** Maybe you need to increase the filesystem size (BR2_TARGET_ROOTFS_EXT2_SIZE)" 1>&2; exit $ret; }\n' >> /home/learner/work/src/buildroot/output/build/buildroot-fs/ext2/fakeroot
+chmod a+x /home/learner/work/src/buildroot/output/build/buildroot-fs/ext2/fakeroot
+PATH="/home/learner/work/src/buildroot/output/host/bin:/home/learner/work/src/buildroot/output/host/sbin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" FAKEROOTDONTTRYCHOWN=1 /home/learner/work/src/buildroot/output/host/bin/fakeroot -- /home/learner/work/src/buildroot/output/build/buildroot-fs/ext2/fakeroot
+rootdir=/home/learner/work/src/buildroot/output/build/buildroot-fs/ext2/target
+table='/home/learner/work/src/buildroot/output/build/buildroot-fs/full_devices_table.txt'
+mke2fs 1.47.3 (8-Jul-2025)
+Creating regular file /home/learner/work/src/buildroot/output/images/rootfs.ext2
+64-bit filesystem support is not enabled.  The larger fields afforded by this feature enable full-strength checksumming.  Pass -O 64bit to rectify.
+Creating filesystem with 61440 1k blocks and 15360 inodes
+Filesystem UUID: 7416c438-20f6-47f4-a57d-e0bcd03da8eb
+Superblock backups stored on blocks: 
+	8193, 24577, 40961, 57345
+
+Allocating group tables: 0/8   done                            
+Writing inode tables: 0/8   done                            
+Creating journal (4096 blocks): done
+Copying files into the device: done
+Writing superblocks and filesystem accounting information: 0/8   done
+
+ln -sf rootfs.ext2 /home/learner/work/src/buildroot/output/images/rootfs.ext4
+ln -snf /home/learner/work/src/buildroot/output/host/aarch64-buildroot-linux-gnu/sysroot /home/learner/work/src/buildroot/output/staging
+>>>   Executing post-image script board/qemu/post-image.sh
+
+real	28m8.225s
+user	85m51.462s
+sys	11m3.286s
+# ... (2 lines cut)
+Image
+rootfs.ext2
+rootfs.ext4
+start-qemu.sh
