@@ -1,0 +1,150 @@
+---
+title: TF-A splits secure boot into numbered images
+description: What BL1, BL2, BL31, BL32 and BL33 each do, where they run, and how the STM32MP157 uses only part of the set.
+course: linux-boot-arm
+module: m05
+order: 1
+type: explanation
+boards: [stm32mp157, rpi4, bbb]
+verification: unverified
+sources:
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Firmware Design'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/design/firmware-design.html
+    section: Cold boot; AArch32 EL3 Runtime Software entrypoint interface
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Image Terminology'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/getting_started/image-terminology.html
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Performing an Initial Build'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/getting_started/initial-build.html
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): STM32 MPUs'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/st/stm32mpus.html
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): STM32MP1'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/st/stm32mp1.html
+  - title: 'Trusted Firmware-A source (lts-v2.14.10): plat/st/stm32mp1/stm32mp1_def.h'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/st/stm32mp1/stm32mp1_def.h
+  - title: 'Trusted Firmware-A source (lts-v2.14.10): plat/st/common/common.mk'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/st/common/common.mk
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Raspberry Pi 4'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/rpi4.html
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Platform Ports'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/index.html
+  - title: ARM Architecture Reference Manual, ARMv7-A and ARMv7-R edition (DDI 0406)
+    url: https://developer.arm.com/documentation/ddi0406/latest
+    section: Privilege levels
+---
+
+import BootChain from '@ea/anim/BootChain.astro';
+import PrivilegeLadder from '@ea/anim/PrivilegeLadder.astro';
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<p class="t-lead">
+  Trusted Firmware-A (TF-A) is Arm's reference firmware for the secure world. It does not boot in one piece. It boots as
+  a short chain of images, each with a number: BL1, BL2, BL31, BL32 and BL33. Learn what each number means and you can
+  read any TF-A boot log, on any board.
+</p>
+
+## BL means boot loader, and the number is the order
+
+TF-A's image names start with BL, for BootLoader. The TF-A documentation calls the name a historical anomaly: several of these images are firmware, not loaders, but the name stuck.[^terms] The digits give the order. BL1 runs first, BL2 second, and the three BL3x images form the third stage.
+
+On a 64-bit (AArch64) system, the cold boot runs in five steps, in this order:[^cold-boot]
+
+| Image | TF-A calls it         | What it does                                                                 | Where it runs                          |
+| ----- | --------------------- | ---------------------------------------------------------------------------- | -------------------------------------- |
+| BL1   | AP Trusted ROM        | Starts at the reset vector, sets up the CPU, loads BL2.                      | EL3, usually from trusted ROM          |
+| BL2   | Trusted Boot Firmware | Sets up the platform, loads every third-stage image, hands over to BL31.     | Secure EL1                             |
+| BL31  | EL3 Runtime Software  | Stays resident. Handles every Secure Monitor Call (SMC) and switches worlds. | EL3                                    |
+| BL32  | Secure-EL1 Payload    | Optional. Usually a Trusted OS such as OP-TEE.                               | Secure EL1                             |
+| BL33  | Non-trusted Firmware  | The normal-world boot loader, for example U-Boot or UEFI. It boots the OS.   | Normal world, EL2 if present, else EL1 |
+
+The levels in the last column come from the firmware design: BL1 starts at EL3, passes control to BL2 at Secure EL1, and BL31 enters BL33 "at the highest available Exception Level (EL2 if available, otherwise EL1)".[^cold-boot][^bl33]
+
+## BL1 and BL2 load, BL31 stays
+
+The first two images are loaders. BL1 is meant to live in ROM, so it typically cannot be modified. It does the minimum: CPU setup, a console, and loading BL2 from platform storage.[^cold-boot] BL2 does the heavier platform work, then loads BL31, the optional BL32 and BL33 into memory. When it is done, BL2 does not jump to BL33 itself. It hands the list of loaded images to the EL3 runtime, which starts them.[^cold-boot]
+
+BL31 is different: it never exits. After it starts BL33, it keeps its exception vectors installed. Normal-world software reaches it with the `SMC` instruction, for example to turn a CPU on or off through the Power State Coordination Interface (PSCI).[^cold-boot] This is why TF-A also calls BL31 the "EL3 monitor firmware": its main purpose is to handle transitions between the normal and secure world.[^terms]
+
+BL32 needs a partner inside BL31. TF-A calls it a Secure Payload Dispatcher (SPD). The dispatcher initializes BL32 before BL33 runs, and routes requests between the two worlds. With no BL32, BL31 passes control straight to BL33.[^cold-boot]
+
+## On 32-bit Arm, BL32 is the monitor
+
+The STM32MP157 has Cortex-A7 cores. Its TF-A port is an Armv7-A platform, built for AArch32 with dedicated code.[^mp1] On AArch32 the chain has four steps, not five:[^cold-boot]
+
+1. BL1, AP Trusted ROM
+2. BL2, Trusted Boot Firmware
+3. BL32, **EL3 Runtime Software**
+4. BL33, Non-trusted Firmware
+
+There is no BL31. The job of the secure monitor moves into BL32. The build option `AARCH32_SP` names it. TF-A ships a minimal one, SP_MIN, to show how its PSCI library fits into AArch32 runtime software. Other AArch32 runtime software can add more services, such as a Trusted OS.[^initial-build] When OP-TEE is the BL32 on a 32-bit platform, it takes this role: it is the Trusted OS and the EL3 runtime at once.[^mp1]
+
+## The STM32MP157 skips BL1
+
+On the STM32MP157, the chip's own ROM code plays the part of BL1. It loads only one TF-A image: BL2, wrapped in an STM32 header so the ROM can load it. BL2 then reads everything else from a single package called the FIP: OP-TEE as BL32, U-Boot as BL33, and their device trees.[^mpus] The TF-A documentation gives the sequence as ROM code, then BL2, then OP-TEE, then U-Boot.[^mpus]
+
+Step through the STM32MP157 on the boot chain and watch the TF-A BL2 stage load OP-TEE and U-Boot.
+
+<BootChain boards={['stm32mp157']} label="secure-chain" pane={1} />
+
+Because there is no BL1 to call back into, BL2 must start as if it were the reset code. The ST platform files build it with `RESET_TO_BL2` set to `1`.[^st-common] The firmware design describes this mode: BL2 then runs at EL3 and jumps to the next image directly.[^bl2-el3]
+
+For OP-TEE, TF-A's STM32MP1 page is explicit: OP-TEE is the default BL32 for ST platforms, and SP_MIN works but is "not the recommended BL32".[^mp1] On the STM32MP15, BL33 is loaded at `0xC010_0000`, 1 MiB into DDR.[^mp1-def]
+
+On the privilege ladder, follow the STM32MP157 from the secure world to the normal world. The handover from OP-TEE to U-Boot is where the world changes.
+
+<PrivilegeLadder board="stm32mp157" pane={2} />
+
+## The other two boards use less of TF-A
+
+TF-A's Raspberry Pi 4 port is a BL31-only port. The GPU firmware still runs first. If it finds a file named `armstub8.bin`, or an `armstub=` entry in `config.txt`, it loads that file to the start of DRAM and runs it in AArch64 EL3. TF-A's `bl31.bin` is used as that stub, and it drops into EL2 to run the "kernel" the firmware loaded.[^rpi4] The same page warns that this port is not secure: all of its memory is DRAM that the normal world can also reach.[^rpi4]
+
+The BeagleBone Black's AM335x does not appear in TF-A's list of platform ports at this version, so its chain has no TF-A stage.[^ports]
+
+<Callout level="info">
+  Every fact on this page comes from the TF-A documentation and source at tag `lts-v2.14.10`. None of it has been
+  checked on a board yet.
+</Callout>
+
+<Deeper depth="practitioner" title="How BL2 reaches BL31 on AArch64">
+
+With TF-A's BL1 in the chain, BL2 runs at Secure EL1 and cannot enter EL3 by itself. It raises an SMC back to BL1, giving it the BL31 entry point. BL1 turns off the MMU, flushes the caches and jumps to BL31 at EL3.[^cold-boot]
+
+BL2 passes the list of next images to the EL3 runtime in the first argument register: `X0` for BL31 on AArch64, `R0` for BL32 on AArch32.[^cold-boot] When BL2 runs at EL3, as on the STM32MP157, the SMC round trip disappears and BL2 jumps to the next image itself.[^bl2-el3]
+
+</Deeper>
+
+<Deeper depth="expert" title="EL3 on a 32-bit core">
+
+The Armv7-A architecture names its privilege levels PL0 to PL2 rather than EL0 to EL3,[^armv7] but TF-A's documents use EL3 language for AArch32 too: they speak of "AArch32 EL3 Runtime Software". Its cold boot entry requires all interrupt sources masked (`PSTATE.AIF = 0x7`) and little-endian data (`SCTLR.EE = 0`), with `R0` carrying information about the BL3x images from BL2.[^aarch32-entry]
+
+</Deeper>
+
+## What comes next
+
+The next page opens the FIP: what it holds, and how `fiptool` builds and inspects it.
+
+[^terms]: Trusted Firmware-A documentation, Image Terminology: common image features and the AP image list.
+
+[^cold-boot]: Trusted Firmware-A documentation, Firmware Design: "Cold boot", "BL1", "BL2", "AArch64 BL31" and "Secure-EL1 Payloads and Dispatchers".
+
+[^bl33]: Trusted Firmware-A documentation, Firmware Design: "BL33 (Non-trusted Firmware) execution".
+
+[^initial-build]: Trusted Firmware-A documentation, Performing an Initial Build: notes on `AARCH32_SP`.
+
+[^mp1]: Trusted Firmware-A documentation, STM32MP1: introduction and "Boot with FIP".
+
+[^mpus]: Trusted Firmware-A documentation, STM32 MPUs: "Design", "Boot" and "Boot sequence".
+
+[^st-common]: Trusted Firmware-A source at `lts-v2.14.10`, `plat/st/common/common.mk`: `RESET_TO_BL2 := 1`.
+
+[^bl2-el3]: Trusted Firmware-A documentation, Firmware Design: "Running BL2 at EL3 execution level".
+
+[^mp1-def]: Trusted Firmware-A source at `lts-v2.14.10`, `plat/st/stm32mp1/stm32mp1_def.h`: `STM32MP_BL33_BASE` is `STM32MP_DDR_BASE + 0x100000` for STM32MP15, with `STM32MP_DDR_BASE` at `0xC0000000`. The STM32MP1 page's memory map shows the same address.
+
+[^rpi4]: Trusted Firmware-A documentation, Raspberry Pi 4: introduction, "Build Instructions" and "TF-A port design".
+
+[^ports]: Trusted Firmware-A documentation, Platform Ports: the list at `lts-v2.14.10` includes `ti-k3` for TI K3 SoCs and no AM335x port.
+
+[^aarch32-entry]: Trusted Firmware-A documentation, Firmware Design: "AArch32 EL3 Runtime Software entrypoint interface".
+
+[^armv7]: ARM Architecture Reference Manual, ARMv7-A and ARMv7-R edition: privilege levels PL0, PL1 and PL2.
