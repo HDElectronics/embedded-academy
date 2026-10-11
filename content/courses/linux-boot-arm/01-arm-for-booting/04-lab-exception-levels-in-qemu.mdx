@@ -1,0 +1,171 @@
+---
+title: 'Lab: read the level in QEMU'
+description: Assemble the instructions that change level, then reset a QEMU virt CPU with and without EL2 and EL3 and read its state in the monitor.
+course: linux-boot-arm
+module: m01
+order: 4
+type: tutorial
+boards: [rpi4, stm32mp157]
+verification: unverified
+sources:
+  - title: 'GNU Binutils 2.44 documentation: ARM options (as)'
+    url: https://sourceware.org/binutils/docs-2.44/as/ARM-Options.html
+  - title: 'GNU Binutils 2.44 documentation: objdump'
+    url: https://sourceware.org/binutils/docs-2.44/binutils/objdump.html
+  - title: 'GNU Binutils 2.44 source: gas/config/tc-arm.c'
+    url: 'https://sourceware.org/git/?p=binutils-gdb.git;a=blob;f=gas/config/tc-arm.c;hb=refs/tags/binutils-2_44'
+    section: CPU table (cortex-a7, cortex-a8); smc, hvc and eret opcode entries
+  - title: 'GNU Binutils 2.44 source: opcodes/aarch64-tbl.h'
+    url: 'https://sourceware.org/git/?p=binutils-gdb.git;a=blob;f=opcodes/aarch64-tbl.h;hb=refs/tags/binutils-2_44'
+    section: svc, hvc and smc opcode entries
+  - title: 'QEMU 10.0 source: qemu-options.hx (-machine, -cpu, -display, -serial, -monitor, -S)'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/qemu-options.hx
+  - title: "QEMU 10.0 documentation source: 'virt' generic virtual platform (docs/system/arm/virt.rst)"
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/docs/system/arm/virt.rst
+  - title: 'QEMU 10.0 source: hmp-commands-info.hx and hmp-commands.hx (info registers, quit)'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/hmp-commands-info.hx
+  - title: 'QEMU 10.0 source: hw/arm/virt.c'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/hw/arm/virt.c
+  - title: 'QEMU 10.0 source: target/arm/cpu.c'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/target/arm/cpu.c
+  - title: 'QEMU 10.0 source: hw/arm/boot.c'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/hw/arm/boot.c
+  - title: 'Arm Cortex-A72 MPCore Processor Technical Reference Manual r0p1'
+    url: https://developer.arm.com/documentation/100095/0001
+    section: 3.2.5 Stack Pointer selection
+  - title: 'Linux v6.18.55 source: arch/arm64/kernel/head.S'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm64/kernel/head.S?h=v6.18.55
+---
+
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+import Prompt from '@ea/ui/Prompt.astro';
+
+<div class="t-lead">
+  In this lab you turn the previous two pages into things you can see. You assemble the instructions that move a core
+  between levels, then start a QEMU CPU with and without EL2 and EL3 and ask it which level it reset into.
+</div>
+
+<Callout level="warning">
+  Nobody has run this lab yet, so it is marked unverified. If a step fails for you, please report it with the
+  [inaccuracy issue form](https://github.com/HDElectronics/embedded-academy/issues/new?template=inaccuracy.yml) and
+  paste the command and the error.
+</Callout>
+
+You need the lab container from module 00, running. The last part also needs the sources from `fetch-sources.sh`.
+
+## Assemble the instructions that change level
+
+Make a folder for this lab inside `~/work`, so it survives when you leave the container:
+
+<Prompt cmd="mkdir -p ~/work/m01" />
+
+Write five 64-bit instructions into a file: read `CurrentEL`, then `SVC`, `HVC`, `SMC` and `ERET`:
+
+<Prompt dir="~/work/m01" cmd="printf 'mrs x0, CurrentEL\nsvc #0\nhvc #0\nsmc #0\neret\n' > el64.s" />
+
+Assemble it with the 64-bit cross assembler, then disassemble the result:
+
+<Prompt dir="~/work/m01" cmd="aarch64-linux-gnu-as -o el64.o el64.s" />
+
+<Prompt dir="~/work/m01" cmd="aarch64-linux-gnu-objdump -d el64.o" />
+
+`objdump -d` prints each instruction as its 32-bit encoding next to its mnemonic[^objdump]. Compare the encodings of `svc`, `hvc` and `smc`: they differ only in their lowest two bits[^a64]. Each one is an ordinary instruction; what makes it special is the exception it raises.
+
+## The Cortex-A8 has no HVC or ERET
+
+Now write the 32-bit equivalent. On Armv7-A you read the mode from the CPSR:
+
+<Prompt dir="~/work/m01" cmd="printf 'mrs r0, cpsr\nsvc #0\nsmc #0\nhvc #0\neret\n' > el32.s" />
+
+Assemble it for the STM32MP157's core, the Cortex-A7, and disassemble it:
+
+<Prompt dir="~/work/m01" cmd="arm-linux-gnueabihf-as -mcpu=cortex-a7 -o el32-a7.o el32.s" />
+
+<Prompt dir="~/work/m01" cmd="arm-linux-gnueabihf-objdump -d el32-a7.o" />
+
+Then assemble the same file for the BeagleBone Black's core, the Cortex-A8:
+
+<Prompt dir="~/work/m01" cmd="arm-linux-gnueabihf-as -mcpu=cortex-a8 -o el32-a8.o el32.s" />
+
+This time the assembler reports errors for the `hvc` and `eret` lines. In binutils, `hvc` and `eret` need the Virtualization Extensions, and `smc` needs the Security Extensions. The `cortex-a7` entry includes both. The `cortex-a8` entry includes only the Security Extensions[^tc-arm]. The assembler knows what you learned on the page about exception levels: the Cortex-A8 has no Hyp mode.
+
+## Reset a 64-bit CPU and read its level
+
+Start QEMU's `virt` machine with a Cortex-A72, the Raspberry Pi 4's core. The options say: no display, no serial device, the QEMU monitor on your terminal, and `-S` to keep the CPU stopped at reset[^qemu-opts]:
+
+<Prompt
+  dir="~/work/m01"
+  cmd="qemu-system-aarch64 -machine virt -cpu cortex-a72 -display none -serial none -monitor stdio -S"
+/>
+
+QEMU shows its monitor prompt, `(qemu)`. Type `info registers` and press Enter[^hmp]. Find the `PSTATE` line: after the flags, QEMU writes the current exception level, `EL` and a number[^dump]. Note the level, then type `quit`.
+
+Run it twice more, each time with one machine option added. `secure=on` gives the CPU the Security Extensions, and `virtualization=on` gives it the Virtualization Extensions[^virt]:
+
+<Prompt
+  dir="~/work/m01"
+  cmd="qemu-system-aarch64 -machine virt,secure=on -cpu cortex-a72 -display none -serial none -monitor stdio -S"
+/>
+
+<Prompt
+  dir="~/work/m01"
+  cmd="qemu-system-aarch64 -machine virt,virtualization=on -cpu cortex-a72 -display none -serial none -monitor stdio -S"
+/>
+
+Compare the three levels. By default, `virt` removes EL3 and EL2 from the CPU unless you ask for them[^virt-c], and an AArch64 CPU resets into the highest exception level it has[^reset]. So the same Cortex-A72 model resets at EL1, at EL3 with `secure=on`, and at EL2 with `virtualization=on`. A real Cortex-A72 always has EL3, and resets there[^a72].
+
+The letter after the level, `h` or `t`, names the stack pointer in use: `h` for the level's own `SP_ELx`, `t` for `SP_EL0`[^a72].
+
+## Reset a 32-bit CPU and read its mode
+
+Do the same with a Cortex-A7 and the 32-bit QEMU:
+
+<Prompt
+  dir="~/work/m01"
+  cmd="qemu-system-arm -machine virt -cpu cortex-a7 -display none -serial none -monitor stdio -S"
+/>
+
+In `info registers`, find the `PSR` line. For an AArch32 CPU, QEMU prints the mode name there, such as `svc` or `hyp`[^dump]. Quit, then try `virt,virtualization=on` and `virt,secure=on` as before. An AArch32 CPU that has EL2 but not EL3 resets in Hyp mode; otherwise it resets in Supervisor mode[^reset]. With `secure=on`, QEMU also marks the line with the security state.
+
+## Read how Linux drops from EL2 to EL1
+
+The kernel's 64-bit entry code checks its own level. Show the function that does it:
+
+<Prompt dir="~/work/src/linux" cmd='grep -n -A 60 "SYM_FUNC_START(init_kernel_el)" arch/arm64/kernel/head.S' />
+
+Find three things in that function[^head]:
+
+1. It reads `CurrentEL` into a register and compares it with EL2, the same instruction you assembled first.
+2. At the label `init_el2`, it writes `elr_el2` and `spsr_el2`.
+3. It ends that path with `eret`, which continues at EL1, the way the page on moving between levels describes.
+
+<Deeper depth="practitioner" title="Why QEMU starts a kernel at EL2 or EL1">
+
+Without `-kernel`, QEMU starts the CPU at its highest exception level, like real hardware, and expects firmware there. With `-kernel` and a Linux image, QEMU acts as the boot loader: it sets the CPU up the way boot firmware would and drops it to Non-secure EL2 or EL1 before jumping to the kernel[^boot]. Those are the two levels Booting AArch64 Linux allows.
+
+</Deeper>
+
+[^objdump]: GNU Binutils 2.44, objdump, `-d`/`--disassemble`.
+
+[^a64]: GNU Binutils 2.44, `opcodes/aarch64-tbl.h`: the base opcodes of `svc`, `hvc` and `smc` are `0xD4000001`, `0xD4000002` and `0xD4000003`, before the immediate is added.
+
+[^tc-arm]: GNU Binutils 2.44, `gas/config/tc-arm.c`: `cortex-a7` uses `ARM_ARCH_V7VE`, which includes `ARM_EXT_VIRT` and `ARM_EXT_SEC`; `cortex-a8` uses `ARM_ARCH_V7A` plus `ARM_EXT_SEC`; `smc` is listed under `arm_ext_sec`, `hvc` and `eret` under `arm_ext_virt`. The `-mcpu` option is described in ARM Options.
+
+[^qemu-opts]: QEMU 10.0, `qemu-options.hx`: `-machine`, `-cpu`, `-display none`, `-serial none`, `-monitor`, `-S`.
+
+[^hmp]: QEMU 10.0, `hmp-commands-info.hx` (`info registers`) and `hmp-commands.hx` (`quit`).
+
+[^dump]: QEMU 10.0, `target/arm/cpu.c`: `aarch64_cpu_dump_state` prints `PSTATE` with the exception level; `arm_cpu_dump_state` prints `PSR` with the AArch32 mode name.
+
+[^virt]: QEMU 10.0, `docs/system/arm/virt.rst`, machine-specific options `secure` and `virtualization`, both off by default.
+
+[^virt-c]: QEMU 10.0, `hw/arm/virt.c`, `machvirt_init`: sets `has_el3` to false unless `secure` is on, and `has_el2` to false unless `virtualization` is on.
+
+[^reset]: QEMU 10.0, `target/arm/cpu.c`, `arm_cpu_reset_hold`.
+
+[^a72]: Arm Cortex-A72 MPCore TRM r0p1, 3.2.4 Rules for changing Exception state (reset into EL3) and Table 3-1 AArch64 Stack Pointer options.
+
+[^head]: Linux v6.18.55, `arch/arm64/kernel/head.S`, `init_kernel_el`.
+
+[^boot]: QEMU 10.0, `hw/arm/boot.c`, `arm_load_kernel` and `do_cpu_reset`.

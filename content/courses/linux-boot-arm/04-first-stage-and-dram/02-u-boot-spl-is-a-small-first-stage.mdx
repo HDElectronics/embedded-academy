@@ -1,0 +1,157 @@
+---
+title: U-Boot SPL is a small U-Boot for the first stage
+description: What U-Boot SPL and TPL are, what CONFIG_SPL builds, and which program brings up DRAM on each of the three boards.
+course: linux-boot-arm
+module: m04
+order: 2
+type: explanation
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'U-Boot v2026.07 documentation: Generic xPL framework'
+    url: https://docs.u-boot.org/en/v2026.07/develop/spl.html
+  - title: 'U-Boot v2026.07 documentation: AM335x Generation'
+    url: https://docs.u-boot.org/en/v2026.07/board/ti/am335x_evm.html
+    section: Failsafe bootloader update
+  - title: 'U-Boot v2026.07 documentation: STM32MP1 boards'
+    url: https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html
+    section: Boot Sequences
+  - title: 'U-Boot v2026.07 source: common/spl/Kconfig'
+    url: https://github.com/u-boot/u-boot/blob/v2026.07/common/spl/Kconfig
+  - title: 'U-Boot v2026.07 source: configs/am335x_evm_defconfig'
+    url: https://github.com/u-boot/u-boot/blob/v2026.07/configs/am335x_evm_defconfig
+  - title: 'U-Boot v2026.07 source: scripts/Makefile.xpl and arch/arm/mach-omap2/config.mk'
+    url: https://github.com/u-boot/u-boot/blob/v2026.07/scripts/Makefile.xpl
+  - title: 'U-Boot v2026.07 source: board/ti/am335x/board.c'
+    url: https://github.com/u-boot/u-boot/blob/v2026.07/board/ti/am335x/board.c
+  - title: TI AM335x and AMIC110 Sitara Processors Technical Reference Manual (SPRUH73Q)
+    url: https://www.ti.com/lit/ug/spruh73q/spruh73q.pdf
+    section: 26.1.8.5.7.3 FAT12/16/32 Root Directory; 26.1.10.2 Image Format for GP Device; 26.1.11 Table of Contents
+  - title: 'Trusted Firmware-A lts-v2.14.10 documentation: STM32 MPUs'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/st/stm32mpus.html
+  - title: 'Raspberry Pi documentation: EEPROM boot flow'
+    url: https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#eeprom-boot-flow
+---
+
+import CodeBlock from '@ea/ui/CodeBlock.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+import BootChain from '@ea/anim/BootChain.astro';
+
+<div class="t-lead">
+  Full U-Boot, with its drivers and command line, is built to run from DRAM. To get there on boards whose boot ROM can
+  only load into small on-chip SRAM, U-Boot's source tree can also build a second, much smaller program: the Secondary
+  Program Loader, or SPL. Its job is the one the last page described: set up DRAM, load the full U-Boot into it, and
+  jump.
+</div>
+
+## SPL is built from the same tree as U-Boot
+
+U-Boot's documentation names the phases a board can go through. TPL, VPL and SPL are optional; U-Boot proper is the one with the command line.[^phases]
+
+- **TPL:** very early init, as tiny as possible. It loads SPL.
+- **VPL:** an optional verification step that can choose between SPL binaries.
+- **SPL:** sets up SDRAM and loads U-Boot proper. It may load other firmware too.
+- **U-Boot proper:** the command line and the boot logic you will use in module 06.
+
+You switch SPL on with the Kconfig option `CONFIG_SPL`, whose help text says to say Y if you want to build SPL as well as the normal image.[^kconfig] `CONFIG_TPL` does the same for TPL. The BeagleBone Black's `am335x_evm_defconfig` sets `CONFIG_SPL=y` and does not enable TPL.[^defconfig]
+
+With `CONFIG_SPL` set, one `make` runs two builds. The SPL objects go in a separate `spl/` folder, and the results are `spl/u-boot-spl`, `spl/u-boot-spl.bin` and `spl/u-boot-spl.map`.[^phases] The ELF file `u-boot-spl` keeps symbols for tools such as `size`; `u-boot-spl.bin` is the raw image.
+
+SPL gets its own configuration. Options named `CONFIG_SPL_...` decide which drivers go into SPL, such as `CONFIG_SPL_MMC` or `CONFIG_SPL_FS_FAT`. Two of them tie SPL to the SRAM you met on the last page:
+
+- `CONFIG_SPL_TEXT_BASE`, the address SPL is linked to run from. For the AM33xx the default is `0x402F0400`, where the boot ROM copies the image.
+- `CONFIG_SPL_MAX_SIZE`, the largest SPL the linker accepts, BSS excluded. For non-secure AM33xx parts the default is `0x1B000`.[^kconfig]
+
+## On the BeagleBone Black, SPL is MLO
+
+<BootChain boards={['bbb', 'stm32mp157', 'rpi4']} pane={1} />
+
+Follow each board on the boot chain as you read: find the stage that runs from on-chip memory, and the stage that first runs from DRAM.
+
+The AM335x boot ROM looks for a file named `MLO` in the root directory of a FAT partition on the SD card or eMMC.[^mlo-name] Because an SD card is not memory the CPU can execute from, the image must start with a small header that gives its size and the address to copy it to. TI calls it the GP header.[^gp]
+
+U-Boot builds that file for you. On OMAP-family SoCs, the SPL build ends by running `mkimage -T omapimage` on `spl/u-boot-spl.bin`, with the load address set to `CONFIG_SPL_TEXT_BASE`. The result is `MLO` at the top of the build folder.[^mlo-rule] Besides the GP header, `MLO` carries a 512-byte table of contents, which the ROM needs when it boots from raw sectors instead of a FAT file.[^failsafe]
+
+Once running, SPL brings up DDR3L in `sdram_init()`, then loads `u-boot.img` from the same FAT partition. The file name comes from `CONFIG_SPL_FS_LOAD_PAYLOAD_NAME` in the defconfig.[^defconfig]
+
+## On the STM32MP157, TF-A BL2 takes the SPL role
+
+ST's recommended chain has no U-Boot SPL. The boot ROM loads only TF-A BL2, with its STM32 header, into embedded SRAM. The other images sit in the FIP.[^tfa] U-Boot's STM32MP1 guide calls BL2 the first stage bootloader, running from embedded RAM, and says it initializes the DDR before it loads the next stages.[^uboot-stm32] You build U-Boot for this chain with `stm32mp15_defconfig`, which has no SPL.
+
+U-Boot also offers a basic chain with SPL for the STM32MP15x, through `stm32mp15_basic_defconfig`. Its guide warns that ST does not support or promote that chain for products.[^uboot-stm32] This course follows the TF-A chain.
+
+## On the Raspberry Pi 4, the EEPROM bootloader sets up DRAM
+
+The Raspberry Pi 4's second-stage bootloader lives in the SPI EEPROM. Its first step is to initialize clocks and SDRAM.[^rpi] By the time the firmware loads U-Boot, DRAM is already working, so U-Boot for this board is a single image: `rpi_4_defconfig` does not enable `CONFIG_SPL`.[^rpi-defconfig]
+
+<Deeper depth="practitioner" title="One u-boot.img for many boards">
+
+`am335x_evm_defconfig` sets `CONFIG_SPL_LOAD_FIT=y`. With that option, U-Boot's `Makefile` builds `u-boot.img` as a FIT image: U-Boot proper plus every Device Tree in `CONFIG_OF_LIST`. That list includes `am335x-boneblack`, `am335x-bonegreen`, `am335x-pocketbeagle` and others.[^defconfig]
+
+SPL chooses the matching Device Tree at boot. `board_fit_config_name_match()` in `board/ti/am335x/board.c` compares each name in the FIT against the board ID that SPL read from the board's EEPROM. The code matches the ID `A335BNLT` to `am335x-boneblack`, unless the revision field marks another board of the same design, such as a BeagleBone Green.[^board-c]
+
+The same board ID also chooses the DDR settings in `sdram_init()`. That is why one SPL binary can boot several boards with different memory.
+
+</Deeper>
+
+<Deeper depth="expert" title="SPL puts its BSS in DRAM">
+
+On OMAP-family SoCs the SPL linker script, `arch/arm/mach-omap2/u-boot-spl.lds`, defines two memory regions. Code, read-only data, data and linker lists go in `.sram`, which starts at `CONFIG_SPL_TEXT_BASE` and is `CONFIG_SPL_MAX_SIZE` long. The `.bss` section goes in `.sdram`, at `CONFIG_SPL_BSS_START_ADDR`. Its default for `ARCH_OMAP2PLUS` is `0x80A00000`, inside DDR.[^kconfig]
+
+{/* REUSE-IgnoreStart */}
+
+<CodeBlock
+  path="arch/arm/mach-omap2/u-boot-spl.lds"
+  project="U-Boot"
+  lang="linker script"
+  href="https://github.com/u-boot/u-boot/blob/v2026.07/arch/arm/mach-omap2/u-boot-spl.lds"
+  simplified
+>
+
+```text
+/* SPDX-License-Identifier: GPL-2.0+ */
+/*
+ * (C) Copyright 2002
+ * Gary Jennejohn, DENX Software Engineering, <garyj@denx.de>
+ *
+ * (C) Copyright 2010
+ * Texas Instruments, <www.ti.com>
+ *	Aneesh V <aneesh@ti.com>
+ */
+MEMORY { .sram : ORIGIN = IMAGE_TEXT_BASE,\
+		LENGTH = IMAGE_MAX_SIZE }
+MEMORY { .sdram : ORIGIN = CONFIG_SPL_BSS_START_ADDR, \
+		LENGTH = CONFIG_SPL_BSS_MAX_SIZE }
+```
+
+</CodeBlock>
+
+{/* REUSE-IgnoreEnd */}
+
+This only works because SPL sets up DDR early. The comment in `include/configs/ti_armv7_common.h` says so: U-Boot initializes DRAM as soon as it can, so that it can place the stack, malloc and BSS there. Zeroed globals cost no SRAM, but the memory behind them does not exist until `sdram_init()` has run. The excerpt is U-Boot code under `GPL-2.0+`.
+
+</Deeper>
+
+[^phases]: U-Boot v2026.07 documentation, "Generic xPL framework", sections "How it works" and "U-Boot Boot Phases".
+
+[^kconfig]: U-Boot v2026.07, `common/spl/Kconfig`: `SPL`, `TPL`, `SPL_TEXT_BASE`, `SPL_MAX_SIZE` and `SPL_BSS_START_ADDR`.
+
+[^defconfig]: U-Boot v2026.07, `configs/am335x_evm_defconfig`.
+
+[^mlo-name]: TI SPRUH73Q, section 26.1.8.5.7.3 "FAT12/16/32 Root Directory".
+
+[^gp]: TI SPRUH73Q, section 26.1.10.2 "Image Format for GP Device", Table 26-37.
+
+[^mlo-rule]: U-Boot v2026.07, `scripts/Makefile.xpl` (`MKIMAGEFLAGS_MLO`) and `arch/arm/mach-omap2/config.mk`.
+
+[^failsafe]: U-Boot v2026.07 documentation, "AM335x Generation", section "Failsafe bootloader update". TI SPRUH73Q, section 26.1.11 "Table of Contents".
+
+[^tfa]: Trusted Firmware-A lts-v2.14.10 documentation, STM32 MPUs, sections "Design" and "Boot".
+
+[^uboot-stm32]: U-Boot v2026.07 documentation, STM32MP1 boards, section "Boot Sequences".
+
+[^rpi]: Raspberry Pi documentation, "EEPROM boot flow", "Second stage bootloader".
+
+[^rpi-defconfig]: U-Boot v2026.07, `configs/rpi_4_defconfig`.
+
+[^board-c]: U-Boot v2026.07, `board/ti/am335x/board.c` and `board/ti/am335x/board.h`: `board_fit_config_name_match()` and `board_is_bone_lt()`.

@@ -1,0 +1,175 @@
+---
+title: 'Lab: measure SPL against the SRAM it must fit in'
+description: Build U-Boot SPL for the BeagleBone Black in the lab container, then compare its size with the 109 KB the AM335x boot ROM can load.
+course: linux-boot-arm
+module: m04
+order: 4
+type: tutorial
+boards: [bbb]
+verification: unverified
+sources:
+  - title: TI AM335x and AMIC110 Sitara Processors Technical Reference Manual (SPRUH73Q)
+    url: https://www.ti.com/lit/ug/spruh73q/spruh73q.pdf
+    section: 26.1.4.2 Public RAM Memory Map; 26.1.9.2 Boot Image Location and Size; 26.1.10.2 Image Format for GP Device
+  - title: 'U-Boot v2026.07 source: arch/arm/include/asm/arch-am33xx/omap.h'
+    url: https://github.com/u-boot/u-boot/blob/v2026.07/arch/arm/include/asm/arch-am33xx/omap.h
+  - title: 'U-Boot v2026.07 source: include/configs/ti_armv7_common.h'
+    url: https://github.com/u-boot/u-boot/blob/v2026.07/include/configs/ti_armv7_common.h
+  - title: 'U-Boot v2026.07 source: common/spl/Kconfig'
+    url: https://github.com/u-boot/u-boot/blob/v2026.07/common/spl/Kconfig
+  - title: 'U-Boot v2026.07 source: arch/arm/mach-omap2/u-boot-spl.lds'
+    url: https://github.com/u-boot/u-boot/blob/v2026.07/arch/arm/mach-omap2/u-boot-spl.lds
+  - title: 'U-Boot v2026.07 source: tools/omapimage.c and tools/gpheader.h'
+    url: https://github.com/u-boot/u-boot/blob/v2026.07/tools/omapimage.c
+  - title: 'U-Boot v2026.07 documentation: Building with GCC'
+    url: https://docs.u-boot.org/en/v2026.07/build/gcc.html
+---
+
+import Prompt from '@ea/ui/Prompt.astro';
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+import MemoryMap from '@ea/anim/MemoryMap.astro';
+
+<Callout level="warning">
+  Nobody has run this lab yet. Its steps follow the U-Boot v2026.07 sources and documentation, but they have not been
+  tested in the lab container. If a step fails or a number does not add up, report it with the inaccuracy issue form.
+</Callout>
+
+<div class="t-lead">
+  In this lab you build the BeagleBone Black's first stage, then hold it up against the memory it has to fit in. You
+  will end with three numbers side by side: the limit the TI manual sets, the limit U-Boot enforces, and the size of the
+  SPL you built.
+</div>
+
+Everything happens in the lab container. Nothing boots: QEMU does not emulate the AM335x, so this lab builds and measures only. You need the lab container running; start it with `sh labs/lab.sh` from the repository root.
+
+## Step 1: fetch U-Boot
+
+Clone the course sources at their pinned versions. If you already did this in an earlier module, the script skips what is there.
+
+<Prompt cmd="sh ~/course/fetch-sources.sh" />
+
+Check that the U-Boot tree is at the version this course teaches:
+
+<Prompt cmd="git -C ~/work/src/u-boot describe --tags" />
+
+It should name the tag `v2026.07`. If it names another version, your numbers may differ from the ones this lab reasons about.
+
+## Step 2: build SPL and U-Boot
+
+Configure the build for the AM335x, in a separate build folder:
+
+<Prompt
+  dir="~/work/src/u-boot"
+  cmd="make CROSS_COMPILE=arm-linux-gnueabihf- O=$HOME/work/build/u-boot-bbb am335x_evm_defconfig"
+/>
+
+Then build:
+
+<Prompt
+  dir="~/work/src/u-boot"
+  cmd="make CROSS_COMPILE=arm-linux-gnueabihf- O=$HOME/work/build/u-boot-bbb -j$(nproc)"
+/>
+
+The build ends without an error message. Every command from here runs in the build folder, `~/work/build/u-boot-bbb`.
+
+## Step 3: work out the limit from the manual
+
+<MemoryMap board="bbb" pane={1} />
+
+Find the internal SRAM on the memory map. The AM335x manual says the boot ROM copies the first-stage image to `0x402F0400` and that the image can be up to 109 KB.[^trm] U-Boot's AM335x header gives the end of that download area as `0x4030B800`.[^omap-h]
+
+Turn both statements into bytes. First the manual's 109 KB:
+
+<Prompt dir="~/work/build/u-boot-bbb" cmd="echo $((109 * 1024))" />
+
+Then the size of the address range:
+
+<Prompt dir="~/work/build/u-boot-bbb" cmd="echo $((0x4030B800 - 0x402F0400))" />
+
+The two numbers should be equal. If they are, the manual and U-Boot agree on the size of the box. Write the number down: it is limit A.
+
+## Step 4: read the limit U-Boot enforces
+
+U-Boot keeps its own limit in the configuration you generated:
+
+<Prompt dir="~/work/build/u-boot-bbb" cmd="grep CONFIG_SPL_MAX_SIZE .config" />
+
+The value is in hexadecimal. For non-secure AM33xx parts the default is `0x1b000`.[^kconfig] Convert it to decimal. If your `.config` shows another value, put that one in the command instead:
+
+<Prompt dir="~/work/build/u-boot-bbb" cmd="echo $((0x1b000))" />
+
+This is limit B. It should be exactly 1024 bytes smaller than limit A. That gap is on purpose: U-Boot limits SPL to the download area minus 1 KiB, which it keeps as scratch space.[^scratch] The linker refuses to build an SPL whose code and data pass limit B.[^kconfig]
+
+## Step 5: measure the SPL you built
+
+List the raw SPL and the `MLO` file made from it:
+
+<Prompt dir="~/work/build/u-boot-bbb" cmd="ls -l spl/u-boot-spl.bin MLO" />
+
+Compare the size of `spl/u-boot-spl.bin` with limit B. Then answer:
+
+1. Does it fit? The linker checks code and data against limit B, so it normally does. The practitioner panel at the end explains the one case that check does not catch.
+2. How many bytes are left before limit B? That margin is all the room you have to add features to SPL, such as another file system or a network driver.
+
+Now compare `MLO` with `spl/u-boot-spl.bin`. `MLO` is larger by the header that `mkimage` puts in front: a 512-byte table of contents and the 8-byte GP header.[^omapimage] The difference you see should be about that size.
+
+The GP header holds two 32-bit words: the image size, then the address to copy it to.[^gp] Show the two words, which start 512 bytes into the file:
+
+<Prompt dir="~/work/build/u-boot-bbb" cmd="od -A d -t x4 -j 512 -N 8 MLO" />
+
+Compare the second word with `0x402F0400`, the address from step 3.
+
+## Step 6: see what does not count against SRAM
+
+The ELF file `spl/u-boot-spl` keeps section sizes. Show them with the cross `size` tool:
+
+<Prompt dir="~/work/build/u-boot-bbb" cmd="arm-linux-gnueabihf-size spl/u-boot-spl" />
+
+Look at the `text`, `data` and `bss` columns. `text` and `data` are in the file the ROM copies. `bss`, the zero-initialized variables, is not in the file at all. Find out where the linker put it:
+
+<Prompt dir="~/work/build/u-boot-bbb" cmd="grep CONFIG_SPL_BSS_START_ADDR .config" />
+
+Compare that address with the DDR3L region on the memory map, which starts at `0x80000000`. The SPL's BSS lives in DRAM.[^lds] That only works because SPL sets up DRAM early, before it needs those variables.
+
+## Step 7: measure the stage that needs DRAM
+
+Last, look at what SPL loads:
+
+<Prompt dir="~/work/build/u-boot-bbb" cmd="ls -l u-boot.img" />
+
+Compare its size with limit A. If `u-boot.img` is larger, the full U-Boot could never run where the ROM loads code. That is why the boot chain needs two stages: a small first stage that fits in SRAM makes DRAM ready, then loads the large one into it.
+
+## What you measured
+
+You now have three numbers:
+
+- limit A, the download area the AM335x boot ROM offers;
+- limit B, the same area minus the 1 KiB U-Boot keeps for itself;
+- the size of your SPL, and how far below limit B it sits.
+
+You also saw that SPL's BSS sits in DRAM, and how `u-boot.img` compares with the SRAM limit. Keep the build folder: module 08 puts these files on an SD card.
+
+<Deeper depth="practitioner" title="Why the file can be larger than text plus data">
+
+`size` reports what the linker placed in the ELF file. With `CONFIG_SPL_OF_CONTROL`, SPL carries a Device Tree, and the build appends it after linking: `spl/u-boot-spl.bin` is then a copy of `spl/u-boot-spl-dtb.bin`.[^xpl] Run `ls spl` to see which files your build made.
+
+The linker's check covers only text, data, read-only data and linker lists.[^kconfig] An appended Device Tree is not part of it, yet the ROM still has to copy it. That is why this lab compares the whole file, not the linker's sections, with the limit.
+
+</Deeper>
+
+[^trm]: TI SPRUH73Q, section 26.1.4.2 "Public RAM Memory Map" and section 26.1.9.2 "Boot Image Location and Size".
+
+[^omap-h]: U-Boot v2026.07, `arch/arm/include/asm/arch-am33xx/omap.h`: `NON_SECURE_SRAM_START` and `NON_SECURE_SRAM_IMG_END`.
+
+[^kconfig]: U-Boot v2026.07, `common/spl/Kconfig`, option `SPL_MAX_SIZE` and its help text.
+
+[^scratch]: U-Boot v2026.07, comment in `include/configs/ti_armv7_common.h`, and `SRAM_SCRATCH_SPACE_ADDR` in `arch/arm/include/asm/arch-am33xx/omap.h`.
+
+[^omapimage]: U-Boot v2026.07, `tools/omapimage.c` (`OMAP_CH_HDR_SIZE`, `OMAP_FILE_HDR_SIZE`) and `tools/gpheader.h` (`struct gp_header`).
+
+[^gp]: TI SPRUH73Q, section 26.1.10.2 "Image Format for GP Device", Table 26-37.
+
+[^lds]: U-Boot v2026.07, `arch/arm/mach-omap2/u-boot-spl.lds`: the `.bss` section goes in the `.sdram` region at `CONFIG_SPL_BSS_START_ADDR`.
+
+[^xpl]: U-Boot v2026.07, `scripts/Makefile.xpl`, rules for `$(SPL_BIN).bin`.
