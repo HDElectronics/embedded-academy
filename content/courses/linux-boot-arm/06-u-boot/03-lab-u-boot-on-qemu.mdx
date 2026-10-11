@@ -6,7 +6,7 @@ module: m06
 order: 3
 type: tutorial
 boards: []
-verification: unverified
+verification: emulated
 sources:
   - title: 'U-Boot documentation (v2026.07): QEMU ARM'
     url: https://docs.u-boot.org/en/v2026.07/board/emulation/qemu-arm.html
@@ -34,17 +34,18 @@ sources:
     url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/configs/qemu_arm64_defconfig
   - title: 'U-Boot source (v2026.07): board/emulation/qemu-arm/qemu-arm.env'
     url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/board/emulation/qemu-arm/qemu-arm.env
+  - title: 'QEMU source (v10.0.0): qemu-options.hx'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/qemu-options.hx
 ---
 
 import Prompt from '@ea/ui/Prompt.astro';
 import Callout from '@ea/ui/Callout.astro';
 import Deeper from '@ea/ui/Deeper.astro';
 
-<Callout level="warning">
-  The steps on this page were run in the lab container on 2026-10-11. The build worked, but both QEMU commands stop with
-  `failed to find romfile "efi-virtio.rom"`: the current lab image lacks QEMU's network boot ROMs. With `-global
-  virtio-net-pci.romfile=` added to the QEMU command, every step behaved as this page describes. Until the lab image is
-  fixed, the page stays unverified. If a step behaves differently for you, report it with the `inaccuracy` issue form.
+<Callout level="info">
+  Every step on this page was run in the lab container under QEMU on 2026-10-11, at the versions this course pins. The
+  console output it describes comes from that run, saved in `logs/qemu/m06-u-boot-virt.log` and
+  `logs/qemu/m06-u-boot-virt-1g.log`. If a step behaves differently for you, report it with the `inaccuracy` issue form.
 </Callout>
 
 <div class="t-lead">
@@ -90,16 +91,23 @@ When the build ends without an error, the build folder holds `u-boot.bin`.[^qemu
 
 ## Boot U-Boot and stop the countdown
 
-Start QEMU with the minimal command line from the U-Boot documentation.[^qemu] `-bios` puts `u-boot.bin` in the emulated flash. `-cpu cortex-a57` asks for a 64-bit CPU, and `-nographic` sends the serial console to your terminal.
+Start QEMU with the minimal command line from the U-Boot documentation, plus `-nic none`:[^qemu]
+
+- `-bios` puts `u-boot.bin` in the emulated flash.
+- `-cpu cortex-a57` asks for a 64-bit CPU.
+- `-nographic` sends the serial console to your terminal.[^qemu-src]
+- `-nic none` gives the machine no network device. Without it, QEMU adds a default network card.[^qemu-src] In the lab
+  container that card's boot ROM file is missing, and QEMU stops before the CPU runs with
+  `qemu-system-aarch64: failed to find romfile "efi-virtio.rom"`. U-Boot needs no network in this lab.
 
 <Prompt
   dir="~/work/src/u-boot"
-  cmd="qemu-system-aarch64 -machine virt -nographic -cpu cortex-a57 -bios $HOME/work/build/qemu_arm64/u-boot.bin"
+  cmd="qemu-system-aarch64 -machine virt -nographic -cpu cortex-a57 -bios $HOME/work/build/qemu_arm64/u-boot.bin -nic none"
 />
 
 U-Boot prints its banner, then a countdown. Press any key before it reaches zero. You get the U-Boot prompt, `=>`.
 
-If you miss the countdown, U-Boot runs `bootcmd`. With no disk and no kernel there is nothing to boot, so it falls back to the prompt.[^main] That can take a moment if it tries the network.
+If you miss the countdown, U-Boot runs `bootcmd`. With no disk and no kernel there is nothing to boot, so it falls back to the prompt.[^main] The scan ends with `(0 bootflows, 0 valid)`.
 
 To leave QEMU at any time, press `Ctrl-A`, then `X`.[^qemu]
 
@@ -116,7 +124,7 @@ Now see the top move. Quit QEMU with `Ctrl-A`, then `X`. Start it again with 1 G
 
 <Prompt
   dir="~/work/src/u-boot"
-  cmd="qemu-system-aarch64 -machine virt -nographic -cpu cortex-a57 -m 1G -bios $HOME/work/build/qemu_arm64/u-boot.bin"
+  cmd="qemu-system-aarch64 -machine virt -nographic -cpu cortex-a57 -m 1G -bios $HOME/work/build/qemu_arm64/u-boot.bin -nic none"
 />
 
 Stop the countdown and run `bdinfo` again. The DRAM size has changed, and `relocaddr` has moved with the top of DRAM.
@@ -133,7 +141,7 @@ Stop the countdown and run `bdinfo` again. The DRAM size has changed, and `reloc
 
 1. Type `bootdev list`. It lists the bootdevs U-Boot knows about so far.[^bootdev]
 2. Type `bootmeth list`. It lists the boot methods, in the order U-Boot tries them.[^bootmeth]
-3. Type `bootflow scan -l`. It scans every bootdev and lists each bootflow it finds, without booting.[^bootflow] Watch which devices it tries and in which order, and compare that with `boot_targets`.
+3. Type `bootflow scan -l`. It scans every bootdev and lists each bootflow it finds, without booting.[^bootflow] Watch which devices it tries and in which order, and compare that with `boot_targets`. Only the `qfw` bootdev has a device behind it here: the machine has no disk, and `-nic none` removed the network card that `dhcp` would use.
 4. Type `bootflow list`. It shows the bootflows the scan found.[^bootflow] You gave QEMU no disk and no kernel, so expect none.
 
 Quit QEMU with `Ctrl-A`, then `X`.
@@ -151,6 +159,8 @@ Check first that the container has `qemu-img` with `command -v qemu-img`. The la
 You built U-Boot from source, booted it on an emulated Arm machine and read three things from its prompt: where it relocated itself, which variables steer the boot, and how standard boot searches for an operating system. The next page builds U-Boot for the three course boards.
 
 [^qemu]: U-Boot documentation, QEMU ARM: Building (non-secure), Running U-Boot (non-secure).
+
+[^qemu-src]: QEMU source at `v10.0.0`: `qemu-options.hx` for `-nographic` and `-nic none`.
 
 [^gcc]: U-Boot documentation, Building with GCC: Dependencies, Building, Out-of-tree building.
 
