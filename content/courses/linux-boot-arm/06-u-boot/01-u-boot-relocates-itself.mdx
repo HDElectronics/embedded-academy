@@ -1,0 +1,180 @@
+---
+title: U-Boot relocates itself to the top of DRAM
+description: U-Boot starts wherever the previous stage left it, then copies itself to the top of DRAM. See why, and how to find where it went.
+course: linux-boot-arm
+module: m06
+order: 1
+type: explanation
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'U-Boot documentation (v2026.07): Memory Management'
+    url: https://docs.u-boot.org/en/v2026.07/develop/memory.html
+  - title: 'U-Boot documentation (v2026.07): Board Initialisation Flow'
+    url: https://docs.u-boot.org/en/v2026.07/develop/init.html
+  - title: 'U-Boot documentation (v2026.07): Logical Memory Blocks (LMB)'
+    url: https://docs.u-boot.org/en/v2026.07/develop/lmb.html
+  - title: 'U-Boot documentation (v2026.07): bdinfo command'
+    url: https://docs.u-boot.org/en/v2026.07/usage/cmd/bdinfo.html
+  - title: 'U-Boot documentation (v2026.07): Debugging U-Boot with GDB'
+    url: https://docs.u-boot.org/en/v2026.07/develop/gdb.html
+  - title: 'U-Boot documentation (v2026.07): Analyzing crash dumps'
+    url: https://docs.u-boot.org/en/v2026.07/develop/crash_dumps.html
+  - title: 'U-Boot documentation (v2026.07): QEMU ARM'
+    url: https://docs.u-boot.org/en/v2026.07/board/emulation/qemu-arm.html
+  - title: 'U-Boot source (v2026.07): common/board_f.c'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/common/board_f.c
+  - title: 'U-Boot source (v2026.07): arch/arm/lib/crt0_64.S'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/arch/arm/lib/crt0_64.S
+  - title: 'U-Boot source (v2026.07): arch/arm/lib/relocate_64.S'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/arch/arm/lib/relocate_64.S
+  - title: 'U-Boot source (v2026.07): include/asm-generic/global_data.h'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/include/asm-generic/global_data.h
+  - title: 'U-Boot source (v2026.07): doc/README.arm-relocation'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/doc/README.arm-relocation
+  - title: 'U-Boot source (v2026.07): arch/arm/mach-stm32mp/dram_init.c'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/arch/arm/mach-stm32mp/dram_init.c
+---
+
+import BootChain from '@ea/anim/BootChain.astro';
+import MemoryMap from '@ea/anim/MemoryMap.astro';
+import CodeBlock from '@ea/ui/CodeBlock.astro';
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<div class="t-lead">
+  U-Boot does not choose where it starts. The stage before it decides: a boot ROM, U-Boot SPL, the Raspberry Pi firmware
+  or TF-A. Early in its start, U-Boot copies itself to the top of DRAM and carries on from there. This page explains
+  why, and how you find the new address when you debug.
+</div>
+
+## U-Boot starts with almost nothing
+
+<BootChain />
+
+Play the chain and stop at the U-Boot stage on each board. U-Boot always runs from DRAM in the end, but it starts wherever it was put. Under QEMU's `virt` machine it even starts in emulated flash at address `0x0`, not in RAM.[^qemu]
+
+U-Boot's start-up code splits the work in two:[^crt0]
+
+1. `board_init_f()` runs from the load address. It has a small stack and a global data structure (`gd`) in whatever RAM is ready. Global variables are not usable yet. Its job is to bring up DRAM and to plan where everything will live.
+2. `relocate_code()` copies U-Boot to the planned address. Then `board_init_r()` runs from the copy, with DRAM, global variables and a full stack.[^init]
+
+## U-Boot plans from the top of DRAM down
+
+Once DRAM works, U-Boot knows its size. It sets the top of usable RAM, `gd->ram_top`, and starts the relocation address `gd->relocaddr` at that same value.[^boardf] Each reservation then moves `gd->relocaddr` further down.
+
+{/* REUSE-IgnoreStart */}
+
+<CodeBlock path="common/board_f.c" project="U-Boot" lang="c" simplified>
+
+```c
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright (c) 2011 The Chromium OS Authors.
+ * (C) Copyright 2002-2006
+ * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
+ *
+ * (C) Copyright 2002
+ * Sysgo Real-Time Solutions, GmbH <www.elinos.com>
+ * Marius Groeger <mgroeger@sysgo.de>
+ */
+
+/* ... */
+
+static int setup_dest_addr(void)
+{
+        gd->ram_top = gd->ram_base + get_effective_memsize();
+        gd->ram_top = board_get_usable_ram_top(gd->mon_len);
+        gd->relocaddr = gd->ram_top;
+        return arch_setup_dest_addr();
+}
+
+static int reserve_uboot(void)
+{
+        /* reserve memory for U-Boot code, data & bss, round down to next 4 kB limit */
+        gd->relocaddr -= gd->mon_len;
+        gd->relocaddr &= ~(4096 - 1);
+        gd->start_addr_sp = gd->relocaddr;
+        return 0;
+}
+```
+
+</CodeBlock>
+
+{/* REUSE-IgnoreEnd */}
+
+The excerpt keeps the license of `common/board_f.c`, GPL-2.0-or-later. The space for U-Boot's own code, data and BSS is reserved first, right under the top. Below it come the `malloc()` heap, the board information, the global data, a copy of U-Boot's Device Tree and finally the stack, which grows down.[^memory] [^boardf]
+
+<MemoryMap board="bbb" upTo={2} pane={1} />
+
+On the BeagleBone Black memory map, U-Boot SPL runs in internal SRAM and U-Boot ends up at the top of the DDR3L. The same pattern holds on the Raspberry Pi 4 and the STM32MP157: the regions change, the top-down plan does not.
+
+## The top leaves the rest of DRAM free
+
+Why the top? U-Boot may start in flash, or low in RAM where an earlier stage such as SPL loaded it. Either way, once DRAM works, the code relocates itself to the upper end of DRAM.[^memory]
+
+Moving to the top keeps U-Boot, its heap and its stack in one block at the end of DRAM. Everything below is free for the images you load: the kernel, the Device Tree and the initial RAM disk. U-Boot tracks that free memory with its Logical Memory Blocks (LMB) module, which hands out regions that the U-Boot image does not occupy.[^lmb]
+
+<Deeper depth="practitioner" title="When the top of DRAM is not U-Boot's to take">
+
+A board can lower the top that U-Boot uses by providing `board_get_usable_ram_top()`.[^boardf] The STM32MP1 code does this. OP-TEE reserves memory at the end of DDR, so when that reservation ends at the top of RAM, U-Boot places itself below it.[^stm32]
+
+</Deeper>
+
+## The copy needs fixups
+
+Copying the bytes is not enough. Code and data hold absolute addresses, such as pointers to strings and function tables, and those still point at the old location.
+
+U-Boot for Arm is linked with `-pie`. The linker then emits a table of fixups that lists every such address.[^armreloc] On 64-bit Arm, `relocate_code()` copies the image from `__image_copy_start` to `__image_copy_end`, then walks that table. For each entry of type `R_AARCH64_RELATIVE`, it adds the relocation offset to the stored address.[^reloc64]
+
+After the copy, the start-up code returns into the relocated copy, clears BSS and calls `board_init_r()`.[^crt0] From here on, U-Boot runs from the top of DRAM.[^init]
+
+## Two numbers tell you where it went
+
+U-Boot keeps two values in its global data:[^gd]
+
+- `gd->relocaddr`: the address U-Boot copied itself to.
+- `gd->reloc_off`: the relocation offset. On Arm it is `gd->relocaddr` minus the link-time start of the image.[^boardf]
+
+You don't need a debugger to read them. The `bdinfo` command prints both, as `relocaddr` and `reloc off`.[^bdinfo] You will run it in this module's lab.
+
+<Deeper depth="expert" title="Use the offset to debug the relocated U-Boot">
+
+The `u-boot` ELF file carries link-time addresses, so after relocation its symbols no longer match the code that runs. To debug with GDB, read `relocaddr` from `bdinfo`, discard the symbol table, then load it again with `add-symbol-file u-boot` followed by that address.[^gdb]
+
+Without a working U-Boot prompt you can still find the address. The global data pointer lives in a fixed register, `x18` on 64-bit Arm and `r9` on 32-bit Arm, and GDB can read `relocaddr` through it.[^gdb]
+
+When U-Boot crashes, its dump prints the `elr` and `lr` registers with the relocation offset already subtracted. Look those values up in `u-boot.map` to find the function that failed.[^crash]
+
+</Deeper>
+
+<Callout level="info">
+  Every fact on this page comes from the U-Boot documentation and source at `v2026.07`, listed under Sources. Nobody has
+  checked it on the boards yet, so the page is marked unverified.
+</Callout>
+
+[^qemu]: U-Boot documentation, QEMU ARM: the `virt` platform runs U-Boot from the emulated flash at address `0x0`.
+
+[^crt0]: U-Boot source, `arch/arm/lib/crt0_64.S`: the comment at the top describes the `_main` sequence.
+
+[^init]: U-Boot documentation, Board Initialisation Flow: `board_init_r()`.
+
+[^boardf]: U-Boot source, `common/board_f.c`: `setup_dest_addr()`, `reserve_uboot()`, `setup_reloc()` and `board_get_usable_ram_top()`.
+
+[^memory]: U-Boot documentation, Memory Management.
+
+[^lmb]: U-Boot documentation, Logical Memory Blocks (LMB): Introduction.
+
+[^stm32]: U-Boot source, `arch/arm/mach-stm32mp/dram_init.c`: `board_get_usable_ram_top()`.
+
+[^armreloc]: U-Boot source, `doc/README.arm-relocation`.
+
+[^reloc64]: U-Boot source, `arch/arm/lib/relocate_64.S`.
+
+[^gd]: U-Boot source, `include/asm-generic/global_data.h`: fields `relocaddr` and `reloc_off`.
+
+[^bdinfo]: U-Boot documentation, bdinfo command.
+
+[^gdb]: U-Boot documentation, Debugging U-Boot with GDB.
+
+[^crash]: U-Boot documentation, Analyzing crash dumps.

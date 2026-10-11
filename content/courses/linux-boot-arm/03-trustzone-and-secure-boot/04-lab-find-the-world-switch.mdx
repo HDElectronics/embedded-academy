@@ -1,0 +1,298 @@
+---
+title: 'Lab: find the world switch in the source'
+description: Follow one SMC from Linux into TF-A at EL3 and into OP-TEE's Armv7-A monitor, by reading the pinned source trees in the lab container.
+course: linux-boot-arm
+module: m03
+order: 4
+type: tutorial
+boards: [rpi4, stm32mp157]
+verification: unverified
+sources:
+  - title: 'Linux source (v6.18.55): arch/arm64/kernel/smccc-call.S and drivers/tee/optee/smc_abi.c'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm64/kernel/smccc-call.S?h=v6.18.55
+  - title: 'TF-A source (lts-v2.14.10): bl31/aarch64/runtime_exceptions.S'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/bl31/aarch64/runtime_exceptions.S
+  - title: 'TF-A source (lts-v2.14.10): lib/el3_runtime/aarch64/context_mgmt.c and context.S'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/lib/el3_runtime/aarch64/context_mgmt.c
+  - title: 'OP-TEE source (4.10.0): core/arch/arm/sm/sm_a32.S'
+    url: https://github.com/OP-TEE/optee_os/blob/4.10.0/core/arch/arm/sm/sm_a32.S
+  - title: 'OP-TEE documentation 4.10.0: Core'
+    url: https://optee.readthedocs.io/en/4.10.0/architecture/core.html
+    section: Core exception vectors
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): QEMU virt Armv8-A'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/qemu.html
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Build options and Firmware Design'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/design/firmware-design.html
+    section: Initializing a BL32 Image; SPD build option
+  - title: "QEMU documentation: 'virt' generic virtual platform"
+    url: https://www.qemu.org/docs/master/system/arm/virt.html
+    section: Supported devices; Machine-specific options
+---
+
+import Callout from '@ea/ui/Callout.astro';
+import CodeBlock from '@ea/ui/CodeBlock.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+import Prompt from '@ea/ui/Prompt.astro';
+
+<Callout level="warning">
+  Nobody has run these steps in the lab container yet. The commands were checked against the pinned source trees, but
+  not executed in the container. If a step fails or a file is not where this page says, report it with the inaccuracy
+  issue form.
+</Callout>
+
+In this lab you follow one `SMC` call through three source trees: Linux makes the call, TF-A catches it at EL3 on Armv8-A, and OP-TEE's own monitor catches it on an Armv7-A board such as the STM32MP157. You only read code. Nothing runs on QEMU or on a board.
+
+You need the lab container and the course sources, at the versions the course pins: Linux `v6.18.55`, TF-A `lts-v2.14.10` and OP-TEE `4.10.0`.
+
+## Step 1: fetch the sources
+
+Inside the lab container, run the fetch script. It clones each project at its pinned tag into `~/work/src`, and skips projects you already have.
+
+<Prompt cmd="sh ~/course/fetch-sources.sh" />
+
+Check that the three trees you need are there.
+
+<Prompt cmd="ls ~/work/src" />
+
+Look for `linux`, `trusted-firmware-a` and `optee_os` in the listing.
+
+## Step 2: see Linux make the call
+
+The OP-TEE driver in Linux calls the secure world through a helper named `arm_smccc_smc`.
+
+<Prompt dir="~/work/src/linux" cmd='grep -n "arm_smccc_smc" drivers/tee/optee/smc_abi.c' />
+
+The match is inside `optee_smccc_smc()`. A little further down, `get_invoke_func()` reads the `method` property of the OP-TEE device tree node and picks the `smc` or the `hvc` variant.
+
+Now find the helper itself in the arm64 code.
+
+<Prompt dir="~/work/src/linux" cmd='grep -n "__arm_smccc_smc" arch/arm64/kernel/smccc-call.S' />
+
+Open the file around the matches. The helper is a macro that executes the instruction it is given, with immediate `#0`:
+
+{/* REUSE-IgnoreStart */}
+
+<CodeBlock
+  path="arch/arm64/kernel/smccc-call.S"
+  project="Linux"
+  lang="asm"
+  simplified
+  href="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm64/kernel/smccc-call.S?h=v6.18.55"
+>
+
+```asm
+/* SPDX-License-Identifier: GPL-2.0-only */
+/* Copyright (c) 2015, Linaro Limited */
+
+	.macro SMCCC instr
+	\instr	#0
+	/* ... store x0-x3 into the result structure, then return ... */
+	.endm
+
+SYM_FUNC_START(__arm_smccc_smc)
+	SMCCC	smc
+SYM_FUNC_END(__arm_smccc_smc)
+```
+
+</CodeBlock>
+
+{/* REUSE-IgnoreEnd */}
+
+That `smc #0` is the last normal world instruction. The next one runs at EL3.
+
+## Step 3: catch the SMC at EL3 in TF-A
+
+An `SMC` from AArch64 at a lower exception level arrives at the "lower EL using AArch64" synchronous vector of BL31.
+
+<Prompt
+  dir="~/work/src/trusted-firmware-a"
+  cmd='grep -n "vector_entry sync_exception_aarch64" bl31/aarch64/runtime_exceptions.S'
+/>
+
+Then find where the handler records which world the caller came from.
+
+<Prompt dir="~/work/src/trusted-firmware-a" cmd='grep -n "Copy SCR_EL3.NS bit" bl31/aarch64/runtime_exceptions.S' />
+
+{/* REUSE-IgnoreStart */}
+
+<CodeBlock
+  path="bl31/aarch64/runtime_exceptions.S"
+  project="TF-A"
+  lang="asm"
+  simplified
+  href="https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/bl31/aarch64/runtime_exceptions.S"
+>
+
+```asm
+/* Copyright (c) 2013-2025, Arm Limited and Contributors. All rights reserved. */
+/* SPDX-License-Identifier: BSD-3-Clause */
+
+vector_entry sync_exception_aarch64
+	/*
+	 * This exception vector will be the entry point for SMCs and traps
+	 * that are unhandled at lower ELs most commonly. ...
+	 */
+	...
+	/* Load SCR_EL3 */
+	mrs	x18, scr_el3
+	...
+	/* Copy SCR_EL3.NS bit to the flag to indicate caller's security */
+	bfi	x7, x18, #0, #1
+```
+
+</CodeBlock>
+
+{/* REUSE-IgnoreEnd */}
+
+`SCR_EL3.NS` is still set from the normal world, so BL31 reads it to know who called. The handler then picks a runtime service from the function ID in `x0`, calls it, and leaves through `el3_exit`.
+
+## Step 4: find where TF-A sets the NS bit
+
+The NS bit is bit 0 of `SCR_EL3`. Check its definition.
+
+<Prompt dir="~/work/src/trusted-firmware-a" cmd='grep -n "define SCR_NS_BIT" include/arch/aarch64/arch.h' />
+
+Now find who sets it.
+
+<Prompt dir="~/work/src/trusted-firmware-a" cmd='grep -n "SCR_NS_BIT" lib/el3_runtime/aarch64/context_mgmt.c' />
+
+Several lines match. Look for the one inside `setup_ns_context()`: this is where BL31 prepares the saved `SCR_EL3` value for a normal world image such as U-Boot.
+
+{/* REUSE-IgnoreStart */}
+
+<CodeBlock
+  path="lib/el3_runtime/aarch64/context_mgmt.c"
+  project="TF-A"
+  lang="c"
+  simplified
+  href="https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/lib/el3_runtime/aarch64/context_mgmt.c"
+>
+
+```c
+/* Copyright (c) 2013-2025, Arm Limited and Contributors. All rights reserved. */
+/* Copyright (c) 2022, NVIDIA Corporation. All rights reserved. */
+/* SPDX-License-Identifier: BSD-3-Clause */
+
+static void setup_ns_context(cpu_context_t *ctx, const struct entry_point_info *ep)
+{
+	...
+	/* SCR_NS: Set the NS bit */
+	scr_el3 |= SCR_NS_BIT;
+	...
+}
+```
+
+</CodeBlock>
+
+{/* REUSE-IgnoreEnd */}
+
+The saved value only takes effect on the way out. Find the exit path.
+
+<Prompt dir="~/work/src/trusted-firmware-a" cmd='grep -n "exception_return" lib/el3_runtime/aarch64/context.S' />
+
+The match is the last instruction of `el3_exit`. Before it, the code loads the saved `SCR_EL3` from the context and writes it with `msr scr_el3`. The `exception_return` then drops the core into whichever world that bit names. This is the three-step switch from the concepts page: enter EL3, change `SCR_EL3.NS`, return.
+
+## Step 5: find the Armv7-A monitor in OP-TEE
+
+The STM32MP157 is an Armv7-A board. There is no EL3, and OP-TEE runs its own monitor in Monitor mode. OP-TEE builds that monitor only when no external one, such as TF-A, is present.
+
+<Prompt dir="~/work/src/optee_os" cmd='grep -n -A2 "CFG_WITH_ARM_TRUSTED_FW" core/arch/arm/arm.mk' />
+
+The three lines say: if `CFG_WITH_ARM_TRUSTED_FW` is not `y`, add the `sm` directory to the build. Check which of the two STM32MP platforms sets that option.
+
+<Prompt
+  dir="~/work/src/optee_os"
+  cmd='grep -l "CFG_WITH_ARM_TRUSTED_FW" core/arch/arm/plat-stm32mp1/conf.mk core/arch/arm/plat-stm32mp2/conf.mk'
+/>
+
+Only the `plat-stm32mp2` file is listed. The STM32MP1 platform does not set the option, so OP-TEE's own monitor in `core/arch/arm/sm` is built for the STM32MP157. That matches OP-TEE's advice that Armv7-A platforms use its monitor.[^optee-core]
+
+Now find the world switch in the monitor.
+
+<Prompt dir="~/work/src/optee_os" cmd='grep -n "SCR_NS" core/arch/arm/sm/sm_a32.S' />
+
+{/* REUSE-IgnoreStart */}
+
+<CodeBlock
+  path="core/arch/arm/sm/sm_a32.S"
+  project="OP-TEE"
+  lang="asm"
+  simplified
+  href="https://github.com/OP-TEE/optee_os/blob/4.10.0/core/arch/arm/sm/sm_a32.S"
+>
+
+```asm
+/* SPDX-License-Identifier: BSD-2-Clause */
+/* Copyright (c) 2016-2020, Linaro Limited */
+/* Copyright (c) 2014, STMicroelectronics International N.V. */
+
+LOCAL_FUNC sm_smc_entry , :
+	...
+	/* Find out if we're doing an secure or non-secure entry */
+	read_scr r1
+	tst	r1, #SCR_NS
+	bne	.smc_from_nsec
+	...
+	/* Update SCR */
+	read_scr r0
+	orr	r0, r0, #(SCR_NS | SCR_FIQ) /* Set NS and FIQ bit in SCR */
+	write_scr r0
+	...
+.smc_from_nsec:
+	...
+	bic	r1, r1, #(SCR_NS | SCR_FIQ) /* Clear NS and FIQ bit in SCR */
+	write_scr r1
+	...
+	rfefd	sp!
+END_FUNC sm_smc_entry
+
+LOCAL_FUNC sm_vect_table , :, align=32
+	b	.		/* Reset			*/
+	b	.		/* Undefined instruction	*/
+	b	sm_smc_entry	/* Secure monitor call		*/
+	...
+END_FUNC sm_vect_table
+```
+
+</CodeBlock>
+
+{/* REUSE-IgnoreEnd */}
+
+Read it in three parts:
+
+- `sm_vect_table` is the monitor's vector table. Its SMC slot branches to `sm_smc_entry`. `sm_init` in the same file writes the table's address to `MVBAR`.
+- `sm_smc_entry` tests `SCR.NS` to learn which world called, the same question BL31 asks of `SCR_EL3.NS`.
+- A call from the normal world clears `NS`; a return to the normal world sets it. `rfefd` is the exception return that drops into the chosen world.
+
+## What you found
+
+You traced the whole round trip in source:
+
+1. Linux executes `smc #0` in `__arm_smccc_smc`.
+2. On Armv8-A, the core enters BL31 at `sync_exception_aarch64`. BL31 reads `SCR_EL3.NS` to learn the caller's world.
+3. BL31 sets up the next world's `SCR_EL3` value in its saved context, writes it in `el3_exit`, and returns with `exception_return`.
+4. On Armv7-A, OP-TEE's own monitor does the same job in Monitor mode, with `SCR.NS`, `MVBAR` and `rfefd`.
+
+<Deeper depth="practitioner" title="Where QEMU virt fits">
+
+QEMU's `virt` machine can emulate a CPU with TrustZone. Its `secure` option turns the Security Extensions on; the default is off. With it on, `virt` adds devices only the secure world can see: a second PL011 UART, a second PL061 GPIO controller, secure flash and 16 MB of secure RAM.[^qemu-virt]
+
+TF-A's `PLAT=qemu` documentation starts QEMU with `-machine virt,secure=on` and passes `bl1.bin` with `-bios`, so that BL1 plays the boot ROM. To run OP-TEE as BL32 under BL31, it builds TF-A with `SPD=opteed`.[^tfa-qemu] Find both in the TF-A tree:
+
+<Prompt dir="~/work/src/trusted-firmware-a" cmd='grep -n "secure=on" docs/plat/qemu.rst' />
+
+<Prompt dir="~/work/src/trusted-firmware-a" cmd="ls services/spd/opteed" />
+
+`SPD=opteed` names a directory under `services/spd/`, which holds a Secure Payload Dispatcher built into TF-A.[^tfa-spd] TF-A's firmware design calls this the Secure-EL1 Payload Dispatcher: the BL31 service that initialises the BL32 image, here OP-TEE.[^tfa-design] Module 05 covers TF-A in depth.
+
+</Deeper>
+
+[^optee-core]: OP-TEE documentation 4.10.0, [Core: Core exception vectors](https://optee.readthedocs.io/en/4.10.0/architecture/core.html#core-exception-vectors).
+
+[^qemu-virt]: QEMU documentation, ['virt' generic virtual platform](https://www.qemu.org/docs/master/system/arm/virt.html), "Supported devices" and "Machine-specific options". The page tracks QEMU's development branch; the lab container ships QEMU 10.0.
+
+[^tfa-spd]: Trusted Firmware-A documentation (lts-v2.14.10), [Build options](https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/getting_started/build-options.html), `SPD`.
+
+[^tfa-design]: Trusted Firmware-A documentation (lts-v2.14.10), [Firmware Design: Initializing a BL32 Image](https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/design/firmware-design.html).
+
+[^tfa-qemu]: Trusted Firmware-A documentation (lts-v2.14.10), [QEMU virt Armv8-A](https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/qemu.html).

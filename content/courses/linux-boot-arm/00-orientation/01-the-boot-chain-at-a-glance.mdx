@@ -26,11 +26,11 @@ import PrivilegeLadder from '@ea/anim/PrivilegeLadder.astro';
 import SerialConsole from '@ea/anim/SerialConsole.astro';
 import Callout from '@ea/ui/Callout.astro';
 
-<p class="t-lead">
+<div class="t-lead">
   When you power on an ARM board, the first code that runs is not yours. It is a small program inside the chip: the boot
   ROM. Its job is to find the next program and run it. That program finds the next one, and so on, until the Linux
   kernel starts the first user process, PID 1. This sequence is the boot chain.
-</p>
+</div>
 
 ## Each stage does a little, then hands over
 
