@@ -6,7 +6,7 @@ module: m03
 order: 4
 type: tutorial
 boards: [rpi4, stm32mp157]
-verification: unverified
+verification: emulated
 sources:
   - title: 'Linux source (v6.18.55): arch/arm64/kernel/smccc-call.S and drivers/tee/optee/smc_abi.c'
     url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm64/kernel/smccc-call.S?h=v6.18.55
@@ -34,10 +34,10 @@ import CodeBlock from '@ea/ui/CodeBlock.astro';
 import Deeper from '@ea/ui/Deeper.astro';
 import Prompt from '@ea/ui/Prompt.astro';
 
-<Callout level="warning">
-  Nobody has run these steps in the lab container yet. The commands were checked against the pinned source trees, but
-  not executed in the container. If a step fails or a file is not where this page says, report it with the inaccuracy
-  issue form.
+<Callout level="info">
+  Every command on this page was run in the lab container on 2026-10-11, against the pinned source trees, so it is
+  marked emulated. No QEMU machine is involved: you only read source. If a step fails or a file is not where this page
+  says, report it with the inaccuracy issue form.
 </Callout>
 
 In this lab you follow one `SMC` call through three source trees: Linux makes the call, TF-A catches it at EL3 on Armv8-A, and OP-TEE's own monitor catches it on an Armv7-A board such as the STM32MP157. You only read code. Nothing runs on QEMU or on a board.
