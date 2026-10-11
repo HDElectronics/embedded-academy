@@ -2,7 +2,8 @@
 # SPDX-FileCopyrightText: Embedded Academy contributors
 # SPDX-License-Identifier: MIT
 #
-# Clones every project the course builds, at its pinned tag, into ~/work/src.
+# Clones every project the course builds, at its pinned tag and with its
+# submodules (TF-A needs contrib/libtl for TRANSFER_LIST=1), into ~/work/src.
 # Run it inside the lab container: sh ~/course/fetch-sources.sh
 # Already cloned projects are left alone.
 
@@ -20,7 +21,7 @@ fetch() {
     return
   fi
   echo "clone  $name at $tag"
-  git clone --quiet --depth 1 --branch "$tag" "$repo" "$dest/$name"
+  git clone --quiet --depth 1 --recurse-submodules --shallow-submodules --branch "$tag" "$repo" "$dest/$name"
 }
 
 fetch linux "$LINUX_REPO" "$LINUX_TAG"
