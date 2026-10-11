@@ -1,0 +1,129 @@
+---
+title: What runs in the secure world on each board
+description: OP-TEE in brief, and the secure world software on the STM32MP157, the Raspberry Pi 4 and the BeagleBone Black, as the board data and upstream docs record it.
+course: linux-boot-arm
+module: m03
+order: 3
+type: reference
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'OP-TEE documentation 4.10.0: About OP-TEE'
+    url: https://optee.readthedocs.io/en/4.10.0/general/about.html
+  - title: 'OP-TEE documentation 4.10.0: Core'
+    url: https://optee.readthedocs.io/en/4.10.0/architecture/core.html
+    section: Use cases of world context switch; Core exception vectors; Normal World invokes OP-TEE OS using SMC
+  - title: 'OP-TEE documentation 4.10.0: Platforms supported'
+    url: https://optee.readthedocs.io/en/4.10.0/general/platforms.html
+  - title: 'Arm: Learn the architecture, TrustZone for AArch64 (102418, version 1.2)'
+    url: https://developer.arm.com/documentation/102418/0102/Software-architecture/Example-TZ-SW--OP-TEE
+    section: 'Example TZ SW: OP-TEE'
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): STM32 MPUs and STM32MP1'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/st/stm32mpus.html
+  - title: 'U-Boot documentation (v2026.07): STM32MP1xx boards'
+    url: https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html
+    section: Boot Sequences
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Raspberry Pi 4'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/rpi4.html
+  - title: 'U-Boot documentation (v2026.07): AM335x Generation'
+    url: https://docs.u-boot.org/en/v2026.07/board/ti/am335x_evm.html
+    section: Secure Boot
+---
+
+import PrivilegeLadder from '@ea/anim/PrivilegeLadder.astro';
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+This page lists what runs in the secure world on each board in this course. The per-board summaries come from the course's board data in `packages/boards`; every other fact cites an upstream source. Nothing here has been checked on a board.
+
+## OP-TEE in brief
+
+OP-TEE is a Trusted Execution Environment that runs beside a non-secure Linux kernel on Cortex-A cores with TrustZone.[^about]
+
+| Part                          | Where it runs                                                                 |
+| ----------------------------- | ----------------------------------------------------------------------------- |
+| OP-TEE OS, the trusted kernel | Secure world, secure PL1 on Armv7-A or S-EL1 on Armv8-A[^about]               |
+| Trusted Applications (TAs)    | Secure world, S-EL0[^arm-optee]                                               |
+| Linux TEE driver              | Normal world kernel, merged in Linux v4.12[^about]                            |
+| `tee-supplicant`              | Normal world user space; provides services such as secure storage[^arm-optee] |
+| TEE Client API library        | Normal world user space[^about]                                               |
+
+OP-TEE implements two GlobalPlatform APIs: the TEE Internal Core API v1.3.1 for Trusted Applications, and the TEE Client API v1.0 for normal world programs.[^about]
+
+## OP-TEE is the monitor, or runs under one
+
+The secure monitor handles every world switch: an `SMC` from the normal world lands in the monitor, which switches to OP-TEE; OP-TEE returns with an `SMC` that the monitor catches.[^core-switch]
+
+| Build                         | Who is the monitor                                                         |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| `CFG_WITH_ARM_TRUSTED_FW=y`   | An external monitor, such as TF-A[^core-vectors]                           |
+| `CFG_WITH_ARM_TRUSTED_FW` off | OP-TEE's own monitor in `core/arch/arm/sm`, in Monitor mode[^core-vectors] |
+
+OP-TEE's documentation says Armv7-A platforms should use OP-TEE's own monitor, and Armv8-A platforms are likely to rely on TF-A.[^core-vectors]
+
+## Secure world by board
+
+- **STM32MP157 DK2**, Armv7-A. Secure side: ROM code, then TF-A BL2 in Secure SVC. Monitor: OP-TEE in Monitor mode. Trusted OS: OP-TEE. The normal world starts with U-Boot in NS SVC.
+- **Raspberry Pi 4**, Armv8-A. Secure side: the Arm stub `armstub8.bin` at EL3. Monitor services after boot and trusted OS: none recorded. The normal world starts with U-Boot or Linux at EL2.
+- **BeagleBone Black**, Armv7-A. Secure side: held by the vendor ROM. Monitor, trusted OS and normal world entry: not recorded.
+
+### STM32MP157 DK2
+
+- Boot sequence in TF-A's documentation: ROM code, then BL2, then OP-TEE, then BL33 (U-Boot). The ROM loads only BL2; OP-TEE and U-Boot come from the FIP.[^stm32mpus]
+- U-Boot's documentation recommends the trusted boot chain: TF-A BL2 as first stage, OP-TEE as secure monitor, U-Boot as second stage. It is the only chain supported on the STM32MP13x.[^uboot-stm32mp1]
+- OP-TEE platform flag for this board: `PLATFORM=stm32mp1-157C_DK2`, or `PLATFORM=stm32mp1-157C_DK2_SCMI`.[^platforms]
+- With the SCMI device trees, OP-TEE owns the reset and clock resources once `RCC_TZCR.TZEN=1`, and the normal world asks for them through SCMI services.[^uboot-stm32mp1]
+
+<PrivilegeLadder board="stm32mp157" pane={1} />
+
+On the privilege ladder, the marker stays at PL1 and crosses from the secure world to the normal world when OP-TEE hands over to U-Boot.
+
+### Raspberry Pi 4
+
+- The board data records no trusted OS. The Arm stub runs at EL3, sets `SCR_EL3.NS` and drops core 0 to EL2 in the normal world.
+- TF-A has a BL31-only Raspberry Pi 4 port. You name its `bl31.bin` with `armstub=` in `config.txt`, and the firmware runs it in AArch64 EL3 in place of the default stub. It adds PSCI and a `reserved-memory` node to the device tree, then starts the EL2 payload.[^tfa-rpi4]
+- That port is not secure: all of its memory is DRAM that both worlds can reach.[^tfa-rpi4]
+- OP-TEE's platform list has a Raspberry Pi 3 entry (`PLATFORM=rpi3`) and no Raspberry Pi 4 entry.[^platforms]
+- The Raspberry Pi 4 privilege ladder is on this module's first page, [TrustZone splits the machine into two worlds](../01-two-worlds/).
+
+### BeagleBone Black
+
+- The board data marks every Arm stage, from the ROM code to Linux, with the world `vendor`: the vendor ROM keeps the secure side, and each stage runs in a state the vendor chose.
+- OP-TEE's platform list has entries for other TI chips, such as AM43xx and AM57xx, and no AM335x entry.[^platforms]
+- On TI's secure devices, U-Boot SPL and U-Boot validate images by calling functions in the secure ROM through an `SMC`. That ROM is only accessible while the core runs in the secure state.[^uboot-am335x]
+
+<Callout level="warning">
+  What runs in the secure world of the BeagleBone Black is not documented in any source this course has checked. Don't
+  rely on a secure world being available on it.
+</Callout>
+
+<Deeper depth="practitioner" title="Fast and yielding calls into OP-TEE">
+
+OP-TEE sorts `SMC` calls into two kinds:[^core-smc]
+
+- A **fast** call runs to completion on the entry stack with IRQ and FIQ masked.
+- A **yielding** call gets a trusted thread. The thread runs with interrupts unmasked, can be suspended when a normal world interrupt arrives, and resumes later. The thread is released when the service completes.
+
+Both kinds end with OP-TEE masking interrupts and calling the monitor through an `SMC` to return to the normal world.[^core-smc]
+
+</Deeper>
+
+[^about]: OP-TEE documentation 4.10.0, [About OP-TEE](https://optee.readthedocs.io/en/4.10.0/general/about.html), "OP-TEE components".
+
+[^arm-optee]: Arm, _Learn the architecture: TrustZone for AArch64_ (102418, version 1.2), [Example TZ SW: OP-TEE](https://developer.arm.com/documentation/102418/0102/Software-architecture/Example-TZ-SW--OP-TEE).
+
+[^core-switch]: OP-TEE documentation 4.10.0, [Core: Use cases of world context switch](https://optee.readthedocs.io/en/4.10.0/architecture/core.html#use-cases-of-world-context-switch).
+
+[^core-vectors]: OP-TEE documentation 4.10.0, [Core: Core exception vectors](https://optee.readthedocs.io/en/4.10.0/architecture/core.html#core-exception-vectors).
+
+[^core-smc]: OP-TEE documentation 4.10.0, [Core: Normal World invokes OP-TEE OS using SMC](https://optee.readthedocs.io/en/4.10.0/architecture/core.html#normal-world-invokes-op-tee-os-using-smc).
+
+[^platforms]: OP-TEE documentation 4.10.0, [Platforms supported](https://optee.readthedocs.io/en/4.10.0/general/platforms.html).
+
+[^stm32mpus]: Trusted Firmware-A documentation (lts-v2.14.10), [STM32 MPUs: Boot sequence](https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/st/stm32mpus.html).
+
+[^uboot-stm32mp1]: U-Boot documentation (v2026.07), [STM32MP1xx boards: Boot Sequences and Device Tree](https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html).
+
+[^tfa-rpi4]: Trusted Firmware-A documentation (lts-v2.14.10), [Raspberry Pi 4](https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/rpi4.html).
+
+[^uboot-am335x]: U-Boot documentation (v2026.07), [AM335x Generation: Secure Boot](https://docs.u-boot.org/en/v2026.07/board/ti/am335x_evm.html#secure-boot).

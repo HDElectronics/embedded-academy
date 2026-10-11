@@ -1,0 +1,175 @@
+---
+title: 'Lab: build U-Boot and explore it on QEMU'
+description: Build U-Boot v2026.07 for QEMU's virt machine in the lab container, boot it, and find its relocation address and boot settings.
+course: linux-boot-arm
+module: m06
+order: 3
+type: tutorial
+boards: []
+verification: unverified
+sources:
+  - title: 'U-Boot documentation (v2026.07): QEMU ARM'
+    url: https://docs.u-boot.org/en/v2026.07/board/emulation/qemu-arm.html
+  - title: 'U-Boot documentation (v2026.07): Building with GCC'
+    url: https://docs.u-boot.org/en/v2026.07/build/gcc.html
+  - title: 'U-Boot documentation (v2026.07): bdinfo command'
+    url: https://docs.u-boot.org/en/v2026.07/usage/cmd/bdinfo.html
+  - title: 'U-Boot documentation (v2026.07): printenv command'
+    url: https://docs.u-boot.org/en/v2026.07/usage/cmd/printenv.html
+  - title: 'U-Boot documentation (v2026.07): env command'
+    url: https://docs.u-boot.org/en/v2026.07/usage/cmd/env.html
+  - title: 'U-Boot documentation (v2026.07): bootdev command'
+    url: https://docs.u-boot.org/en/v2026.07/usage/cmd/bootdev.html
+  - title: 'U-Boot documentation (v2026.07): bootmeth command'
+    url: https://docs.u-boot.org/en/v2026.07/usage/cmd/bootmeth.html
+  - title: 'U-Boot documentation (v2026.07): bootflow command'
+    url: https://docs.u-boot.org/en/v2026.07/usage/cmd/bootflow.html
+  - title: 'U-Boot documentation (v2026.07): reset command'
+    url: https://docs.u-boot.org/en/v2026.07/usage/cmd/reset.html
+  - title: 'U-Boot source (v2026.07): common/main.c'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/common/main.c
+  - title: 'U-Boot source (v2026.07): boot/Kconfig'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/boot/Kconfig
+  - title: 'U-Boot source (v2026.07): configs/qemu_arm64_defconfig'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/configs/qemu_arm64_defconfig
+  - title: 'U-Boot source (v2026.07): board/emulation/qemu-arm/qemu-arm.env'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/board/emulation/qemu-arm/qemu-arm.env
+---
+
+import Prompt from '@ea/ui/Prompt.astro';
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<Callout level="warning">
+  Nobody has run these steps in the lab container yet. If a step fails or behaves differently from what this page says,
+  report it with the `inaccuracy` issue form.
+</Callout>
+
+<div class="t-lead">
+  In this lab you build U-Boot for QEMU's `virt` machine, start it, and stop at its prompt. Then you ask U-Boot where it
+  relocated itself and how it would boot. Everything runs in the lab container: no board needed.
+</div>
+
+QEMU emulates a generic Arm machine called `virt`, not one of the course boards. U-Boot supports it with its own defconfig, `qemu_arm64_defconfig`.[^qemu] What you learn here about relocation and the environment holds on the Raspberry Pi 4, the BeagleBone Black and the STM32MP157 too.
+
+## Get the U-Boot source
+
+Start the lab container from the repository root with `sh labs/lab.sh`, as `labs/README.md` describes. You are now `learner` on host `lab`.
+
+Clone the pinned sources into `~/work/src`. The script skips projects you already have.
+
+<Prompt cmd="sh ~/course/fetch-sources.sh" />
+
+Go to the U-Boot tree.
+
+<Prompt cmd="cd ~/work/src/u-boot" />
+
+Check that you are on the pinned version. The command should name the tag `v2026.07`.
+
+<Prompt dir="~/work/src/u-boot" cmd="git describe --tags" />
+
+## Build U-Boot for virt
+
+Tell the build which cross compiler to use. The lab container has the Debian cross compiler for 64-bit Arm, whose commands start with `aarch64-linux-gnu-`.[^gcc]
+
+<Prompt dir="~/work/src/u-boot" cmd="export CROSS_COMPILE=aarch64-linux-gnu-" />
+
+Create the configuration. `O=` puts every output file, including `.config`, in a separate build folder, so the source tree stays clean for the other boards.[^gcc]
+
+<Prompt dir="~/work/src/u-boot" cmd="make O=$HOME/work/build/qemu_arm64 qemu_arm64_defconfig" />
+
+Build. `-j$(nproc)` runs one job per CPU core.[^gcc]
+
+<Prompt dir="~/work/src/u-boot" cmd="make O=$HOME/work/build/qemu_arm64 -j$(nproc)" />
+
+When the build ends without an error, the build folder holds `u-boot.bin`.[^qemu] Check that it is there.
+
+<Prompt dir="~/work/src/u-boot" cmd="ls -l $HOME/work/build/qemu_arm64/u-boot.bin" />
+
+## Boot U-Boot and stop the countdown
+
+Start QEMU with the minimal command line from the U-Boot documentation.[^qemu] `-bios` puts `u-boot.bin` in the emulated flash. `-cpu cortex-a57` asks for a 64-bit CPU, and `-nographic` sends the serial console to your terminal.
+
+<Prompt
+  dir="~/work/src/u-boot"
+  cmd="qemu-system-aarch64 -machine virt -nographic -cpu cortex-a57 -bios $HOME/work/build/qemu_arm64/u-boot.bin"
+/>
+
+U-Boot prints its banner, then a countdown. Press any key before it reaches zero. You get the U-Boot prompt, `=>`.
+
+If you miss the countdown, U-Boot runs `bootcmd`. With no disk and no kernel there is nothing to boot, so it falls back to the prompt.[^main] That can take a moment if it tries the network.
+
+To leave QEMU at any time, press `Ctrl-A`, then `X`.[^qemu]
+
+## Find where U-Boot relocated itself
+
+From here on, type the commands at the `=>` prompt, not in the shell.
+
+1. Type `bdinfo`. It prints information about the board.[^bdinfo]
+2. Find the lines `DRAM bank`, `-> start` and `-> size`. Together they give the RAM that U-Boot uses.
+3. Find `relocaddr`. This is the address U-Boot copied itself to. Add the start and size of the DRAM bank: `relocaddr` sits a little below that top.
+4. Find `reloc off`, the distance between `relocaddr` and the address U-Boot was linked for.[^bdinfo] If it equals `relocaddr`, the image was linked to start at address `0x0`.
+
+Now see the top move. Quit QEMU with `Ctrl-A`, then `X`. Start it again with 1 GiB of RAM: `-m` sets the memory size, as in the distro example of the U-Boot documentation.[^qemu]
+
+<Prompt
+  dir="~/work/src/u-boot"
+  cmd="qemu-system-aarch64 -machine virt -nographic -cpu cortex-a57 -m 1G -bios $HOME/work/build/qemu_arm64/u-boot.bin"
+/>
+
+Stop the countdown and run `bdinfo` again. The DRAM size has changed, and `relocaddr` has moved with the top of DRAM.
+
+## Read the boot settings
+
+1. Type `printenv`. It lists every environment variable.[^printenv]
+2. Type `printenv bootcmd bootdelay boot_targets`. `printenv` takes several names at once. `bootcmd` holds a `bootflow scan` command.[^kconfig] `boot_targets` matches the list in `board/emulation/qemu-arm/qemu-arm.env`.[^env]
+3. Type `printenv kernel_addr_r ramdisk_addr_r`. Compare the values with the same file.
+4. Type `setenv bootdelay 5`, then `printenv bootdelay`. The value changed, but only in memory.[^envcmd]
+5. Type `reset`. U-Boot starts again from the beginning.[^reset] The countdown starts from the old value, because you did not save the environment.
+
+## Ask standard boot what it would boot
+
+1. Type `bootdev list`. It lists the bootdevs U-Boot knows about so far.[^bootdev]
+2. Type `bootmeth list`. It lists the boot methods, in the order U-Boot tries them.[^bootmeth]
+3. Type `bootflow scan -l`. It scans every bootdev and lists each bootflow it finds, without booting.[^bootflow] Watch which devices it tries and in which order, and compare that with `boot_targets`.
+4. Type `bootflow list`. It shows the bootflows the scan found.[^bootflow] You gave QEMU no disk and no kernel, so expect none.
+
+Quit QEMU with `Ctrl-A`, then `X`.
+
+<Deeper depth="practitioner" title="Keep the environment across QEMU runs">
+
+`qemu_arm64_defconfig` stores the environment in the emulated flash (`CONFIG_ENV_IS_IN_FLASH`).[^defconfig] Without a file behind that flash, QEMU does not keep it between runs. The U-Boot documentation gives a way to keep it: create a 64 MiB raw image with `qemu-img create -f raw envstore.img 64M`, then add `-drive if=pflash,format=raw,index=1,file=envstore.img` to the QEMU command line.[^qemu] After that, `saveenv` survives a restart.
+
+Check first that the container has `qemu-img` with `command -v qemu-img`. The lab image installs `qemu-system-arm`, and `qemu-img` may come in a separate package.
+
+</Deeper>
+
+## What you did
+
+You built U-Boot from source, booted it on an emulated Arm machine and read three things from its prompt: where it relocated itself, which variables steer the boot, and how standard boot searches for an operating system. The next page builds U-Boot for the three course boards.
+
+[^qemu]: U-Boot documentation, QEMU ARM: Building (non-secure), Running U-Boot (non-secure).
+
+[^gcc]: U-Boot documentation, Building with GCC: Dependencies, Building, Out-of-tree building.
+
+[^main]: U-Boot source, `common/main.c`: `main_loop()` runs `autoboot_command()`, then `cli_loop()`.
+
+[^kconfig]: U-Boot source, `boot/Kconfig`: the default of `BOOTCOMMAND` when standard boot defaults are on.
+
+[^defconfig]: U-Boot source, `configs/qemu_arm64_defconfig`.
+
+[^bdinfo]: U-Boot documentation, bdinfo command.
+
+[^printenv]: U-Boot documentation, printenv command.
+
+[^env]: U-Boot source, `board/emulation/qemu-arm/qemu-arm.env`.
+
+[^envcmd]: U-Boot documentation, env command: `env set`, `env print` and `env save`.
+
+[^reset]: U-Boot documentation, reset command.
+
+[^bootdev]: U-Boot documentation, bootdev command.
+
+[^bootmeth]: U-Boot documentation, bootmeth command.
+
+[^bootflow]: U-Boot documentation, bootflow command: `bootflow scan` and `bootflow list`.

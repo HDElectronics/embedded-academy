@@ -1,0 +1,241 @@
+---
+title: Boot media, boot pins and boot order per board
+description: Which devices each boot ROM tries, in which order, how you change the order, and what it expects to find on the media.
+course: linux-boot-arm
+module: m02
+order: 2
+type: reference
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'Raspberry Pi documentation: Raspberry Pi hardware, boot sequence and boot EEPROM'
+    url: https://www.raspberrypi.com/documentation/computers/raspberry-pi.html
+    section: EEPROM boot flow; Raspberry Pi boot EEPROM; BOOT_ORDER
+  - title: 'Raspberry Pi documentation: config.txt'
+    url: https://www.raspberrypi.com/documentation/computers/config_txt.html
+    section: autoboot.txt; arm_64bit
+  - title: 'Raspberry Pi documentation: Configuration'
+    url: https://www.raspberrypi.com/documentation/computers/configuration.html
+    section: boot folder contents
+  - title: 'BeagleBone Black System Reference Manual: Detailed Hardware Design'
+    url: https://docs.beagleboard.org/boards/beaglebone/black/ch06.html
+    section: Boot Configuration; eMMC Circuit Design
+  - title: TI AM335x and AMIC110 Sitara Processors Technical Reference Manual (SPRUH73Q)
+    url: https://www.ti.com/lit/ug/spruh73q/spruh73q.pdf
+    section: 26.1 ROM Code Memory and Peripheral Booting
+  - title: 'U-Boot documentation (v2026.07): STM32MP1xx boards'
+    url: https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html
+    section: Switch Setting for Boot Mode; Prepare an SD card
+  - title: 'Trusted Firmware-A documentation (lts-v2.14): STM32 MPUs and STM32MP1'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14/plat/st/stm32mp1.html
+    section: Memory mapping; Populate SD-card
+  - title: 'Trusted Firmware-A source (lts-v2.14.10): plat/st/stm32mp1/include/boot_api.h'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/st/stm32mp1/include/boot_api.h
+---
+
+import Callout from '@ea/ui/Callout.astro';
+
+<div class="t-lead">
+  What each board's boot ROM reads at power-on, which devices it tries, and what it needs to find on them. Values come
+  from the cited documents only. Where a document leaves a value open, this page leaves it out.
+</div>
+
+<Callout level="info">
+  Nothing on this page has been checked on a board yet. If a value disagrees with your hardware, report it with the
+  inaccuracy issue form.
+</Callout>
+
+## Raspberry Pi 4
+
+### ROM order
+
+The ROM runs these steps at power-on:[^rpi-flow]
+
+1. Read OTP to find out whether an `nRPIBOOT` GPIO is configured.
+2. If `nRPIBOOT` is high, or OTP defines none: if OTP allows it, look for `recovery.bin` on the primary SD card or eMMC and run it. Otherwise load the second-stage bootloader from the SPI EEPROM.
+3. If both fail, try forever to load `recovery.bin` over USB device boot.
+
+`recovery.bin` must be in the root directory of the boot partition on the SD card. The ROM can't load it from USB mass storage or TFTP.[^rpi-recovery]
+
+### `BOOT_ORDER` in the EEPROM configuration
+
+The second-stage bootloader tries the boot modes in `BOOT_ORDER`. Each hexadecimal digit is one mode, read from right to left, up to eight digits. An empty `BOOT_ORDER` means `0xf41`.[^rpi-order]
+
+| Digit | Mode          | Meaning                                              |
+| ----- | ------------- | ---------------------------------------------------- |
+| `0x1` | `SD CARD`     | SD card                                              |
+| `0x2` | `NETWORK`     | Network boot                                         |
+| `0x3` | `RPIBOOT`     | USB device boot; no timeout, so put it last          |
+| `0x4` | `USB-MSD`     | USB mass storage                                     |
+| `0x5` | `BCM-USB-MSD` | USB 2.0 boot from the USB Type-C socket; not on Pi 5 |
+| `0x6` | `NVME`        | NVMe over PCIe; CM4, CM5, Pi 5 and 500+ only         |
+| `0x7` | `HTTP`        | HTTP boot over Ethernet                              |
+| `0xe` | `STOP`        | Stop and show an error pattern until power-cycled    |
+| `0xf` | `RESTART`     | Start again from the first mode                      |
+
+| `BOOT_ORDER` | Order                                  |
+| ------------ | -------------------------------------- |
+| `0xf41`      | SD, then USB mass storage, then repeat |
+| `0xf14`      | USB mass storage, then SD, then repeat |
+| `0xf21`      | SD, then network, then repeat          |
+
+### Boot partition
+
+- A bootable partition is FAT12, FAT16 or FAT32 and contains `start4.elf` on the Raspberry Pi 4.[^rpi-autoboot] [^rpi-walk]
+- Partition `0` means the default: the first bootable FAT partition, normally partition 1.[^rpi-autoboot]
+- Raspberry Pi OS keeps its boot files on the first partition of the SD card, formatted FAT, and mounts it at `/boot/firmware/`.[^rpi-folder]
+
+| File                  | Role on the Raspberry Pi 4                                                         |
+| --------------------- | ---------------------------------------------------------------------------------- |
+| `start4.elf`          | VideoCore firmware; variants `start4x.elf`, `start4db.elf`, `start4cd.elf`         |
+| `fixup4.dat`          | Linker file, paired with the `start4*.elf` of the same variant                     |
+| `config.txt`          | Firmware configuration                                                             |
+| `cmdline.txt`         | Kernel command line                                                                |
+| `bcm2711-rpi-4-b.dtb` | Base Device Tree for the Raspberry Pi 4 Model B                                    |
+| `kernel8.img`         | 64-bit kernel, chosen by default because `arm_64bit` defaults to `1` on this board |
+| `overlays/`           | Device Tree overlays                                                               |
+
+Sources for the table: boot folder contents[^rpi-folder] and `arm_64bit`.[^rpi-arm64]
+
+## BeagleBone Black
+
+### SYSBOOT pins
+
+- The AM335x latches `SYSBOOT[15:0]` from the `LCD_DATA[15:0]` pins on the rising edge of `PWRONRSTn`.[^ti-sysboot]
+- `SYSBOOT[4:0]` selects one row of the TRM's boot table, which lists up to four devices. `SYSBOOT[15:14]` gives the crystal frequency.[^ti-sysboot]
+- On the BeagleBone Black, the S2 button changes one SYSBOOT bit from high to low.[^bbb-boot]
+
+| S2 at power-on | Boot order from the BeagleBone Black SRM                              |
+| -------------- | --------------------------------------------------------------------- |
+| Released       | eMMC on `MMC1`, then microSD on `MMC0`, then the USB0 and UART0 ports |
+| Held           | `SPI0`, then microSD on `MMC0`, then `USB0`, then `UART0`             |
+
+The SRM gives the default order as `USB0` then `UART0`. The TRM row that begins `MMC1`, `MMC0` lists `UART0` before `USB0`. This page doesn't settle which one the board uses.[^bbb-boot] [^ti-sysboot]
+
+### MMC and SD rules
+
+- `MMC0` boots from the card cage. `MMC1` is meant for eMMC of 4 GB or more.[^ti-mmc-ports]
+- The eMMC is on `MMC1` and the microSD card is on `MMC0`.[^bbb-emmc]
+- The ROM doesn't use the card-detect signal.[^ti-mmc-ports]
+
+The ROM accepts two layouts on an SD card or eMMC:[^ti-fat]
+
+| Mode | What the ROM looks for                                                                                                |
+| ---- | --------------------------------------------------------------------------------------------------------------------- |
+| FAT  | A file named `MLO` in the root directory, 8.3 names only, on an active primary FAT partition or a disk without an MBR |
+| Raw  | An image at `0x0`, `0x20000`, `0x40000` or `0x60000`, each starting with a table of contents that names `CHSETTINGS`  |
+
+FAT details:
+
+- MBR partition types the ROM accepts: `0x01` (FAT12); `0x04`, `0x06`, `0x0E` (FAT16); `0x0B`, `0x0C`, `0x0F` (FAT32).
+- The partition must be primary. Extended partitions are not searched.
+- The active flag is `0x80`. If more than one partition is active, the search fails.
+
+### Image header and load area
+
+| Offset | Field       | Meaning                                  |
+| ------ | ----------- | ---------------------------------------- |
+| `0x0`  | Size        | Size of the image                        |
+| `0x4`  | Destination | Where to copy the image, and entry point |
+| `0x8`  | Image       | Executable code                          |
+
+This GP header is required for memory devices that are copied, such as MMC. Peripheral boot images start with code.[^ti-image] On a GP device the ROM's download area starts at `0x402F0400` and holds up to 109 KB.[^ti-ram] UART boot uses `UART0` at 115200 baud, 8 data bits, no parity, 1 stop bit, with the X-modem protocol.[^ti-uart]
+
+## STM32MP157 DK2
+
+### BOOT pins
+
+The STM32MP15 boot pins are `BOOT2`, `BOOT1` and `BOOT0`.[^uboot-pins]
+
+| Mode     | `BOOT2` | `BOOT1` | `BOOT0` |
+| -------- | ------- | ------- | ------- |
+| Recovery | 0       | 0       | 0       |
+| NOR      | 0       | 0       | 1       |
+| eMMC     | 0       | 1       | 0       |
+| NAND     | 0       | 1       | 1       |
+| Reserved | 1       | 0       | 0       |
+| SD card  | 1       | 0       | 1       |
+| Recovery | 1       | 1       | 0       |
+| SPI-NAND | 1       | 1       | 1       |
+
+On the DK2, switch `SW1` sets `BOOT0` and `BOOT2`. `BOOT1` is forced to 0, so only these values remain:[^uboot-pins]
+
+| Mode            | `BOOT2` | `BOOT0` |
+| --------------- | ------- | ------- |
+| Recovery        | 0       | 0       |
+| NOR, not on DK2 | 0       | 1       |
+| Reserved        | 1       | 0       |
+| SD card         | 1       | 1       |
+
+Recovery boots from a serial link, UART or USB, for STM32CubeProgrammer. Over USB it uses DFU 1.1.[^uboot-pins] The U-Boot documentation gives pin values, not the position of each switch lever; read them from the board.
+
+### SD card layout
+
+The card uses GPT. The U-Boot documentation gives this minimal layout for TF-A with FIP:[^uboot-sd]
+
+| Number | Name    | Size    | Content                     |
+| ------ | ------- | ------- | --------------------------- |
+| 1      | `fsbl1` | 256 KiB | TF-A BL2, `tf-a.stm32`      |
+| 2      | `fsbl2` | 256 KiB | Second copy of `tf-a.stm32` |
+| 3      | `fip`   | 4 MB    | `fip.bin`                   |
+| 4      | any     | any     | Root filesystem             |
+
+- `fsbl1` and `fsbl2` must be at least 256 KiB. `fsbl2` is a fail-safe copy and may be left out.[^uboot-sd]
+- Partition 4 is marked bootable with GPT attribute bit 2 and holds `extlinux.conf` for U-Boot's generic distribution boot.[^uboot-sd]
+- TF-A's documentation gives the `fip` partition the type GUID `19d5df83-11b0-457b-be2c-7559c13142a5`.[^tfa-sd]
+
+### STM32 image header
+
+The ROM loads only an FSBL with an STM32 image header.[^uboot-files] On the STM32MP15 the header is 256 bytes:[^tfa-header]
+
+- **Magic:** the bytes `S`, `T`, `M`, `0x32`.
+- **Signature:** 64-byte ECDSA signature. The algorithm is P-256 NIST or Brainpool 256.
+- **Public key:** 64-byte public key. Its SHA-256 hash must match the hash stored in OTP.
+- **Checksum:** checks UART and USB downloads when no signature is used.
+- **Entry point:** must be in SYSRAM, inside the download area.
+- **Image version:** compared with a monotonic counter in OTP before the image runs.
+- **Option flag:** a "no signature check" request is never allowed on a secured chip.
+
+The embedded SRAM (SYSRAM) spans `0x2FFC0000` to `0x30000000` on TF-A's memory map, and TF-A places BL2 inside it.[^tfa-map]
+
+[^rpi-flow]: Raspberry Pi documentation, [EEPROM boot flow](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#eeprom-boot-flow), First stage bootloader.
+
+[^rpi-recovery]: Raspberry Pi documentation, [Raspberry Pi boot EEPROM](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#raspberry-pi-boot-eeprom), `recovery.bin` and Bootloader update files.
+
+[^rpi-order]: Raspberry Pi documentation, [`BOOT_ORDER`](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#BOOT_ORDER), fields and examples.
+
+[^rpi-autoboot]: Raspberry Pi documentation, [`autoboot.txt`](https://www.raspberrypi.com/documentation/computers/config_txt.html#autoboot-txt), `boot_partition`.
+
+[^rpi-walk]: Raspberry Pi documentation, [`PARTITION_WALK`](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#PARTITION_WALK).
+
+[^rpi-folder]: Raspberry Pi documentation, [boot folder contents](https://www.raspberrypi.com/documentation/computers/configuration.html#boot-folder-contents).
+
+[^rpi-arm64]: Raspberry Pi documentation, [Boot options](https://www.raspberrypi.com/documentation/computers/config_txt.html#boot-options), `arm_64bit`.
+
+[^bbb-boot]: BeagleBone Black System Reference Manual, [Boot configuration](https://docs.beagleboard.org/boards/beaglebone/black/ch06.html#boot-configuration) and Default boot options.
+
+[^bbb-emmc]: BeagleBone Black System Reference Manual, [Detailed hardware design](https://docs.beagleboard.org/boards/beaglebone/black/ch06.html), eMMC circuit design.
+
+[^ti-sysboot]: TI SPRUH73Q, section 26.1.6.2.1 SYSBOOT Configuration Pins, Table 26-7 and its notes.
+
+[^ti-mmc-ports]: TI SPRUH73Q, sections 26.1.8.5.1 Overview and 26.1.8.5.2 System Interconnection.
+
+[^ti-fat]: TI SPRUH73Q, sections 26.1.8.5.5 to 26.1.8.5.7, Tables 26-20 to 26-22, and 26.1.11 Table of Contents.
+
+[^ti-image]: TI SPRUH73Q, section 26.1.10, Table 26-37 GP Device Image Format.
+
+[^ti-ram]: TI SPRUH73Q, section 26.1.4.2 Public RAM Memory Map.
+
+[^ti-uart]: TI SPRUH73Q, section 26.1.9.5 UART Boot Procedure.
+
+[^uboot-pins]: U-Boot documentation, [Switch Setting for Boot Mode](https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html#switch-setting-for-boot-mode).
+
+[^uboot-sd]: U-Boot documentation, [Prepare an SD card](https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html#prepare-an-sd-card).
+
+[^uboot-files]: U-Boot documentation, [STM32MP1xx boards](https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html), The bootloaders files.
+
+[^tfa-sd]: Trusted Firmware-A documentation, [STM32 MPUs](https://trustedfirmware-a.readthedocs.io/en/lts-v2.14/plat/st/stm32mpus.html), Populate SD-card.
+
+[^tfa-header]: Trusted Firmware-A source at `lts-v2.14.10`, [`plat/st/stm32mp1/include/boot_api.h`](https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/st/stm32mp1/include/boot_api.h), the image header structure for STM32MP15.
+
+[^tfa-map]: Trusted Firmware-A documentation, [STM32MP1](https://trustedfirmware-a.readthedocs.io/en/lts-v2.14/plat/st/stm32mp1.html), Memory mapping.

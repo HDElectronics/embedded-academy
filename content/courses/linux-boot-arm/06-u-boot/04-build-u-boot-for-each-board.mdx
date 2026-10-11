@@ -1,0 +1,160 @@
+---
+title: Build U-Boot for each board
+description: Build U-Boot v2026.07 for the Raspberry Pi 4, the BeagleBone Black and the STM32MP157 DK2 in the lab container, and know which files each board needs.
+course: linux-boot-arm
+module: m06
+order: 4
+type: how-to
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'U-Boot documentation (v2026.07): Building with GCC'
+    url: https://docs.u-boot.org/en/v2026.07/build/gcc.html
+  - title: 'U-Boot documentation (v2026.07): Raspberry Pi'
+    url: https://docs.u-boot.org/en/v2026.07/board/broadcom/raspberrypi.html
+  - title: 'U-Boot documentation (v2026.07): AM335x Generation'
+    url: https://docs.u-boot.org/en/v2026.07/board/ti/am335x_evm.html
+  - title: 'U-Boot documentation (v2026.07): STM32MP1xx boards'
+    url: https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html
+  - title: 'U-Boot documentation (v2026.07): Devicetree Control in U-Boot'
+    url: https://docs.u-boot.org/en/v2026.07/develop/devicetree/control.html
+  - title: 'Raspberry Pi documentation: config.txt'
+    url: https://www.raspberrypi.com/documentation/computers/config_txt.html
+    section: kernel, arm_64bit
+  - title: 'U-Boot source (v2026.07): configs/'
+    url: https://source.denx.de/u-boot/u-boot/-/tree/v2026.07/configs
+  - title: 'U-Boot source (v2026.07): arch/arm/mach-omap2/config.mk'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/arch/arm/mach-omap2/config.mk
+  - title: 'U-Boot source (v2026.07): scripts/Makefile.xpl'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/scripts/Makefile.xpl
+  - title: 'U-Boot source (v2026.07): dts/Makefile'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/dts/Makefile
+  - title: 'U-Boot source (v2026.07): Makefile'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/Makefile
+---
+
+import Prompt from '@ea/ui/Prompt.astro';
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<div class="t-lead">
+  This page gives the commands to build U-Boot `v2026.07` for each course board, and the files each board needs from the
+  build. Writing them to an SD card is part of module 08.
+</div>
+
+<Callout level="warning">
+  Nobody has run these builds in the lab container or booted the results on a board yet. If a step fails, report it with
+  the `inaccuracy` issue form.
+</Callout>
+
+## Before you start
+
+Open the lab container and fetch the sources, as in this module's lab. Then go to the U-Boot tree.
+
+<Prompt cmd="cd ~/work/src/u-boot" />
+
+Each build here uses its own output folder with `O=`, so one source tree serves all boards. `CROSS_COMPILE` names the cross compiler on the `make` command line.[^gcc] The lab container has two: `aarch64-linux-gnu-` for 64-bit Arm and `arm-linux-gnueabihf-` for 32-bit Arm.
+
+<Deeper depth="practitioner" title="Why every build uses O=">
+
+Once a source tree holds an in-tree configuration, the U-Boot `Makefile` refuses a build with `O=` and asks you to run `make mrproper` first.[^makefile] Build every board out of tree from the start and you never meet that error. `O=` also keeps the `.config` of each board in its own folder.[^gcc]
+
+</Deeper>
+
+## Raspberry Pi 4
+
+The U-Boot documentation lists two 64-bit defconfigs for the Raspberry Pi 4B:[^rpi]
+
+- `rpi_4_defconfig` targets the Raspberry Pi 4B only.
+- `rpi_arm64_defconfig` covers the Raspberry Pi 3B, 3B+, 4B, 400, CM 3, CM 3+, CM 4 and Zero 2 W. It uses the Device Tree the firmware provides instead of an embedded one, so the same binary boots several boards.
+
+The documentation does not prefer one. This course uses `rpi_arm64_defconfig`, because in the course's boot chain the firmware prepares the Device Tree. The list at `v2026.07` does not name the Raspberry Pi 5.
+
+Configure, then build:
+
+<Prompt
+  dir="~/work/src/u-boot"
+  cmd="make O=$HOME/work/build/rpi_arm64 CROSS_COMPILE=aarch64-linux-gnu- rpi_arm64_defconfig"
+/>
+
+<Prompt dir="~/work/src/u-boot" cmd="make O=$HOME/work/build/rpi_arm64 CROSS_COMPILE=aarch64-linux-gnu- -j$(nproc)" />
+
+**Files the board needs.** `u-boot.bin` from the build folder. Copy it to the boot partition, next to the Raspberry Pi firmware files. In `config.txt`, `kernel=u-boot.bin` makes the firmware load it in place of the default `kernel8.img`, and `arm_64bit=1` starts it in 64-bit mode.[^config]
+
+## BeagleBone Black
+
+The `am335x_evm` configuration builds one binary for the AM335x GP EVM, the AM335x EVM SK and the BeagleBone family. U-Boot reads the board EEPROM at run time to tell them apart.[^am335x] The AM335x has a 32-bit Cortex-A8, so use the 32-bit cross compiler.
+
+<Prompt
+  dir="~/work/src/u-boot"
+  cmd="make O=$HOME/work/build/am335x_evm CROSS_COMPILE=arm-linux-gnueabihf- am335x_evm_defconfig"
+/>
+
+<Prompt
+  dir="~/work/src/u-boot"
+  cmd="make O=$HOME/work/build/am335x_evm CROSS_COMPILE=arm-linux-gnueabihf- -j$(nproc)"
+/>
+
+**Files the board needs.** Two files from the build folder:
+
+- `MLO`: U-Boot SPL, prepared for the AM335x boot ROM.[^omap]
+- `u-boot.img`: U-Boot itself. SPL loads it by this name, set in the defconfig as `CONFIG_SPL_FS_LOAD_PAYLOAD_NAME`.[^defconfigs]
+
+## STM32MP157 DK2
+
+The STM32MP1 documentation recommends the trusted boot chain: TF-A BL2 first, OP-TEE as secure monitor, then U-Boot. For TF-A with a FIP, it names `stm32mp15_defconfig`.[^stm32] The STM32MP157 has 32-bit Cortex-A7 cores, so use the 32-bit cross compiler.
+
+<Prompt
+  dir="~/work/src/u-boot"
+  cmd="make O=$HOME/work/build/stm32mp15 CROSS_COMPILE=arm-linux-gnueabihf- stm32mp15_defconfig"
+/>
+
+The defconfig defaults to the device tree of the ev1 board. Pick the DK2 with `DEVICE_TREE`. With OP-TEE as secure monitor, ST recommends the `-scmi` variant of each board's device tree.[^stm32]
+
+<Prompt
+  dir="~/work/src/u-boot"
+  cmd="make O=$HOME/work/build/stm32mp15 CROSS_COMPILE=arm-linux-gnueabihf- DEVICE_TREE=st/stm32mp157c-dk2-scmi -j$(nproc) all"
+/>
+
+<Callout level="warning">
+
+The STM32MP1 documentation writes the name without the `st/` prefix, as in `DEVICE_TREE=stm32mp157c-ev1-scmi`. At `v2026.07` this board takes its device trees from `dts/upstream/src/arm/st/`, and the defconfig's own default is `st/stm32mp157c-ev1`. The build looks for `dts/upstream/src/arm/` followed by the `DEVICE_TREE` value, so this page keeps the `st/` prefix.[^dtsmake] [^control] Nobody has checked this with a build yet.
+
+</Callout>
+
+**Files the board needs.** `u-boot-nodtb.bin` and `u-boot.dtb`.[^stm32] U-Boot does not boot on its own here: TF-A packs the two files into its FIP, `fip.bin`, as `BL33` and `BL33_CFG`. Module 05 covers TF-A. To swap U-Boot in an existing FIP, the U-Boot documentation uses TF-A's `fiptool` with `--nt-fw u-boot-nodtb.bin --hw-config u-boot.dtb`.[^stm32]
+
+<Deeper depth="practitioner" title="The other STM32MP15 boot chains">
+
+The documentation lists two more defconfigs. `stm32mp15_trusted_defconfig` is for TF-A without FIP support and produces `u-boot.stm32`. `stm32mp15_basic_defconfig` replaces TF-A with U-Boot SPL; ST does not support or promote that chain for products.[^stm32]
+
+</Deeper>
+
+## Check the results
+
+List each build folder and look for the files named in each section.
+
+<Prompt
+  dir="~/work/src/u-boot"
+  cmd="ls $HOME/work/build/rpi_arm64 $HOME/work/build/am335x_evm $HOME/work/build/stm32mp15"
+/>
+
+[^gcc]: U-Boot documentation, Building with GCC: Building and Out-of-tree building.
+
+[^makefile]: U-Boot source, `Makefile`: target `outputmakefile`.
+
+[^rpi]: U-Boot documentation, Raspberry Pi: 64 bit.
+
+[^config]: Raspberry Pi documentation, config.txt: `kernel` and `arm_64bit`.
+
+[^am335x]: U-Boot documentation, AM335x Generation: Hardware.
+
+[^omap]: U-Boot source, `arch/arm/mach-omap2/config.mk` (`MLO` and `u-boot.img` are build targets for non-secure devices) and `scripts/Makefile.xpl` (`MLO` is `u-boot-spl.bin` wrapped by `mkimage -T omapimage`).
+
+[^defconfigs]: U-Boot source, `configs/am335x_evm_defconfig`.
+
+[^stm32]: U-Boot documentation, STM32MP1xx boards: Boot Sequences, Device Tree and Build Procedure.
+
+[^dtsmake]: U-Boot source, `dts/Makefile` and `configs/stm32mp15_defconfig` (`CONFIG_DEFAULT_DEVICE_TREE`).
+
+[^control]: U-Boot documentation, Devicetree Control in U-Boot: upstream device trees use `<vendor>/<name>`.

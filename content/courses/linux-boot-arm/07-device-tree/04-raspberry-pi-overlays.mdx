@@ -1,0 +1,141 @@
+---
+title: Add hardware to a Raspberry Pi 4 with Device Tree overlays
+description: Enable an I2C real-time clock and free the PL011 UART on a Raspberry Pi 4 with dtoverlay and dtparam lines in config.txt.
+course: linux-boot-arm
+module: m07
+order: 4
+type: how-to
+boards: [rpi4]
+verification: unverified
+sources:
+  - title: 'Raspberry Pi documentation: Device Trees, overlays, and parameters'
+    url: https://www.raspberrypi.com/documentation/computers/configuration.html#device-trees-overlays-and-parameters
+    section: 'DTBs, overlays and config.txt; DT parameters; Overlay/fragment parameters; Dynamic Device Tree; Debugging'
+  - title: 'Raspberry Pi documentation: config.txt'
+    url: https://www.raspberrypi.com/documentation/computers/config_txt.html
+    section: 'File format; dtoverlay; dtparam; overlay_prefix'
+  - title: 'Raspberry Pi firmware: boot/overlays/README'
+    url: https://github.com/raspberrypi/firmware/blob/master/boot/overlays/README
+    section: 'The base DTB; disable-bt; i2c-rtc'
+  - title: 'Raspberry Pi Linux, branch rpi-6.18.y: arch/arm/boot/dts/overlays/i2c-rtc-common.dtsi'
+    url: https://github.com/raspberrypi/linux/blob/72538df94f7c0aebdd79edc397aff9d61987631e/arch/arm/boot/dts/overlays/i2c-rtc-common.dtsi
+  - title: 'Linux source v6.18.55: arch/arm/boot/dts/broadcom/'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm/boot/dts/broadcom?h=v6.18.55
+---
+
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+import Prompt from '@ea/ui/Prompt.astro';
+
+<div class="t-lead">
+  On a Raspberry Pi 4, you don't recompile the Device Tree to add a HAT or a sensor. You list overlays in config.txt,
+  and the firmware merges them into the base tree before Linux starts. This page enables an I2C real-time clock and
+  gives the PL011 UART back to the GPIO header.
+</div>
+
+<Callout level="warning">
+  These steps have not been run on a board yet. They follow the Raspberry Pi documentation. If a step behaves
+  differently on your Pi, open an issue with the inaccuracy form.
+</Callout>
+
+## Before you start
+
+You need:
+
+- a Raspberry Pi 4 running Raspberry Pi OS, which mounts the FAT boot partition at `/boot/firmware/`;[^rpi]
+- the Raspberry Pi firmware, kernel and base dtbs that Raspberry Pi OS installs;
+- a root shell on the Pi, over SSH or the serial console;
+- for the clock, a DS3231 board wired to the Pi's I2C pins.
+
+This needs a real Pi. QEMU's `raspi4b` machine loads the kernel directly and never runs the firmware that reads `config.txt`.
+
+<Callout level="info">
+  Overlays and parameters belong to the Raspberry Pi firmware and its own base dtbs. The mainline `.dts` files at Linux
+  v6.18.55 have no `__overrides__` node, which is where the firmware looks up base parameters such as `i2c_arm`.[^ovr]
+  With a mainline dtb, expect base parameters to do nothing and some overlays to fail.
+</Callout>
+
+## Read an overlay's parameters
+
+Each overlay is a `.dtbo` file in `/boot/firmware/overlays/`. `dtoverlay=foo` in `config.txt` makes the firmware load `overlays/foo.dtbo`.[^rpi] The `README` in that folder documents every overlay and parameter.[^readme]
+
+<Prompt user="root" host="rpi4" cmd="dtoverlay -h i2c-rtc" />
+
+The help lists the RTC chips the overlay supports. Each chip name, such as `ds3231`, is a parameter that selects that chip. `addr` changes the I2C address.[^readme]
+
+<Prompt user="root" host="rpi4" cmd="dtoverlay -h disable-bt" />
+
+`disable-bt` turns off the onboard Bluetooth. On models before the Pi 5, this gives UART0, `ttyAMA0`, back to GPIOs 14 and 15. It takes no parameters.[^readme]
+
+## Add the lines to `config.txt`
+
+Open `/boot/firmware/config.txt` in an editor and add these lines at the end:
+
+```ini
+dtoverlay=i2c-rtc,ds3231
+dtoverlay=disable-bt
+```
+
+The rules that apply:[^rpi][^cfg]
+
+- Write one `property=value` per line. Lines longer than 98 characters are cut.
+- Parameters after an overlay name, separated by commas, belong to that overlay. A `dtparam=` line after an overlay can also set that overlay's parameters, until the next `dtoverlay=` line.
+- If the overlay and the base dtb both have a parameter with the same name, the overlay's wins. To reach the base dtb's parameter, first close the overlay's scope with an empty `dtoverlay=` line.
+
+You don't need `dtparam=i2c_arm=on` here. Loading an overlay that needs an interface enables that interface.[^readme] If you want I2C without an overlay, put `dtparam=i2c_arm=on` before the first `dtoverlay=` line.
+
+Reboot to apply the change. The firmware reads `config.txt` only at boot.[^cfg]
+
+<Prompt user="root" host="rpi4" cmd="reboot" />
+
+## Check that the overlays applied
+
+The firmware skips a missing overlay or a bad parameter and carries on. Check its log for warnings:[^rpi]
+
+<Prompt user="root" host="rpi4" cmd="vclog --msg" />
+
+For more detail, add `dtdebug=1` to `config.txt` and reboot again.[^rpi]
+
+`dtoverlay -l` does not help here: it lists only overlays applied at run time. Overlays the firmware applied are part of the base tree.[^rpi] Read the live tree instead. `dtc` comes from the `device-tree-compiler` package.[^rpi]
+
+<Prompt user="root" host="rpi4" cmd="apt install device-tree-compiler" />
+
+<Prompt user="root" host="rpi4" cmd="dtc -I fs -O dts -o /root/live.dts /proc/device-tree" />
+
+<Prompt user="root" host="rpi4" cmd="grep -n -A2 ds3231 /root/live.dts" />
+
+The overlay adds a node named `ds3231@68` with `compatible = "maxim,ds3231"` under the Arm I2C bus.[^src] If `grep` finds it, the firmware applied the overlay. Whether Linux then binds a driver depends on the kernel, so check `dmesg` for the RTC.
+
+## Undo the change
+
+Delete the two lines from `config.txt` and reboot.
+
+A related switch: an empty `dtoverlay=` line placed before any other `dtoverlay` or `dtparam` line stops the firmware from loading the overlay stored in a HAT's EEPROM.[^cfg]
+
+<Deeper depth="practitioner" title="How one overlay supports many chips">
+
+In the Raspberry Pi kernel source, `i2c-rtc-common.dtsi` holds one fragment per RTC chip. In each, the body node is called `__dormant__` instead of `__overlay__`, so the firmware leaves it out. The `__overrides__` node maps each chip name to a `+N` operation, which enables fragment `N`. Setting `ds3231` enables the fragment that adds `ds3231@68`.[^src][^frag]
+
+A fragment in `i2c-buses.dtsi` targets the `i2c_arm` label and sets the bus `status` to `"okay"`. That is why the overlay turns on I2C by itself.[^src]
+
+</Deeper>
+
+<Deeper depth="expert" title="Try an overlay without rebooting">
+
+Raspberry Pi kernels can apply overlays at run time. The `dtoverlay` command, given an overlay name and its parameters, adds the overlay to a stack in the live tree, and `dtoverlay -r` removes the last one. All the parameters go on the same command line. Run-time overlays don't work for everything: some parts of the tree are used only at boot.[^rpi]
+
+To test a merge on files, `dtmerge`, which the documentation lists next to `dtoverlay`, applies an overlay and its parameters to a base dtb file. `dtdiff` then compares two blobs.[^rpi]
+
+</Deeper>
+
+[^rpi]: Raspberry Pi documentation, "Device Trees, overlays, and parameters": "DTBs, overlays and config.txt", "DT parameters", "Dynamic Device Tree" and "Debugging".
+
+[^cfg]: Raspberry Pi documentation, "config.txt": "File format", "dtoverlay" and "dtparam".
+
+[^readme]: `boot/overlays/README` in the Raspberry Pi firmware repository: the introduction, the base dtb's `i2c_arm` parameter, and the `disable-bt` and `i2c-rtc` entries.
+
+[^ovr]: A search of `arch/arm/boot/dts/broadcom/` and `arch/arm64/boot/dts/broadcom/` at Linux v6.18.55 finds no `__overrides__` node. The Raspberry Pi documentation, "Device Tree parameters", explains that parameters are defined in an `__overrides__` node.
+
+[^src]: `arch/arm/boot/dts/overlays/i2c-rtc-common.dtsi` and `i2c-buses.dtsi` in the Raspberry Pi Linux tree, branch `rpi-6.18.y`.
+
+[^frag]: Raspberry Pi documentation, "Overlay/fragment parameters", which names the `i2c-rtc` overlay as an example.
