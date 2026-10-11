@@ -15,6 +15,9 @@ sources:
   - title: 'GNU Binutils 2.44 source: gas/config/tc-arm.c'
     url: 'https://sourceware.org/git/?p=binutils-gdb.git;a=blob;f=gas/config/tc-arm.c;hb=refs/tags/binutils-2_44'
     section: CPU table (cortex-a7, cortex-a8); smc, hvc and eret opcode entries
+  - title: 'GNU Binutils 2.44 source: opcodes/aarch64-tbl.h'
+    url: 'https://sourceware.org/git/?p=binutils-gdb.git;a=blob;f=opcodes/aarch64-tbl.h;hb=refs/tags/binutils-2_44'
+    section: svc, hvc and smc opcode entries
   - title: 'QEMU 10.0 source: qemu-options.hx (-machine, -cpu, -display, -serial, -monitor, -S)'
     url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/qemu-options.hx
   - title: "QEMU 10.0 documentation source: 'virt' generic virtual platform (docs/system/arm/virt.rst)"
@@ -67,7 +70,7 @@ Assemble it with the 64-bit cross assembler, then disassemble the result:
 
 <Prompt dir="~/work/m01" cmd="aarch64-linux-gnu-objdump -d el64.o" />
 
-`objdump -d` prints each instruction as its 32-bit encoding next to its mnemonic[^objdump]. Notice that `svc`, `hvc` and `smc` differ only in a few bits. Each one is an ordinary instruction; what makes it special is the exception it raises.
+`objdump -d` prints each instruction as its 32-bit encoding next to its mnemonic[^objdump]. Compare the encodings of `svc`, `hvc` and `smc`: they differ only in their lowest two bits[^a64]. Each one is an ordinary instruction; what makes it special is the exception it raises.
 
 ## The Cortex-A8 has no HVC or ERET
 
@@ -144,6 +147,8 @@ Without `-kernel`, QEMU starts the CPU at its highest exception level, like real
 </Deeper>
 
 [^objdump]: GNU Binutils 2.44, objdump, `-d`/`--disassemble`.
+
+[^a64]: GNU Binutils 2.44, `opcodes/aarch64-tbl.h`: the base opcodes of `svc`, `hvc` and `smc` are `0xD4000001`, `0xD4000002` and `0xD4000003`, before the immediate is added.
 
 [^tc-arm]: GNU Binutils 2.44, `gas/config/tc-arm.c`: `cortex-a7` uses `ARM_ARCH_V7VE`, which includes `ARM_EXT_VIRT` and `ARM_EXT_SEC`; `cortex-a8` uses `ARM_ARCH_V7A` plus `ARM_EXT_SEC`; `smc` is listed under `arm_ext_sec`, `hvc` and `eret` under `arm_ext_virt`. The `-mcpu` option is described in ARM Options.
 
