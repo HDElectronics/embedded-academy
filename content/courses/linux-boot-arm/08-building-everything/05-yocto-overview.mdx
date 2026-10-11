@@ -1,0 +1,127 @@
+---
+title: The Yocto Project builds from layers
+description: How the Yocto Project composes a system from layers, recipes and a machine configuration, and which layer supports each course board.
+course: linux-boot-arm
+module: m08
+order: 5
+type: explanation
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'Yocto Project 6.0.3 Overview and Concepts Manual: introducing the Yocto Project'
+    url: https://docs.yoctoproject.org/6.0.3/overview-manual/yp-intro.html
+  - title: 'Yocto Project 6.0.3 Overview and Concepts Manual: Yocto Project concepts'
+    url: https://docs.yoctoproject.org/6.0.3/overview-manual/concepts.html
+  - title: 'Yocto Project 6.0.3 Reference Manual: Yocto Project terms'
+    url: https://docs.yoctoproject.org/6.0.3/ref-manual/terms.html
+  - title: 'Yocto Project 6.0.3 Reference Manual: images'
+    url: https://docs.yoctoproject.org/6.0.3/ref-manual/images.html
+  - title: 'Yocto Project 6.0.3 Reference Manual: Yocto Project releases and the stable release process'
+    url: https://docs.yoctoproject.org/6.0.3/ref-manual/release-process.html
+  - title: 'meta-raspberrypi documentation: layer contents'
+    url: https://meta-raspberrypi.readthedocs.io/en/latest/layer-contents.html
+  - title: 'meta-raspberrypi documentation: optional build configuration'
+    url: https://meta-raspberrypi.readthedocs.io/en/latest/extra-build-config.html
+  - title: 'meta-raspberrypi source, branch wrynose: conf/machine/include/rpi-base.inc'
+    url: https://github.com/agherzan/meta-raspberrypi/blob/wrynose/conf/machine/include/rpi-base.inc
+  - title: 'meta-ti repository, branch wrynose: meta-beagle and meta-ti-bsp'
+    url: https://git.yoctoproject.org/meta-ti
+  - title: 'meta-yocto repository, branch wrynose: meta-yocto-bsp/conf/machine/beaglebone-yocto.conf'
+    url: https://git.yoctoproject.org/meta-yocto
+  - title: 'meta-st-stm32mp README, branch scarthgap'
+    url: https://github.com/STMicroelectronics/meta-st-stm32mp/blob/scarthgap/README.md
+  - title: 'meta-st-stm32mp source, branch scarthgap: conf/machine/stm32mp1.conf'
+    url: https://github.com/STMicroelectronics/meta-st-stm32mp/blob/scarthgap/conf/machine/stm32mp1.conf
+---
+
+import Deeper from '@ea/ui/Deeper.astro';
+
+<div class="t-lead">
+  Buildroot builds a system from one configuration file. The Yocto Project builds one from many layers stacked on top of
+  each other, so a board vendor, a distribution and your product can each own a part. This page is an overview: it names
+  the parts so you can read a Yocto build, and does not walk you through one.
+</div>
+
+## Yocto is a toolkit for making your own distribution
+
+The Yocto Project is an open-source collaboration that helps you create custom Linux systems for embedded products, whatever the hardware architecture.[^intro] Its build system comes from OpenEmbedded, and the two projects share a common set of metadata called OpenEmbedded-Core, or OE-Core: recipes, classes and the files they use.[^intro]
+
+The Yocto Project also defines a reference distribution, Poky. In the 6.0 documentation the Poky repository is no longer updated: a tool called `bitbake-setup` is now the preferred way to set up the repositories that build it.[^intro]
+
+## Layers keep each concern in its own repository
+
+A layer is a repository of metadata: instructions that tell the build system how to build a target.[^concepts] Layer names usually start with `meta-`, by convention rather than rule.[^intro] The Yocto Project asks you to keep layers modular, and to keep machine-specific settings in a separate kind of layer, a BSP layer, for Board Support Package.[^intro]
+
+A BSP layer does not have to copy a recipe to change it. It adds an append file, `.bbappend`, that extends a recipe from another layer. That way a BSP layer can change a recipe from, say, a GUI layer for its board without touching the GUI layer itself.[^intro]
+
+## BitBake runs the recipes
+
+BitBake is the build engine. It is a generic task execution engine: it runs shell and Python tasks, in parallel where their dependencies allow.[^intro] It parses the metadata, works out a list of tasks, then runs them.[^concepts] BitBake is maintained separately from the Yocto Project.[^intro]
+
+The metadata BitBake reads comes in a few kinds of file:[^concepts]
+
+| File                     | What it holds                                                    |
+| ------------------------ | ---------------------------------------------------------------- |
+| recipe, `.bb`            | how to fetch, configure, build and package one piece of software |
+| class, `.bbclass`        | logic that several recipes share                                 |
+| append file, `.bbappend` | additions to a recipe, from another layer[^terms]                |
+| `conf/local.conf`        | your settings for one build directory                            |
+| `conf/bblayers.conf`     | the list of layers that build uses                               |
+
+## Three choices define a build: machine, distro and image
+
+- **`MACHINE`** names the target hardware. Its settings live in `conf/machine/<machine>.conf` in a BSP layer.[^concepts]
+- **`DISTRO`** names the distribution policy, in `conf/distro/<distro>.conf`.[^concepts]
+- **The image** is the recipe you ask BitBake to build. `core-image-minimal`, for example, is a small image that can boot a device and little more.[^images]
+
+The finished images land in the build directory, under `tmp/deploy/images/<machine>/`.[^concepts]
+
+## Each course board has a BSP layer
+
+| Board            | Layer                             | `MACHINE`                                       |
+| ---------------- | --------------------------------- | ----------------------------------------------- |
+| Raspberry Pi 4   | `meta-raspberrypi`                | `raspberrypi4-64`, or `raspberrypi4` for 32-bit |
+| BeagleBone Black | `meta-ti`, sublayer `meta-beagle` | `beaglebone`                                    |
+| STM32MP157C-DK2  | `meta-st-stm32mp`                 | `stm32mp1`                                      |
+
+**Raspberry Pi 4.** `meta-raspberrypi` documents `raspberrypi4-64` as a 64-bit kernel and user space.[^rpi] It boots the kernel from the Raspberry Pi firmware unless you set `RPI_USE_U_BOOT = "1"` in `local.conf`; on the 64-bit Pi 4 that setting can't be combined with `ENABLE_UART = "0"`.[^rpiuboot] Its machines write a `.wic.bz2` card image by default, among other formats.[^rpibase]
+
+**BeagleBone Black.** In the `wrynose` branch of `meta-ti`, the `beaglebone` machine lives in the `meta-beagle` sublayer, which builds on `meta-ti-bsp`.[^ti] The `meta-yocto-bsp` layer has a second option, the reference machine `beaglebone-yocto`, which builds U-Boot with `am335x_evm_defconfig`, the defconfig you used by hand.[^yoctobsp]
+
+**STM32MP157C-DK2.** `meta-st-stm32mp` has one machine, `stm32mp1`, for all STM32MP1 boards. You don't pick the DK2 with `MACHINE`: the machine lists the Device Trees it builds for, and its SD card list includes `stm32mp157c-dk2`.[^st] Its boot chain is the one this course teaches, from ST's own recipes for TF-A, OP-TEE, U-Boot and Linux.[^st] Some parts are under an ST licence that you accept by setting `ACCEPT_EULA_<MACHINE>` to `"1"`; without it, the README says, the image misses some components.[^streadme]
+
+<Deeper depth="practitioner" title="Where the TI images land">
+`meta-ti-bsp` moves the deploy directory for TI machines: it sets `DEPLOY_DIR_IMAGE` for the `ti-soc` family to `deploy-ti/images/<machine>` under the build directory. The `beaglebone` machine belongs to that family, so look there, not in `tmp/deploy/images/`.[^ti]
+
+</Deeper>
+
+<Deeper depth="expert" title="Releases, branches and LTS">
+Yocto releases a major version every six months, roughly each April and October. Every two years one of them is a Long Term Support release, supported for four years. At the time of the 6.0.3 documentation, the supported LTS releases are 6.0 "Wrynose", until April 2030, and 5.0 "Scarthgap", until April 2028.[^release]
+
+Layers follow those releases with branches named after them, and each layer declares which releases it works with in `LAYERSERIES_COMPAT`. Check that every layer you stack has a branch for the same release. For example, the default branch of `meta-st-stm32mp` is `scarthgap`, while `meta-raspberrypi` and `meta-ti` have `wrynose` branches.[^rpibase][^ti][^st]
+
+</Deeper>
+
+[^intro]: Yocto Project Overview and Concepts Manual, Introducing the Yocto Project: the Yocto Project layer model; OpenEmbedded build system components.
+
+[^concepts]: Yocto Project Overview and Concepts Manual, Yocto Project concepts: BitBake; recipes; classes; layers; user configuration; distro layer; BSP layer; images.
+
+[^terms]: Yocto Project Reference Manual, Yocto Project terms: append files.
+
+[^images]: Yocto Project Reference Manual, Images: `core-image-minimal`.
+
+[^release]: Yocto Project Reference Manual, Yocto Project releases and the stable release process.
+
+[^rpi]: meta-raspberrypi documentation, layer contents: supported machines.
+
+[^rpiuboot]: meta-raspberrypi documentation, optional build configuration: boot to U-Boot.
+
+[^rpibase]: meta-raspberrypi, branch `wrynose`: `conf/machine/include/rpi-base.inc` (`IMAGE_FSTYPES`) and `conf/layer.conf`.
+
+[^ti]: meta-ti, branch `wrynose`: `meta-beagle/conf/machine/beaglebone.conf`, `meta-beagle/conf/layer.conf` and `meta-ti-bsp/conf/layer.conf`.
+
+[^yoctobsp]: meta-yocto, branch `wrynose`: `meta-yocto-bsp/conf/machine/beaglebone-yocto.conf`.
+
+[^st]: meta-st-stm32mp, branch `scarthgap`: `conf/machine/stm32mp1.conf` and `conf/machine/include/st-machine-providers-stm32mp.inc`.
+
+[^streadme]: meta-st-stm32mp README, branch `scarthgap`: EULA.
