@@ -1,0 +1,32 @@
+---
+// SPDX-FileCopyrightText: Embedded Academy contributors
+// SPDX-License-Identifier: MIT
+
+// A lesson laid out as a tmux session on wide screens. The reading pane holds
+// the lesson; <ea-session> moves its figures into the windows and serial panes.
+---
+
+<ea-session class="ea-session" data-layout="inline">
+  <section class="ea-pane ea-session__read" aria-label="Lesson text">
+    <div class="ea-pane__bar ea-session__bar">
+      <span class="ea-pane__id">0:</span>
+      <span class="ea-pane__title">read</span>
+    </div>
+    <div class="ea-session__scroll" tabindex="0" data-part="read">
+      <slot />
+    </div>
+  </section>
+  <section class="ea-pane ea-pane--active ea-session__windows" aria-label="Figures">
+    <div class="ea-pane__bar ea-session__bar">
+      <div class="ea-session__tabs" role="tablist" aria-label="Windows" data-part="tabs"></div>
+    </div>
+    <div class="ea-session__scroll" tabindex="0" data-part="windows"></div>
+  </section>
+  <section class="ea-session__serial" aria-label="Serial pane" data-part="serial"></section>
+</ea-session>
+
+<script>
+  import { defineSession } from '../scripts/session.ts';
+
+  defineSession();
+</script>

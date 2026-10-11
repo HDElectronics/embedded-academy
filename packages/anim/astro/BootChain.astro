@@ -34,7 +34,7 @@ const state = chainState(first, 0);
 const json = JSON.stringify(data).replace(/</g, '\u003c');
 ---
 
-<ea-boot-chain class="ea-chain" data-initial-board="0" data-initial-stage="0">
+<ea-boot-chain class="ea-chain" data-window="boot-chain" data-initial-board="0" data-initial-stage="0">
   <script is:inline type="application/json" data-chain set:html={json} />
   <section class="ea-pane ea-pane--active" aria-label="Boot chain">
     <div class="ea-pane__bar">
