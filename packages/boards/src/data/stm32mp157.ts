@@ -40,6 +40,14 @@ export const stm32mp157: Board = {
         'Reads the GPT partition fsbl1, with fsbl2 as backup.',
         'On closed parts, checks the image signature against a key hash in OTP, then runs it from SYSRAM.',
       ],
+      loads: [
+        {
+          file: 'tf-a-stm32mp157c-dk2-sdcard.stm32',
+          from: 'GPT partition fsbl1',
+          to: 'sysram',
+          sources: [STM32MP15_RM],
+        },
+      ],
       sources: [STM32MP15_RM],
       verification: 'unverified',
     },
@@ -56,6 +64,10 @@ export const stm32mp157: Board = {
         'Sets up the clock tree and the STPMIC1 power rails over I2C.',
         'Initializes the DDR controller and PHY.',
         'Loads the FIP: OP-TEE (BL32), U-Boot (BL33) and their device trees.',
+      ],
+      loads: [
+        { file: 'BL32 (OP-TEE)', from: 'GPT partition fip', to: 'dram', sources: [TFA_STM32MP1] },
+        { file: 'BL33 (U-Boot)', from: 'GPT partition fip', to: 'dram', sources: [TFA_STM32MP1] },
       ],
       sources: [TFA_STM32MP1],
       verification: 'unverified',
@@ -90,6 +102,10 @@ export const stm32mp157: Board = {
         'Runs in the normal world. The OP-TEE carve-out is now invisible to it.',
         'Standard boot finds /extlinux/extlinux.conf on bootfs.',
         'Loads the kernel and stm32mp157c-dk2.dtb, and can start Cortex-M4 firmware.',
+      ],
+      loads: [
+        { file: 'zImage', from: 'GPT partition bootfs', to: 'dram', sources: [UBOOT_STM32MP1] },
+        { file: 'stm32mp157c-dk2.dtb', from: 'GPT partition bootfs', to: 'dram', sources: [UBOOT_STM32MP1] },
       ],
       sources: [UBOOT_STM32MP1],
       verification: 'unverified',

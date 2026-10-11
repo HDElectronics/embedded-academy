@@ -33,6 +33,21 @@ export const Region = z.object({
   sources: z.array(Source).min(1),
 });
 
+/** An image a stage copies into memory for a later stage. */
+export const Load = z.object({
+  /** The image as named on disk or in the container that holds it. */
+  file: z.string().min(1),
+  /** Where it is read from: a device, partition or another region. */
+  from: z.string().min(1),
+  /** Region id it is copied into. */
+  to: z.string(),
+  /** Load address, when the source states it. */
+  address: z.number().int().nonnegative().optional(),
+  /** `top`: copied to the top of the region, as U-Boot does when it relocates itself. */
+  place: z.enum(['top']).optional(),
+  sources: z.array(Source).min(1),
+});
+
 export const Stage = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
   name: z.string().min(1),
@@ -47,6 +62,8 @@ export const Stage = z.object({
   level: z.string().min(1),
   world: World,
   does: z.array(z.string().min(1)).min(1).max(4),
+  /** Images this stage copies into memory, in order. */
+  loads: z.array(Load).max(6).optional(),
   sources: z.array(Source).min(1),
   verification: Verification,
 });
@@ -67,6 +84,7 @@ export const Board = z.object({
 export type Source = z.infer<typeof Source>;
 export type Verification = z.infer<typeof Verification>;
 export type World = z.infer<typeof World>;
+export type Load = z.infer<typeof Load>;
 export type Region = z.infer<typeof Region>;
 export type Stage = z.infer<typeof Stage>;
 export type Board = z.infer<typeof Board>;

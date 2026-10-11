@@ -20,8 +20,9 @@ Board data lives in `packages/boards`, next to `rpi4`, `bbb` and `stm32mp157`.
 
 1. Add the board's data and extend the Zod schemas so the new board validates.
 2. Give every fact a `source` field that points to the vendor TRM, datasheet, upstream docs or upstream code. Never invent an address, offset or size. If a value is unknown, leave it out and open a research issue.
-3. Add the board's identifier to the `boards` values that lesson frontmatter accepts, and update [Lesson frontmatter](../reference/lesson-frontmatter.md).
-4. Add Vitest tests for the new data. Keep coverage on `packages/boards` at or above 90%.
+3. For each stage, list the images it copies into memory under `loads`: the file, where it is read from, the region it goes to, and the load address only when a source states it. The memory map animation is built from this list.
+4. Add the board's identifier to the `boards` values that lesson frontmatter accepts, and update [Lesson frontmatter](../reference/lesson-frontmatter.md).
+5. Add Vitest tests for the new data. Keep coverage on `packages/boards` at or above 90%.
 
 ## Add the board to labs and logs
 

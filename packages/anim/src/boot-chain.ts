@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import { chainState, clampIndex } from './model.ts';
-import { enter, prefersReducedMotion } from './motion.ts';
+import { enter, positions, prefersReducedMotion, travelFrom } from './motion.ts';
 import { renderDetail, renderMemory, renderRail, renderTabs } from './render.ts';
 import { ConsoleTyper } from './typer.ts';
 import type { ChainBoard } from './types.ts';
@@ -88,9 +88,9 @@ export class EaBootChain extends HTMLElement {
     }
     const memory = this.#part('memory');
     if (memory) {
+      const before = forward ? positions(memory, 'data-file') : new Map<string, DOMRect>();
       memory.innerHTML = renderMemory(board, state);
-      const chip = memory.querySelector(`[data-chip="${CSS.escape(state.stage.id)}"]`);
-      if (forward && chip) enter(chip, { x: -16 });
+      if (forward) travelFrom(memory, 'data-file', before);
     }
     const status = this.#part('status');
     if (status) status.textContent = `Stage ${this.#index + 1} of ${board.stages.length}: ${state.stage.name}`;

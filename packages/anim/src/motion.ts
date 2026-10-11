@@ -29,6 +29,36 @@ export function enter(targets: Element | Element[], from: { x?: number; y?: numb
   });
 }
 
+/** Positions of the elements carrying `attr` inside `root`, keyed by the attribute's value. */
+export function positions(root: Element, attr: string): Map<string, DOMRect> {
+  const map = new Map<string, DOMRect>();
+  for (const el of root.querySelectorAll(`[${attr}]`)) map.set(el.getAttribute(attr) ?? '', el.getBoundingClientRect());
+  return map;
+}
+
+/**
+ * Moves each element carrying `attr` from where it was (`before`) to where it is
+ * now, so a re-rendered image visibly travels. New elements marked `.is-active`
+ * fade in instead. Does nothing when motion is reduced.
+ */
+export function travelFrom(root: Element, attr: string, before: Map<string, DOMRect>): void {
+  if (prefersReducedMotion()) return;
+  for (const el of root.querySelectorAll<HTMLElement>(`[${attr}]`)) {
+    const old = before.get(el.getAttribute(attr) ?? '');
+    const now = el.getBoundingClientRect();
+    if (old && (old.left !== now.left || old.top !== now.top)) {
+      animate(el, {
+        translateX: [old.left - now.left, 0],
+        translateY: [old.top - now.top, 0],
+        duration: DURATION.travel,
+        ease: 'inOutQuad',
+      });
+    } else if (!old && el.classList.contains('is-active')) {
+      enter(el, { x: -16 });
+    }
+  }
+}
+
 /**
  * Typing cadence for `total` characters: TYPE_CPS, sped up so the chunk
  * finishes within TYPE_MAX_MS. Ticks never run faster than every 16 ms.

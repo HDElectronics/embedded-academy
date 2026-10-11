@@ -33,9 +33,20 @@ export interface ChainStage {
   level: string;
   world: World;
   does: string[];
+  /** Images this stage copies into memory. */
+  loads: ChainLoad[];
   sources: Source[];
   verification: Verification;
   log: string[];
+}
+
+export interface ChainLoad {
+  file: string;
+  from: string;
+  to: string;
+  /** Formatted load address, or empty when the source states none. */
+  address: string;
+  top: boolean;
 }
 
 function formatSize(bytes: number): string {
@@ -73,6 +84,13 @@ export function toChainBoard(board: Board, log: StageLog): ChainBoard {
       level: s.level,
       world: s.world,
       does: s.does,
+      loads: (s.loads ?? []).map((l) => ({
+        file: l.file,
+        from: l.from,
+        to: l.to,
+        address: l.address === undefined ? '' : formatAddress(l.address),
+        top: l.place === 'top',
+      })),
       sources: s.sources,
       verification: s.verification,
       log: log.stages.get(s.id) ?? [],
