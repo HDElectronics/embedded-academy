@@ -24,9 +24,19 @@ const siblings = await courseLessons(course.id);
 const position = siblings.findIndex((l) => l.id === lesson.id);
 const prev = siblings[position - 1];
 const next = siblings[position + 1];
+const hint = next
+  ? {
+      command: `less ${next.data.module === lesson.data.module ? '' : '../'}${next.id
+        .split('/')
+        .slice(next.data.module === lesson.data.module ? 2 : 1)
+        .join('/')}`,
+      href: lessonHref(next),
+      label: `next lesson: ${next.data.title}`,
+    }
+  : { command: 'cd ..', href: `/courses/${course.id}/`, label: 'back to the course' };
 ---
 
-<Base title={lesson.data.title} description={lesson.data.description}>
+<Base title={lesson.data.title} description={lesson.data.description} hint={hint}>
   <article class="prose wide">
     <header class="prose">
       <p class="t-label">

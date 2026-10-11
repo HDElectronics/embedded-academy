@@ -4,7 +4,7 @@
 ---
 
 <button type="button" class="ea-btn theme-toggle" data-theme-toggle aria-pressed="false">
-  theme: tty
+  <span class="theme-toggle__key">theme: </span>tty
 </button>
 
 <script>
@@ -12,7 +12,8 @@
 
   function apply(button: HTMLButtonElement): void {
     const theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
-    button.textContent = `theme: ${NAMES[theme]}`;
+    const key = button.querySelector('.theme-toggle__key');
+    button.replaceChildren(...(key ? [key] : []), NAMES[theme]);
     button.setAttribute('aria-pressed', String(theme === 'light'));
     button.setAttribute(
       'aria-label',

@@ -53,6 +53,18 @@ test('arrow keys switch boards on the tabs', async ({ page }) => {
   await expect(page.locator('[data-part="meta"]')).toContainText('AM3358');
 });
 
+test('the header prompt shows where you are and links to the next step', async ({ page }) => {
+  await page.goto('/');
+  const prompt = page.getByRole('navigation', { name: 'You are here' });
+  await prompt.getByRole('link', { name: /^cd courses\/linux-boot-arm\// }).click();
+  await expect(page).toHaveURL(/\/courses\/linux-boot-arm\/$/);
+  await expect(prompt.locator('[aria-current="page"]')).toHaveText('linux-boot-arm');
+  await prompt.getByRole('link', { name: /^less / }).click();
+  await expect(page).toHaveURL(LESSON);
+  await prompt.getByRole('link', { name: /linux-boot-arm/ }).click();
+  await expect(page).toHaveURL(/\/courses\/linux-boot-arm\/$/);
+});
+
 test('theme toggle switches to paper and remembers it', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /^Theme: tty/ }).click();
