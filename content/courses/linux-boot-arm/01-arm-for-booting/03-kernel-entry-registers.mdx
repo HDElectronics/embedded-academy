@@ -1,0 +1,128 @@
+---
+title: Registers at kernel entry
+description: Register values, CPU mode, cache and MMU state that 32-bit and 64-bit Arm Linux require at kernel entry, from the kernel's boot documents.
+course: linux-boot-arm
+module: m01
+order: 3
+type: reference
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'Linux kernel documentation: Booting ARM Linux (Documentation/arch/arm/booting.rst, v6.18.55)'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/Documentation/arch/arm/booting.rst?h=v6.18.55
+  - title: 'Linux kernel documentation: Booting AArch64 Linux (Documentation/arch/arm64/booting.rst, v6.18.55)'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/Documentation/arch/arm64/booting.rst?h=v6.18.55
+  - title: 'Arm Cortex-A8 Technical Reference Manual r3p2 (DDI 0344K)'
+    url: https://developer.arm.com/documentation/ddi0344/k
+    section: 1.2 ARMv7-A architecture
+  - title: 'Arm Cortex-A7 MPCore Technical Reference Manual r0p5 (DDI 0464F)'
+    url: https://developer.arm.com/documentation/ddi0464/f
+    section: 1.2.1 ARM architecture
+---
+
+import Callout from '@ea/ui/Callout.astro';
+
+<p class="t-lead">
+  The last boot loader stage jumps to the kernel with a few registers set and the CPU in a known state. The kernel's own
+  documents define that contract, one for 32-bit Arm and one for 64-bit Arm. This page lists what they require, at the
+  course's pinned Linux version, `v6.18.55`.
+</p>
+
+<Callout level="info">
+  This page restates the two kernel documents and leaves out what they do not say. Where it shortens a requirement, the
+  full text is in Booting ARM Linux, section 6, and Booting AArch64 Linux, section 4.
+</Callout>
+
+## 64-bit Arm: x0 holds the Device Tree address
+
+Booting AArch64 Linux, section 4, "Call the kernel image"[^arm64]. It applies to the Raspberry Pi 4 when it runs a 64-bit kernel.
+
+**Primary CPU registers**
+
+- `x0`: physical address of the device tree blob (`dtb`) in system RAM.
+- `x1`, `x2`, `x3`: 0, reserved for future use.
+
+**CPU mode**
+
+- All interrupts masked in `PSTATE.DAIF`: Debug, SError, IRQ and FIQ.
+- Non-secure state, at EL2 or EL1. EL2 is recommended, to give the kernel the virtualisation extensions.
+- All CPUs enter the kernel at the same exception level.
+
+**Caches and MMU**
+
+- MMU off.
+- Instruction cache on or off. It must not hold stale entries for the loaded kernel image.
+- The address range of the loaded kernel image cleaned to the point of coherency (PoC).
+
+**Where things go**
+
+- The `Image` is placed `text_offset` bytes from a 2 MB aligned base address in usable system RAM, and called there. `text_offset` comes from the image's 64-byte header.
+- The `dtb` sits on an 8-byte boundary and is at most 2 MB in size[^arm64-dt].
+- The primary CPU jumps directly to the first instruction of the kernel image.
+
+**System registers, a selection**
+
+- If EL3 is present, `SCR_EL3.FIQ` has the same value on every CPU the kernel runs on.
+- If EL3 is present and the kernel is entered at EL2, `SCR_EL3.HCE` (bit 8) is set to 1.
+- `CNTFRQ` holds the timer frequency, and `CNTVOFF` has the same value on all CPUs.
+
+The document lists many more registers for optional features, such as GICv3, SVE and pointer authentication. Read it in full before you write a boot loader.
+
+**Secondary CPUs**
+
+- Each CPU node in the `dtb` has an `enable-method` property: `spin-table` or `psci`.
+- With `spin-table`, a CPU waits outside the kernel, polling its `cpu-release-addr`, and jumps to the address written there.
+- With `psci`, the kernel brings the CPU in with `CPU_ON` calls.
+- Secondary CPUs enter with `x0` to `x3` set to 0.
+
+## 32-bit Arm: r2 holds the Device Tree address
+
+Booting ARM Linux, section 6, "Calling the kernel image"[^arm]. It applies to the BeagleBone Black and the STM32MP157 DK2, which run 32-bit kernels.
+
+**Registers**
+
+- `r0`: 0.
+- `r1`: the machine type number. On platforms that boot only with a Device Tree, the document says to set it to all ones, `~0`, and that this is not strictly necessary[^arm-mach].
+- `r2`: physical address of the `dtb` in system RAM, or of an older ATAG tagged list.
+
+**CPU mode**
+
+- IRQs and FIQs disabled.
+- A CPU without the virtualization extensions must be in SVC mode.
+- A CPU with the virtualization extensions can be entered in HYP mode, and this is the recommended way unless a pre-installed hypervisor already uses them. If the kernel is not entered in HYP mode, it must be entered in SVC mode.
+
+**Caches and MMU**
+
+- MMU off.
+- Instruction cache on or off.
+- Data cache off.
+- If the kernel is entered in HYP mode, these rules apply to the HYP configuration as well as to PL1, all traps into the hypervisor are disabled, and PL1 gets access to all peripherals and CPU resources where the architecture allows it.
+
+**Where things go**
+
+- A `zImage` placed in RAM should sit in the first 128 MiB of RAM. Loading it above 32 MiB is recommended: it avoids a relocation before decompression.
+- The `dtb` sits at a 64-bit aligned address, where the decompressor will not overwrite it and inside the kernel's low-memory mapping. The document names a safe place: immediately above the 128 MiB boundary from the start of RAM[^arm-dt].
+- The kernel finds a `dtb` by its magic value, `0xD00DFEED`, at the address in `r2`[^arm-dt].
+- The boot loader jumps directly to the first instruction of the kernel image, in ARM state even for a Thumb-2 kernel.
+
+## What this means for each board
+
+- **Raspberry Pi 4, Cortex-A72.** The 64-bit rules apply. The core has EL2, so the recommended entry is Non-secure EL2.
+- **BeagleBone Black, Cortex-A8.** The Cortex-A8 has no Virtualization Extensions[^a8], so the kernel must be entered in SVC mode.
+- **STM32MP157 DK2, Cortex-A7.** The Cortex-A7 has the Virtualization Extensions[^a7], so the kernel can be entered in HYP mode, or in SVC mode.
+
+This page does not say which mode each board's boot loader actually uses. That depends on the boot loader and its configuration, not on these documents.
+
+[^arm64]: Booting AArch64 Linux, v6.18.55, section 4.
+
+[^arm64-dt]: Booting AArch64 Linux, v6.18.55, section 2, Setup the device tree.
+
+[^arm]: Booting ARM Linux, v6.18.55, section 6.
+
+[^arm-mach]: Booting ARM Linux, v6.18.55, section 3, Detect the machine type.
+
+[^arm-dt]: Booting ARM Linux, v6.18.55, section 4b, Setup the device tree.
+
+[^a8]: Arm Cortex-A8 TRM r3p2, 1.2 ARMv7-A architecture: the listed extensions are the Security Extensions and Advanced SIMD.
+
+[^a7]: Arm Cortex-A7 MPCore TRM r0p5, 1.2.1 ARM architecture.
