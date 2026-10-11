@@ -7,7 +7,17 @@ import * as mdx from 'eslint-plugin-mdx';
 import tseslint from 'typescript-eslint';
 
 export default [
-  { ignores: ['**/dist/**', '**/.astro/**', '**/node_modules/**', 'docs/**', 'coverage/**', '**/*.{js,mjs,ts}'] },
+  {
+    ignores: [
+      '.claude/worktrees/**',
+      '**/dist/**',
+      '**/.astro/**',
+      '**/node_modules/**',
+      'docs/**',
+      'coverage/**',
+      '**/*.{js,mjs,ts}',
+    ],
+  },
   ...astro.configs.recommended,
   {
     files: ['**/*.astro'],
