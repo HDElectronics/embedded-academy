@@ -6,7 +6,7 @@ module: m02
 order: 4
 type: tutorial
 boards: [rpi4, bbb, stm32mp157]
-verification: unverified
+verification: emulated
 sources:
   - title: 'Raspberry Pi documentation: config.txt'
     url: https://www.raspberrypi.com/documentation/computers/config_txt.html
@@ -47,8 +47,9 @@ import SerialConsole from '@ea/anim/SerialConsole.astro';
   next.
 </div>
 
-<Callout level="warning">
-  Nobody has run these steps in the lab container yet. If a command fails or behaves differently, report it with the
+<Callout level="info">
+  Every command on this page was run in the lab container on 2026-10-11, so it is marked emulated. The serial console
+  logs at the end are illustrative, not captured. If a command fails or behaves differently, report it with the
   inaccuracy issue form.
 </Callout>
 
@@ -87,6 +88,10 @@ The EEPROM bootloader boots from a FAT12, FAT16 or FAT32 partition that contains
 4. Create a FAT32 filesystem inside the partition. `--offset` gives the start sector, and the last argument gives the size in KiB:[^mkfs]
 
    <Prompt dir="~/work/m02" cmd="mkfs.vfat -F 32 -n BOOT --offset 2048 rpi4-sd.img 131072" />
+
+   `mkfs.vfat` warns `block count mismatch: found 261120 but assuming 131072`. It measured the space from the offset
+   to the end of the image file, 255 MiB, and uses the 128 MiB you gave it, which is the size of the partition. You can
+   ignore the warning.[^mkfs]
 
 5. Create placeholders for the firmware, the Device Tree and the 64-bit kernel, and a one-line `config.txt` that enables the serial console:[^rpi-folder] [^rpi-uart]
 

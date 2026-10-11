@@ -1,0 +1,149 @@
+# board: none (image tools in the lab container, no emulation; the images are for rpi4, bbb and stm32mp157)
+# software: util-linux 2.41.5 (sfdisk), dosfstools 4.2, GNU mtools 4.0.48, GNU coreutils 9.7, GNU Binutils 2.44 (strings)
+# command: the commands of 02-power-on-and-the-boot-rom/04-lab-lay-out-boot-media.mdx, in order, in ~/work/m02; each run line below names one
+# captured: 2026-10-11 (UTC), embedded-academy-lab container (Debian 13.7, QEMU 10.0.13)
+# note: lab image built without trixie-updates; the host and container UTC clocks matched the Date headers of google.com, github.com and deb.debian.org at capture, so timestamps in the output are real UTC
+# verification: emulated
+# --- run: mkdir -p ~/work/m02
+# --- run: cd ~/work/m02
+# --- run: truncate -s 256M rpi4-sd.img
+# --- run: echo 'start=2048, size=262144, type=0c' | sfdisk rpi4-sd.img
+Checking that no-one is using this disk right now ... OK
+
+Disk rpi4-sd.img: 256 MiB, 268435456 bytes, 524288 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+>>> Created a new DOS (MBR) disklabel with disk identifier 0xb1461902.
+rpi4-sd.img1: Created a new partition 1 of type 'W95 FAT32 (LBA)' and of size 128 MiB.
+rpi4-sd.img2: Done.
+
+New situation:
+Disklabel type: dos
+Disk identifier: 0xb1461902
+
+Device       Boot Start    End Sectors  Size Id Type
+rpi4-sd.img1       2048 264191  262144  128M  c W95 FAT32 (LBA)
+
+The partition table has been altered.
+# --- run: sfdisk -l rpi4-sd.img
+Disk rpi4-sd.img: 256 MiB, 268435456 bytes, 524288 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+Disklabel type: dos
+Disk identifier: 0xb1461902
+
+Device       Boot Start    End Sectors  Size Id Type
+rpi4-sd.img1       2048 264191  262144  128M  c W95 FAT32 (LBA)
+# --- run: mkfs.vfat -F 32 -n BOOT --offset 2048 rpi4-sd.img 131072
+Warning: block count mismatch: found 261120 but assuming 131072.
+mkfs.fat 4.2 (2021-01-31)
+# --- run: touch start4.elf fixup4.dat kernel8.img bcm2711-rpi-4-b.dtb
+# --- run: echo enable_uart=1 > config.txt
+# --- run: mcopy -i rpi4-sd.img@@1M start4.elf fixup4.dat kernel8.img bcm2711-rpi-4-b.dtb config.txt ::
+# --- run: mdir -i rpi4-sd.img@@1M ::
+ Volume in drive : is BOOT       
+ Volume Serial Number is C5E3-3F84
+Directory for ::/
+
+start4   elf         0 2026-10-11  21:15 
+fixup4   dat         0 2026-10-11  21:15 
+kernel8  img         0 2026-10-11  21:15 
+BCM271~1 DTB         0 2026-10-11  21:15  bcm2711-rpi-4-b.dtb
+config   txt        14 2026-10-11  21:15 
+        5 files                  14 bytes
+                        132 134 912 bytes free
+
+# --- run: truncate -s 256M bbb-sd.img
+# --- run: echo 'start=2048, size=262144, type=0c, bootable' | sfdisk bbb-sd.img
+Checking that no-one is using this disk right now ... OK
+
+Disk bbb-sd.img: 256 MiB, 268435456 bytes, 524288 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+>>> Created a new DOS (MBR) disklabel with disk identifier 0x016aca62.
+bbb-sd.img1: Created a new partition 1 of type 'W95 FAT32 (LBA)' and of size 128 MiB.
+bbb-sd.img2: Done.
+
+New situation:
+Disklabel type: dos
+Disk identifier: 0x016aca62
+
+Device      Boot Start    End Sectors  Size Id Type
+bbb-sd.img1 *     2048 264191  262144  128M  c W95 FAT32 (LBA)
+
+The partition table has been altered.
+# --- run: od -A d -t x1 -j 446 -N 16 bbb-sd.img
+0000446 80 20 21 00 0c 71 21 10 00 08 00 00 00 00 04 00
+0000462
+# --- run: mkfs.vfat -F 32 -n BOOT --offset 2048 bbb-sd.img 131072
+Warning: block count mismatch: found 261120 but assuming 131072.
+mkfs.fat 4.2 (2021-01-31)
+# --- run: echo 'placeholder, not a real MLO' > MLO
+# --- run: mcopy -i bbb-sd.img@@1M MLO ::
+# --- run: mdir -i bbb-sd.img@@1M ::
+ Volume in drive : is BOOT       
+ Volume Serial Number is C5E7-6324
+Directory for ::/
+
+MLO                 28 2026-10-11  21:15 
+        1 file                   28 bytes
+                        132 134 912 bytes free
+
+# --- run: truncate -s 64M stm32mp157-sd.img
+# --- run: printf 'label: gpt\nstart=2048, size=512, name=fsbl1\nstart=4096, size=512, name=fsbl2\nstart=6144, size=8192, name=fip, type=19D5DF83-11B0-457B-BE2C-7559C13142A5\nstart=16384, name=rootfs, attrs=LegacyBIOSBootable\n' | sfdisk stm32mp157-sd.img
+Checking that no-one is using this disk right now ... OK
+
+Disk stm32mp157-sd.img: 64 MiB, 67108864 bytes, 131072 sectors
+Units: sectors of 1 * 512 = 512 bytes
+Sector size (logical/physical): 512 bytes / 512 bytes
+I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+>>> Script header accepted.
+>>> Created a new GPT disklabel (GUID: 185C0FAF-17BC-4CCB-BE13-B98DAE2410FF).
+stm32mp157-sd.img1: Created a new partition 1 of type 'Linux filesystem' and of size 256 KiB.
+stm32mp157-sd.img2: Created a new partition 2 of type 'Linux filesystem' and of size 256 KiB.
+stm32mp157-sd.img3: Created a new partition 3 of type 'unknown' and of size 4 MiB.
+stm32mp157-sd.img4: Created a new partition 4 of type 'Linux filesystem' and of size 55 MiB.
+stm32mp157-sd.img5: Done.
+
+New situation:
+Disklabel type: gpt
+Disk identifier: 185C0FAF-17BC-4CCB-BE13-B98DAE2410FF
+
+Device             Start    End Sectors  Size Type
+stm32mp157-sd.img1  2048   2559     512  256K Linux filesystem
+stm32mp157-sd.img2  4096   4607     512  256K Linux filesystem
+stm32mp157-sd.img3  6144  14335    8192    4M unknown
+stm32mp157-sd.img4 16384 129023  112640   55M Linux filesystem
+
+The partition table has been altered.
+# --- run: sfdisk --dump stm32mp157-sd.img
+label: gpt
+label-id: 185C0FAF-17BC-4CCB-BE13-B98DAE2410FF
+device: stm32mp157-sd.img
+unit: sectors
+first-lba: 2048
+last-lba: 131038
+sector-size: 512
+
+stm32mp157-sd.img1 : start=        2048, size=         512, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=E66C934D-B967-4F60-BB92-847C678E48E0, name="fsbl1"
+stm32mp157-sd.img2 : start=        4096, size=         512, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=269E40F5-70EB-430E-ACA9-691AFBAA121A, name="fsbl2"
+stm32mp157-sd.img3 : start=        6144, size=        8192, type=19D5DF83-11B0-457B-BE2C-7559C13142A5, uuid=8D103BAB-0757-4A20-813E-9F7BF7F632CC, name="fip"
+stm32mp157-sd.img4 : start=       16384, size=      112640, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=D7109C8C-38A0-4BE2-97C7-FE4FF2E86747, name="rootfs", attrs="LegacyBIOSBootable"
+# --- run: echo 'placeholder, not a real FSBL' > fsbl.stm32
+# --- run: dd if=fsbl.stm32 of=stm32mp157-sd.img bs=1M seek=1 conv=notrunc
+0+1 records in
+0+1 records out
+29 bytes copied, 3.2707e-05 s, 887 kB/s
+# --- run: dd if=fsbl.stm32 of=stm32mp157-sd.img bs=1M seek=2 conv=notrunc
+0+1 records in
+0+1 records out
+29 bytes copied, 2.7681e-05 s, 1.0 MB/s
+# --- run: strings stm32mp157-sd.img | grep placeholder
+placeholder, not a real FSBL
+placeholder, not a real FSBL
