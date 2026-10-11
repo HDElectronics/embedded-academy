@@ -1,0 +1,138 @@
+---
+title: TrustZone splits the machine into two worlds
+description: Two security states, one monitor between them, and the SMC instruction that knocks on its door, on Armv8-A and on Armv7-A.
+course: linux-boot-arm
+module: m03
+order: 1
+type: explanation
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'Arm: Learn the architecture, TrustZone for AArch64 (102418, version 1.2)'
+    url: https://developer.arm.com/documentation/102418/0102
+    section: What is TrustZone?; TrustZone in the processor; System architecture
+  - title: 'ARM Architecture Reference Manual, ARMv7-A and ARMv7-R edition (DDI 0406C)'
+    url: https://developer.arm.com/documentation/ddi0406/c/System-Level-Architecture/The-System-Level-Programmers--Model/The-Security-Extensions/Security-states
+    section: 'The Security Extensions: Security states; Impact on the modes and exception model'
+  - title: 'OP-TEE documentation 4.10.0: Core'
+    url: https://optee.readthedocs.io/en/4.10.0/architecture/core.html
+    section: Core exception vectors; Normal World invokes OP-TEE OS using SMC
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Raspberry Pi 4'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/rpi4.html
+---
+
+import PrivilegeLadder from '@ea/anim/PrivilegeLadder.astro';
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<p class="t-lead">
+  An ARM application core is never only "running". It is running in one of two security states. Firmware that holds keys
+  and guards memory lives in one; Linux lives in the other. One small piece of firmware, the secure monitor, is the only
+  way across. This page explains how that works, because every later stage of the boot either sets this up or depends on
+  it.
+</p>
+
+## TrustZone gives the chip two worlds
+
+TrustZone is the security architecture of Arm A-profile cores. It first appeared in Armv6K and is part of Armv7-A and Armv8-A. It provides two execution environments, isolated from each other by hardware.[^arm-what]
+
+- The **normal world** runs the large software stack: Linux, its drivers and your applications. It is big, so it is hard to make fully secure.
+- The **secure world** runs a small stack called a Trusted Execution Environment (TEE). Its services, such as key management, sit on top of a lightweight kernel.[^arm-what]
+
+The architecture calls these the **Non-secure** and **Secure** states.[^arm-states] This course calls them the normal world and the secure world. On every figure, the secure world is drawn in yellow and the normal world in cyan, and each is also labelled by name. Code that runs before any Arm world exists, such as the Raspberry Pi's GPU firmware, is magenta and labelled firmware.
+
+## Memory belongs to a world too
+
+Splitting the CPU is not enough: the normal world must not read the secure world's memory. So the architecture also defines two physical address spaces, Secure and Non-secure.[^arm-pas]
+
+- In the normal world, every address translates to the Non-secure physical address space. Normal world code cannot even name a Secure address.
+- In the secure world, software can reach both. An `NS` bit in each translation table entry picks which space a page maps to.[^arm-pas]
+
+The core sends the address space of every access out on the bus, and the memory system decides whether to allow it. A TrustZone Address Space Controller (TZASC), such as the Arm TZC-400, splits a large memory like DDR into Secure and Non-secure regions. Only secure software can program it.[^arm-isolation] On the STM32MP157, the board data records OP-TEE configuring this DDR firewall.
+
+## Only the monitor moves between worlds
+
+On Armv8-A, exception levels EL0, EL1 and EL2 exist in both worlds. A single bit chooses which one they run in: `SCR_EL3.NS`. EL3 is always secure, whatever `NS` says.[^arm-states]
+
+To change world, the core must pass through EL3:[^arm-switch]
+
+1. An exception takes the core up to EL3. Usually that is an `SMC` instruction or an FIQ interrupt.
+2. Code at EL3 flips `SCR_EL3.NS`.
+3. An exception return drops the core into the other world.
+
+The core keeps only one copy of the general-purpose registers and of most system registers. Hardware does not swap them. The EL3 software saves one world's registers and restores the other's, and by convention it is called the **secure monitor**. TF-A provides Arm's reference implementation.[^arm-switch]
+
+## SMC is how you call the other world
+
+`SMC` (Secure Monitor Call) is an instruction. Executing it raises an exception that targets EL3. There, a dispatcher decides who handles the call: firmware at EL3 itself, or a service in the TEE. Arm standardises the register usage in the SMC Calling Convention (DEN0028) and the power interface in PSCI (DEN0022). `SMC` is not available at EL0, so applications can't use it directly.[^arm-smc]
+
+Linux uses this path during boot. On the STM32MP157, the board data shows Linux waking its second core with a PSCI `CPU_ON` call over `SMC`.
+
+<PrivilegeLadder board="rpi4" pane={1} />
+
+Step through the Raspberry Pi 4 on the privilege ladder. The first Arm code is the Arm stub, at EL3 in the secure world. TF-A's Raspberry Pi 4 page confirms that the firmware starts `armstub8.bin` in AArch64 EL3.[^tfa-rpi4] According to the board data, the stub sets `SCR_EL3.NS` and drops core 0 to EL2 in the normal world, where U-Boot or Linux runs.
+
+## Armv7-A uses Monitor mode instead of EL3
+
+The BeagleBone Black (Cortex-A8) and the STM32MP157 (Cortex-A7) are Armv7-A cores. Armv7-A has no exception levels. The same idea is called the Security Extensions, and it works with processor modes:[^armv7]
+
+- There are two security states, Secure and Non-secure, and the `SCR.NS` bit selects the state for every mode except Monitor and Hyp.
+- **Monitor mode** exists only in the secure state. It is the bridge between the worlds, and code in Monitor mode is secure whatever `SCR.NS` says.
+- The `SMC` instruction raises the Secure Monitor Call exception, which only exists with the Security Extensions.[^armv7-modes]
+- To leave for the normal world, Monitor mode code sets `SCR.NS` to 1 and performs an exception return.[^armv7]
+
+The register that points to the monitor's vector table is `VBAR_EL3` on AArch64 and `MVBAR` on Armv7-A. All `SMC` exceptions are taken through that table.[^optee-core]
+
+| Armv8-A (Raspberry Pi 4)   | Armv7-A (BeagleBone Black, STM32MP157) |
+| -------------------------- | -------------------------------------- |
+| EL3 holds the monitor      | Monitor mode holds the monitor         |
+| `SCR_EL3.NS` picks a world | `SCR.NS` picks a world                 |
+| Vector base in `VBAR_EL3`  | Vector base in `MVBAR`                 |
+| `SMC` enters EL3           | `SMC` enters Monitor mode              |
+
+<Callout level="info">
+  Nothing on this page has been checked on a board. The architecture facts come from Arm's documentation; the per-board
+  facts come from the course's board data, which is marked unverified.
+</Callout>
+
+<Deeper depth="practitioner" title="Which registers each world sees">
+
+On Armv8-A, banked registers are the exception. A few, such as the GIC register `ICC_BPR1_EL1`, have one copy per security state, written `ICC_BPR1_EL1 (S)` and `ICC_BPR1_EL1 (NS)`. In Armv6 and Armv7-A, most system registers are banked by security state, while general-purpose and vector registers are shared.[^arm-switch]
+
+OP-TEE's documentation describes its monitor this way: on entry it saves the normal world's general-purpose registers and the system registers that are not banked, then restores the secure world's.[^optee-smc] You read that code in this module's lab.
+
+</Deeper>
+
+<Deeper depth="expert" title="Secure EL2, Realms and secure addresses with the MMU off">
+
+- Secure EL2 arrived in Armv8.4-A and is optional in Armv8-A.[^arm-states]
+- In the secure world, when the stage 1 MMU is off, every access is to the Secure physical address space.[^arm-pas] Early secure firmware therefore sees secure memory without any page tables.
+- With the Armv9-A Realm Management Extension, there are four physical address spaces: Root and Realm join Secure and Non-secure. Secure state still reaches only the Secure and Non-secure ones.[^arm-pas] None of the boards in this course implement it.
+
+</Deeper>
+
+## What comes next
+
+The next page asks how the secure world can trust the code it runs at all: each boot stage checks the next one before it jumps to it.
+
+[^arm-what]: Arm, _Learn the architecture: TrustZone for AArch64_ (102418, version 1.2), [What is TrustZone?](https://developer.arm.com/documentation/102418/0102/What-is-TrustZone-).
+
+[^arm-states]: Arm, 102418, [Security states](https://developer.arm.com/documentation/102418/0102/TrustZone-in-the-processor/Security-States).
+
+[^arm-switch]: Arm, 102418, [Switching between Security states](https://developer.arm.com/documentation/102418/0102/TrustZone-in-the-processor/Switching-between-Security-states).
+
+[^arm-pas]: Arm, 102418, [Physical address spaces](https://developer.arm.com/documentation/102418/0102/TrustZone-in-the-processor/Physical-address-spaces).
+
+[^arm-isolation]: Arm, 102418, [Enforcing isolation](https://developer.arm.com/documentation/102418/0102/System-architecture/Enforcing-isolation).
+
+[^arm-smc]: Arm, 102418, [SMC exceptions](https://developer.arm.com/documentation/102418/0102/TrustZone-in-the-processor/SMC-exceptions).
+
+[^armv7]: ARM Architecture Reference Manual, ARMv7-A and ARMv7-R edition (DDI 0406C), [Security states](https://developer.arm.com/documentation/ddi0406/c/System-Level-Architecture/The-System-Level-Programmers--Model/The-Security-Extensions/Security-states), including "Changing from Secure to Non-secure state".
+
+[^armv7-modes]: DDI 0406C, [Impact of the Security Extensions on the modes and exception model](https://developer.arm.com/documentation/ddi0406/c/System-Level-Architecture/The-System-Level-Programmers--Model/The-Security-Extensions/Impact-of-the-Security-Extensions-on-the-modes-and-exception-model).
+
+[^optee-core]: OP-TEE documentation 4.10.0, [Core: Core exception vectors](https://optee.readthedocs.io/en/4.10.0/architecture/core.html#core-exception-vectors).
+
+[^optee-smc]: OP-TEE documentation 4.10.0, [Core: Normal World invokes OP-TEE OS using SMC](https://optee.readthedocs.io/en/4.10.0/architecture/core.html#normal-world-invokes-op-tee-os-using-smc).
+
+[^tfa-rpi4]: Trusted Firmware-A documentation (lts-v2.14.10), [Raspberry Pi 4: TF-A port design](https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/rpi4.html).
