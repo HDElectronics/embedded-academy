@@ -51,12 +51,16 @@
 
 .ea-chain__grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.3fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-4);
   align-items: start;
 }
 
-@media (width <= 960px) {
+.ea-chain__grid > :nth-child(3) {
+  grid-column: 1 / -1;
+}
+
+@media (width <= 760px) {
   .ea-chain__grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -168,7 +172,9 @@
 
 /* Console extras */
 .ea-console {
-  height: 260px;
+  height: 320px;
+  font-size: 15px;
+  line-height: 24px;
 }
 
 .ea-console .note {

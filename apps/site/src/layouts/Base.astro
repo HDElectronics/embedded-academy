@@ -13,9 +13,11 @@ interface Props {
   description: string;
   /** Suggested next command in the header prompt. */
   hint?: PromptHint | undefined;
+  /** Lay the page out as a full-height session on wide screens (lessons). */
+  session?: boolean;
 }
 
-const { title, description, hint } = Astro.props;
+const { title, description, hint, session = false } = Astro.props;
 const fullTitle = title === 'Embedded Academy' ? title : `${title} · Embedded Academy`;
 ---
 
@@ -34,7 +36,7 @@ const fullTitle = title === 'Embedded Academy' ? title : `${title} · Embedded A
       } catch {}
     </script>
   </head>
-  <body>
+  <body class:list={{ 'is-session': session }}>
     <a class="skip-link" href="#main">
       Skip to content
     </a>

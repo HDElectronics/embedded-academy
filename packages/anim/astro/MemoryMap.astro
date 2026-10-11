@@ -18,7 +18,7 @@ const data = toChainBoard(board, readBoardLog(board));
 const state = upTo === undefined ? undefined : chainState(data, upTo);
 ---
 
-<section class="ea-pane" aria-label={`Memory map, ${board.name}`}>
+<section class="ea-pane" data-window="memory-map" aria-label={`Memory map, ${board.name}`}>
   <div class="ea-pane__bar">
     <span class="ea-pane__id">{pane}:</span>
     <span class="ea-pane__title">memory-map</span>

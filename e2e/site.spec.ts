@@ -94,6 +94,25 @@ test('the serial console jumps to the stage you pick', async ({ page }) => {
   await expect(serial.locator('.ea-serial__line').last()).toContainText('U-Boot');
 });
 
+test('a lesson becomes a tmux-style split on wide screens only', async ({ page }, info) => {
+  await page.goto(LESSON);
+  const session = page.locator('ea-session');
+  await expect(session).toHaveAttribute('data-ready', '');
+  const tabs = page.getByRole('tablist', { name: 'Windows' });
+  if (info.project.name === 'phone') {
+    await expect(session).toHaveAttribute('data-layout', 'inline');
+    await expect(tabs).toBeHidden();
+    return;
+  }
+  await expect(session).toHaveAttribute('data-layout', 'split');
+  await page.getByRole('button', { name: /^Window 2: privilege/ }).click();
+  await expect(tabs.getByRole('tab', { selected: true })).toHaveText('2:privilege');
+  await expect(page.locator('ea-privilege-ladder')).toBeVisible();
+  await page.getByRole('button', { name: '0:read' }).click();
+  await expect(session).toHaveAttribute('data-zoom', 'read');
+  await expect(page.locator('ea-privilege-ladder')).toBeHidden();
+});
+
 test.describe('with reduced motion', () => {
   test.use({ reducedMotion: 'reduce' });
 
