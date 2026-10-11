@@ -1,0 +1,126 @@
+---
+title: Buildroot builds the whole system from one configuration
+description: What Buildroot builds, how a defconfig drives it, and where every image lands after make.
+course: linux-boot-arm
+module: m08
+order: 2
+type: explanation
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: The Buildroot user manual
+    url: https://buildroot.org/downloads/manual/manual.html
+    section: About Buildroot; Buildroot quick start; Cross-compilation toolchain; Customization after the images have been created
+  - title: 'Buildroot 2026.02.3 source: docs/manual'
+    url: https://gitlab.com/buildroot.org/buildroot/-/tree/2026.02.3/docs/manual
+  - title: 'Buildroot 2026.02.3 source: configs'
+    url: https://gitlab.com/buildroot.org/buildroot/-/tree/2026.02.3/configs
+---
+
+import Prompt from '@ea/ui/Prompt.astro';
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<div class="t-lead">
+  Building a board by hand means a dozen `make` calls in four source trees, each with the right compiler and the right
+  options, then a partition table on top. Buildroot turns that into one configuration file and one command.
+</div>
+
+## One tool, four kinds of output
+
+Buildroot builds a complete embedded Linux system by cross-compiling. It can produce four things for your target: a cross-compilation toolchain, a root filesystem, a Linux kernel image and a bootloader.[^about] You can use any combination. For example, you can bring your own toolchain and let Buildroot build only the root filesystem.
+
+These are the same pieces you built by hand in this module. Buildroot does not replace TF-A, U-Boot or the kernel: it downloads their sources and runs their own build systems with the options its configuration names.
+
+## A defconfig is a minimal configuration
+
+Everything Buildroot does follows from one file, `.config`. You edit it with a menu, such as `make menuconfig`, and the top-level `Makefile` reads it when you build.[^quick]
+
+A full `.config` is long. `make savedefconfig` strips every option that is still at its default value and writes what is left to a file called `defconfig`.[^store] Board configurations are stored that way, as `configs/<boardname>_defconfig`. Loading one is a single command, run in the Buildroot source tree:
+
+<Prompt dir="~/work/src/buildroot" cmd="make raspberrypi4_64_defconfig" />
+
+That expands the short file back into a full `.config`. `make list-defconfigs` shows every board Buildroot ships a configuration for.[^tips] The reference page of this module lists the ones for the course boards.
+
+## `make` runs the whole pipeline
+
+After configuration, `make` with no target does the rest. In order, it:[^quick]
+
+1. downloads the source files it needs;
+2. builds the cross-compilation toolchain, or imports an external one;
+3. builds the selected target packages;
+4. builds the kernel image, if selected;
+5. builds the bootloader image, if selected;
+6. creates the root filesystem in the selected formats.
+
+Build as a normal user. The manual says there is no need to be root, and that a regular user protects your host from packages that misbehave while they install.[^quick] By default Buildroot does not build packages in parallel at the top level, so `make -jN` is not needed.[^quick]
+
+## The toolchain comes first
+
+Your lab container already has GCC cross compilers. Buildroot can use its own instead, in one of two ways:[^toolchain]
+
+- The **internal backend**, called _Buildroot toolchain_ in the menu, builds a cross toolchain from source before anything else. It is the default.[^board]
+- The **external backend** imports a toolchain that someone already built.
+
+The choice matters for your build time. The manual estimates that a prebuilt external toolchain saves about 15 to 20 minutes on each complete rebuild.[^faq] The defconfigs for the three course boards use prebuilt Bootlin toolchains; `qemu_aarch64_virt_defconfig` sets no toolchain, so it builds its own.[^configs]
+
+## Everything lands in `output/`
+
+Buildroot writes all its results under one folder, `output/`:[^quick]
+
+| Folder     | What it holds                                                                          |
+| ---------- | -------------------------------------------------------------------------------------- |
+| `images/`  | kernel, bootloader and root filesystem images: the files you put on the target         |
+| `build/`   | one folder per component, where it was built                                           |
+| `host/`    | tools built for your host, including the cross toolchain, and the target's sysroot     |
+| `staging/` | a link to that sysroot inside `host/`, kept for backward compatibility                 |
+| `target/`  | almost the root filesystem, but without device files or correct permissions: don't use |
+
+Only `images/` matters to the boot chain. On a board defconfig it holds the same kinds of file you placed by hand: firmware or `MLO`, a bootloader, a kernel, `dtb` files and a root filesystem image.
+
+## A post-image script assembles the SD card
+
+A board needs one file to write to a card, not a folder of loose parts. Buildroot runs post-image scripts after it has created every image, and passes them the path of the `images` folder.[^post]
+
+The defconfigs for the three course boards use that hook to call `genimage`.[^configs] A `genimage.cfg` file describes the card: which partitions it has, their types, and which image or files go in each one.[^genimage] The partition layouts in the by-hand guide come from these files. The result is `output/images/sdcard.img`.
+
+<Callout level="info">
+  Buildroot does not work out what to rebuild when you change the configuration. A change of target architecture or
+  toolchain needs a complete rebuild, which you start with `make clean`.[^rebuild]
+</Callout>
+
+<Deeper depth="practitioner" title="Several builds from one source tree">
+Pass `O=<directory>` to keep the output, and the `.config`, out of the source tree. Each output directory is a separate build, so you can run several at once from one Buildroot checkout.[^outoftree]
+
+Buildroot also forwards configuration to the components it builds. With the kernel enabled, `make linux-menuconfig` opens the kernel's own menu; with U-Boot enabled and its Kconfig build system selected, `make uboot-menuconfig` opens U-Boot's.[^tips]
+
+</Deeper>
+
+<Deeper depth="expert" title="A board defconfig pins its own versions">
+The manual asks board defconfigs to use fixed versions or commit hashes, never "latest".[^board] Those versions are Buildroot's choice, not this course's. At Buildroot 2026.02.3 the DK2 defconfig builds TF-A from the 2.10 LTS line with SP_min as BL32, and no OP-TEE, while this course pins TF-A `lts-v2.14.10` and OP-TEE `4.10.0`.[^configs] Read a defconfig before you assume it builds the chain you studied.
+
+</Deeper>
+
+[^about]: Buildroot manual, About Buildroot.
+
+[^quick]: Buildroot manual, Buildroot quick start.
+
+[^store]: Buildroot manual, Storing the Buildroot configuration.
+
+[^tips]: Buildroot manual, make tips.
+
+[^toolchain]: Buildroot manual, Cross-compilation toolchain: internal and external toolchain backends.
+
+[^board]: Buildroot manual, Adding support for a particular board: `BR2_TOOLCHAIN_BUILDROOT` is the default.
+
+[^faq]: Buildroot manual, How to speed-up the build process.
+
+[^configs]: Buildroot 2026.02.3, `configs/raspberrypi4_64_defconfig`, `configs/beaglebone_defconfig`, `configs/stm32mp157c_dk2_defconfig` and `configs/qemu_aarch64_virt_defconfig`.
+
+[^post]: Buildroot manual, Customization after the images have been created.
+
+[^genimage]: Buildroot manual, The `genimage.cfg` file.
+
+[^rebuild]: Buildroot manual, Understanding when a full rebuild is necessary; make tips: cleaning.
+
+[^outoftree]: Buildroot manual, Building out-of-tree.
