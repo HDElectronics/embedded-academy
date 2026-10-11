@@ -1,0 +1,150 @@
+---
+title: Each stage checks the next before it runs it
+description: Secure boot is a chain of trust that starts in ROM. See how TF-A Trusted Board Boot and the STM32MP157 ROM check images, and which boards can do it.
+course: linux-boot-arm
+module: m03
+order: 2
+type: explanation
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'Arm: Learn the architecture, TrustZone for AArch64 (102418, version 1.2)'
+    url: https://developer.arm.com/documentation/102418/0102/Software-architecture/Boot-and-the-chain-of-trust
+    section: Boot and the chain of trust
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Trusted Board Boot'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/design/trusted-board-boot.html
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Build options'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/getting_started/build-options.html
+    section: GENERATE_COT
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): STM32 MPUs and STM32MP1'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/st/stm32mp1.html
+  - title: 'TF-A source (lts-v2.14.10): plat/st/stm32mp1/include/boot_api.h'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/st/stm32mp1/include/boot_api.h
+  - title: 'TF-A source (lts-v2.14.10): plat/st/common/stm32mp_crypto_lib.c'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/st/common/stm32mp_crypto_lib.c
+  - title: 'U-Boot source (v2026.07): arch/arm/mach-stm32mp/cmd_stm32key.c'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/arch/arm/mach-stm32mp/cmd_stm32key.c
+  - title: 'Raspberry Pi documentation: Raspberry Pi hardware'
+    url: https://www.raspberrypi.com/documentation/computers/raspberry-pi.html
+    section: Secure boot; OTP registers on non-BCM2712 devices
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Raspberry Pi 4'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/rpi4.html
+  - title: 'U-Boot documentation (v2026.07): AM335x Generation'
+    url: https://docs.u-boot.org/en/v2026.07/board/ti/am335x_evm.html
+    section: Secure Boot
+---
+
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<div class="t-lead">
+  A secure world only helps if the code inside it is the code you meant to run. If an attacker can replace the
+  bootloader on the SD card, they own the secure world before it exists. Secure boot answers this with a chain of trust:
+  every stage checks the next one before it jumps to it.
+</div>
+
+## Trust starts in ROM
+
+You can only trust a piece of software if you trust everything that ran before it. That sequence is the chain of trust.[^arm-cot]
+
+The first link is the boot ROM. Nothing ran before it, so nothing can check it: you trust it because it is on the chip and can't be rewritten. Its job is small. It loads the second stage from flash into secure on-chip SRAM and verifies it. The second stage sets up DRAM, then loads and verifies the images for both worlds, such as a TEE for the secure world and a bootloader for the normal world.[^arm-cot]
+
+If any check fails, the chain stops. Nothing after the failed link runs.
+
+## TF-A checks images with certificates
+
+TF-A implements this as **Trusted Board Boot** (TBB). It follows Arm's Trusted Board Boot Requirements (TBBR, DEN0006D) and authenticates every firmware image up to and including the normal world bootloader.[^tbb]
+
+Two things are trusted without a check: a Root of Trust Public Key (ROTPK), or its hash, stored in the device; and BL1, because it is assumed to live in ROM.[^tbb] Everything else arrives with X.509 v3 certificates of two kinds:
+
+- **Key certificates** carry a public key that later certificates are signed with.
+- **Content certificates** carry the hash of an image.
+
+To authenticate an image, TF-A checks the certificate's signature, then hashes the image and compares the result with the hash in the content certificate.[^tbb] The boot sequence runs like this, and the system panics if any step fails:[^tbb-seq]
+
+1. BL1 checks the BL2 certificate against the ROTPK hash, then checks BL2's hash and runs it.
+2. BL2 checks the trusted key certificate against the ROTPK hash. It now holds a key for secure world images and a key for normal world images.
+3. For BL31 and BL32, BL2 checks a key certificate and then a content certificate, each signed by the key from the step before.
+4. BL2 does the same for BL33, the normal world bootloader, with the normal world key.
+5. BL2 hashes every image and compares it with its content certificate.
+
+At build time, the `cert_create` tool creates the certificates, and `fiptool` packs them into the FIP with the images. Building with `TRUSTED_BOARD_BOOT=1` and `GENERATE_COT=1` puts TBB support into BL1 and BL2 and generates the certificates.[^tbb][^build-options]
+
+## On the STM32MP157, the ROM checks TF-A
+
+The STM32MP157 has no BL1 from TF-A. Its own ROM code loads TF-A BL2, with an STM32 header in front, into embedded SRAM.[^stm32mpus] That header is where the ROM's check happens. TF-A describes its layout in `boot_api.h`:[^boot-api]
+
+- The header is 256 bytes. It carries a 64-byte ECDSA signature of the image and a 64-byte ECC public key.
+- The algorithm is P-256 NIST or Brainpool 256.
+- The SHA-256 hash of that public key must match the one stored in OTP (one-time programmable) cells. On the STM32MP15, U-Boot's `stm32key` command fuses this hash into OTP words 24 to 31.[^stm32key]
+- The header has a "no signature check" flag, and that flag is never allowed on a secured chip.
+
+The board data records the result: on closed parts, the ROM checks the image signature against the key hash in OTP before it runs the image. From there, TF-A's Trusted Board Boot carries the chain on through the FIP to OP-TEE and U-Boot. TF-A's STM32MP1 page shows the `cert_create` and `fiptool` steps for this board.[^stm32mp1]
+
+The part number matters. TF-A lists the STM32MP15 lines with a security option: `C` and `F` parts add "Secure Boot + HW Crypto", while `A` and `D` parts don't.[^stm32mp1] The board data records the DK2's SoC as an STM32MP157C.
+
+<Callout level="warning">
+  OTP words can be written once. Fusing a key hash or closing the device can't be undone, and a closed board only runs
+  images signed with your key. Don't try this on a board you want to keep for these labs.
+</Callout>
+
+## What each board in this course can do
+
+**STM32MP157 DK2.** The ROM authenticates the first-stage image on closed devices, and TF-A's Trusted Board Boot continues the chain, as described on this page.
+
+**Raspberry Pi 4.** Raspberry Pi documents a secure boot mode in which the Raspberry Pi only runs code signed with your private key. For network install and HTTP boot, you sign `boot.img`, and the public key in the EEPROM verifies it. The full procedure lives in Raspberry Pi's `usbboot` repository, which this course has not reviewed yet.[^rpi-sb] On the BCM2711, bit 15 of OTP register 17 disables ROM RSA key 0, and secure boot is enabled when it is set.[^rpi-otp] Raspberry Pi also states that its computers have no hardware-protected key store.[^rpi-key] This checks images, but it does not give you an isolated secure world. TF-A's Raspberry Pi 4 port warns that it is not secure: all of its memory is DRAM that both worlds can reach, and the SoC does not seem to have a secure memory controller.[^tfa-rpi4]
+
+**BeagleBone Black.** U-Boot's AM335x page describes secure boot only for TI's secure devices. Those need a boot image authenticated by the ROM code, built with TI's secure development package, which is available under NDA.[^uboot-am335x] The sources this course uses don't say which device type the BeagleBone Black carries. Until a TI document confirms it, treat secure boot on this board as unverified.
+
+<Deeper depth="practitioner" title="The keys in TF-A's default chain of trust">
+
+The TBBR chain of trust uses these keys:[^tbb]
+
+- The **root of trust key** signs the trusted boot firmware certificate (for BL2) and the trusted key certificate. Its public half is the ROTPK.
+- The **trusted world key** signs the key certificates of secure world images: BL31, BL32 and the optional `SCP_BL2`.
+- The **non-trusted world key** signs the key certificate of BL33.
+- Each **BL3x key** signs the content certificate of its own image.
+
+TF-A also ships a `dualroot` chain of trust, for systems where the normal world firmware belongs to someone other than the secure world firmware. BL33 is then rooted in a second key, the platform ROTPK.[^tbb]
+
+</Deeper>
+
+<Deeper depth="expert" title="What TF-A does on an open STM32MP15">
+
+On the STM32MP15, TF-A builds with `STM32MP_CRYPTO_ROM_LIB` set. When TBB is on, BL2 checks signatures with the ROM's own ECDSA function, whose address it reads from the boot context the ROM leaves behind.[^crypto-lib] The same boot context carries an `auth_status` field that tells BL2 whether the ROM authenticated it.[^boot-api]
+
+Read `crypto_verify_signature()` in `stm32mp_crypto_lib.c` closely. If the device is open and the part number is not one that supports authentication, it returns success without checking the signature. The STM32MP157C is on the supported list, so TF-A still checks signatures on an open 157C.[^crypto-lib]
+
+</Deeper>
+
+## What comes next
+
+The next page lists what actually runs in the secure world on each board, and introduces OP-TEE.
+
+[^arm-cot]: Arm, _Learn the architecture: TrustZone for AArch64_ (102418, version 1.2), [Boot and the chain of trust](https://developer.arm.com/documentation/102418/0102/Software-architecture/Boot-and-the-chain-of-trust).
+
+[^tbb]: Trusted Firmware-A documentation (lts-v2.14.10), [Trusted Board Boot](https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/design/trusted-board-boot.html), sections "Chain of Trust", "Default CoT #1: TBBR", "Default CoT #2: Dualroot" and "Certificate Generation Tool".
+
+[^tbb-seq]: Trusted Firmware-A documentation (lts-v2.14.10), [Trusted Board Boot Sequence](https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/design/trusted-board-boot.html#trusted-board-boot-sequence).
+
+[^build-options]: Trusted Firmware-A documentation (lts-v2.14.10), [Build options](https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/getting_started/build-options.html), `GENERATE_COT`.
+
+[^stm32mpus]: Trusted Firmware-A documentation (lts-v2.14.10), [STM32 MPUs: Design and Boot](https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/st/stm32mpus.html).
+
+[^stm32mp1]: Trusted Firmware-A documentation (lts-v2.14.10), [STM32MP1: STM32MP15 Versions and Trusted Boot Board](https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/st/stm32mp1.html).
+
+[^boot-api]: TF-A source at `lts-v2.14.10`, [`plat/st/stm32mp1/include/boot_api.h`](https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/st/stm32mp1/include/boot_api.h): `boot_api_image_header_t` and `boot_api_context_t`.
+
+[^crypto-lib]: TF-A source at `lts-v2.14.10`, [`plat/st/common/stm32mp_crypto_lib.c`](https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/st/common/stm32mp_crypto_lib.c), with `plat/st/stm32mp1/platform.mk` and `stm32mp_is_auth_supported()` in `plat/st/stm32mp1/stm32mp1_private.c`.
+
+[^stm32key]: U-Boot source at `v2026.07`, [`arch/arm/mach-stm32mp/cmd_stm32key.c`](https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/arch/arm/mach-stm32mp/cmd_stm32key.c): the `PKH` entry of `stm32mp15_list`.
+
+[^rpi-sb]: Raspberry Pi documentation, [Raspberry Pi hardware: Secure boot](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#secure-boot).
+
+[^rpi-otp]: Raspberry Pi documentation, [OTP registers on non-BCM2712 devices](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#otp-registers-on-non-bcm2712-devices), register 17.
+
+[^rpi-key]: Raspberry Pi documentation, [Device-specific private key](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#device-specific-private-key).
+
+[^tfa-rpi4]: Trusted Firmware-A documentation (lts-v2.14.10), [Raspberry Pi 4](https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/rpi4.html).
+
+[^uboot-am335x]: U-Boot documentation (v2026.07), [AM335x Generation: Secure Boot](https://docs.u-boot.org/en/v2026.07/board/ti/am335x_evm.html#secure-boot).
