@@ -1,0 +1,118 @@
+---
+title: The three boards
+description: SoC, CPU, architecture, boot media and lab approach for the Raspberry Pi 4, the BeagleBone Black and the STM32MP157 DK2.
+course: linux-boot-arm
+module: m00
+order: 3
+type: reference
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'Raspberry Pi documentation: Processors'
+    url: https://www.raspberrypi.com/documentation/computers/processors.html
+    section: BCM2711
+  - title: 'Raspberry Pi documentation: Raspberry Pi hardware'
+    url: https://www.raspberrypi.com/documentation/computers/raspberry-pi.html
+    section: EEPROM boot flow; Raspberry Pi bootloader configuration, BOOT_ORDER
+  - title: 'BeagleBoard documentation: BeagleBone Black High Level Specification'
+    url: https://docs.beagleboard.org/boards/beaglebone/black/ch05.html
+    section: Processor; Memory; Boot Modes
+  - title: 'Texas Instruments: AM3358 product page'
+    url: https://www.ti.com/product/AM3358
+  - title: 'U-Boot documentation (v2026.07): STM32MP1 boards'
+    url: https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html
+    section: STM32MP15x; Switch Setting for Boot Mode
+  - title: 'Arm Cortex-A72 MPCore Processor Technical Reference Manual r0p1'
+    url: https://developer.arm.com/documentation/100095/0001
+    section: 3.2 ARMv8-A architecture concepts
+  - title: 'Arm Cortex-A8 Technical Reference Manual r3p2 (DDI 0344K)'
+    url: https://developer.arm.com/documentation/ddi0344/k
+    section: 1.2 ARMv7-A architecture
+  - title: 'Arm Cortex-A7 MPCore Technical Reference Manual r0p5 (DDI 0464F)'
+    url: https://developer.arm.com/documentation/ddi0464/f
+    section: 1.2.1 ARM architecture
+  - title: 'QEMU 10.0 documentation source: Arm System emulator (docs/system/target-arm.rst)'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/docs/system/target-arm.rst
+  - title: 'QEMU 10.0 documentation source: Raspberry Pi boards (docs/system/arm/raspi.rst)'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/docs/system/arm/raspi.rst
+  - title: 'QEMU 10.0 source: hw/arm/raspi.c'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/hw/arm/raspi.c
+  - title: "QEMU 10.0 documentation source: 'virt' generic virtual platform (docs/system/arm/virt.rst)"
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/docs/system/arm/virt.rst
+---
+
+import BootChain from '@ea/anim/BootChain.astro';
+import Callout from '@ea/ui/Callout.astro';
+
+<p class="t-lead">
+  The course follows three boards. Each one boots differently, and QEMU emulates only one of them, from its first Arm
+  instruction onwards. This page lists the facts the other lessons rely on.
+</p>
+
+## One 64-bit board, two 32-bit boards
+
+The Raspberry Pi 4 runs Armv8-A cores, so you meet 64-bit Arm and exception levels on it. The BeagleBone Black and the STM32MP157 DK2 run Armv7-A cores: 32-bit Arm, with processor modes. Each section lists the same facts in the same order: SoC and cores, architecture, boot media and lab approach.
+
+Pick a board with the tabs on the boot chain figure and step through its stages.
+
+<BootChain />
+
+## Raspberry Pi 4
+
+- **SoC and cores.** Broadcom BCM2711, with four Cortex-A72 cores[^rpi-soc].
+- **Architecture.** Armv8-A. The Cortex-A72 implements all four exception levels, EL0 to EL3, and can run each of them in AArch64 or AArch32[^a72].
+- **Boot media.** The second-stage bootloader is stored in an SPI EEPROM on the board, not on the SD card[^rpi-flow]. It tries the boot modes listed in its `BOOT_ORDER` setting: SD card, USB mass storage and network are among them. With `BOOT_ORDER` empty, it tries the SD card, then USB mass storage, then starts again[^rpi-boot].
+- **Lab approach.** QEMU has a `raspi4b` machine with four Cortex-A72 cores and 2 GiB of RAM[^qemu-raspi]. It loads a kernel, or a firmware image such as U-Boot, straight into memory and starts the Arm cores[^qemu-raspi-c]. It does not run the boot ROM, the EEPROM bootloader or the VideoCore firmware. Labs emulate the Raspberry Pi 4 from the first Arm instruction onwards, and simulate the stages before it with the illustrative logs.
+
+## BeagleBone Black
+
+- **SoC and core.** TI Sitara AM3358 on revision B and later boards[^bbb-soc], with one Cortex-A8 core at up to 1 GHz[^ti].
+- **Architecture.** Armv7-A, 32-bit. The Cortex-A8 implements the Security Extensions[^a8], but not the Virtualization Extensions, so it has no Hyp mode.
+- **Boot media.** The board boots from the 4 GB eMMC by default. If the eMMC holds no bootable image, it tries the microSD card, then the serial port, then USB. Holding the boot switch down while you apply power, with a bootable microSD card inserted, makes it boot from the card[^bbb-boot].
+- **Lab approach.** QEMU 10.0 has no AM335x machine[^qemu-boards]. Steps that are generic Armv7-A run on QEMU's `virt` machine. Steps that depend on the AM335x, such as the ROM code and U-Boot SPL in internal SRAM, are simulated: you prepare the files and read the illustrative logs.
+
+## STM32MP157 DK2
+
+- **SoC and cores.** ST STM32MP157C, with two Cortex-A7 cores and a Cortex-M4 coprocessor. The `C` variant adds secure boot and hardware cryptography, with the Cortex-A7 at 650 MHz[^st-soc].
+- **Architecture.** Armv7-A, 32-bit. The Cortex-A7 implements the Security Extensions, the Virtualization Extensions and the Large Physical Address Extension[^a7].
+- **Boot media.** Switch `SW1` sets two boot pins, `BOOT0` and `BOOT2`. With both at 1 the board boots from the microSD card. With both at 0 it enters recovery, a boot over UART or USB used with STM32CubeProgrammer[^st-boot].
+- **Lab approach.** QEMU 10.0 has no STM32MP1 machine[^qemu-boards]. Its `virt` machine offers a `cortex-a7` CPU[^qemu-virt], so generic Armv7-A steps run on the same CPU type as the board. Steps that depend on the STM32MP157, such as the ROM code, the first-stage loader and DDR setup, are simulated with the illustrative logs.
+
+<Callout level="info">
+  You can check the machine list yourself in the lab container: `qemu-system-arm -machine help` lists every Arm machine
+  your QEMU build supports.
+</Callout>
+
+## Why the course still uses three boards
+
+Emulation teaches the parts every Arm board shares: exception levels, the hand-over registers, U-Boot, the Device Tree and the kernel's start. The real boards teach what differs: who runs first, where the first loader runs, and how DRAM comes up. Every lesson says which kind of step you are reading.
+
+[^rpi-soc]: Raspberry Pi documentation, Processors, BCM2711.
+
+[^rpi-flow]: Raspberry Pi documentation, Raspberry Pi hardware, EEPROM boot flow.
+
+[^rpi-boot]: Raspberry Pi documentation, Raspberry Pi hardware, Raspberry Pi bootloader configuration, `BOOT_ORDER`.
+
+[^bbb-soc]: BeagleBoard documentation, BeagleBone Black High Level Specification, Processor.
+
+[^bbb-boot]: BeagleBoard documentation, BeagleBone Black High Level Specification, 4GB Embedded MMC and Boot Modes.
+
+[^ti]: Texas Instruments, AM3358 product page.
+
+[^st-soc]: U-Boot documentation v2026.07, STM32MP1 boards, STM32MP15x; the board list names `stm32mp157c-dk2`.
+
+[^st-boot]: U-Boot documentation v2026.07, STM32MP1 boards, Switch Setting for Boot Mode.
+
+[^a72]: Arm Cortex-A72 MPCore TRM r0p1, section 3.2.2 Exception levels.
+
+[^a8]: Arm Cortex-A8 TRM r3p2, section 1.2 ARMv7-A architecture.
+
+[^a7]: Arm Cortex-A7 MPCore TRM r0p5, section 1.2.1 ARM architecture.
+
+[^qemu-raspi]: QEMU 10.0, `docs/system/arm/raspi.rst`.
+
+[^qemu-raspi-c]: QEMU 10.0, `hw/arm/raspi.c`, function `setup_boot`.
+
+[^qemu-boards]: QEMU 10.0, `docs/system/target-arm.rst`, board list.
+
+[^qemu-virt]: QEMU 10.0, `docs/system/arm/virt.rst`, supported guest CPU types.
