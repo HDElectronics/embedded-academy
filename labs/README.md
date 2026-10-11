@@ -32,4 +32,6 @@ It clones each project at the version in `linux-boot-arm/versions.env` into `~/w
 
 ## Status
 
-The container and scripts are not built or run in CI yet. Until someone runs a lab in this container and records it in the lesson's frontmatter, every lab command stays marked `unverified`. If a step fails for you, open an issue with the `inaccuracy` form.
+The `Labs` workflow (`.github/workflows/labs.yml`) builds the image on every change under `labs/` and every Monday, because the image follows Debian trixie. It checks that the tools the lessons use run in it and that every tag in `versions.env` exists upstream. It does not run the labs themselves.
+
+A lesson is marked `emulated` only after someone ran its commands in this container and recorded it in the lesson's frontmatter. If a step fails for you, open an issue with the `inaccuracy` form.
