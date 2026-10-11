@@ -1,6 +1,7 @@
 ---
 // SPDX-FileCopyrightText: Embedded Academy contributors
 // SPDX-License-Identifier: MIT
+import CourseMap from '@ea/anim/CourseMap.astro';
 import { getCollection } from 'astro:content';
 import Base from '../../../layouts/Base.astro';
 import { courseLessons, lessonHref } from '../../../lib/lessons.ts';
@@ -12,6 +13,12 @@ export async function getStaticPaths() {
 
 const { course } = Astro.props;
 const lessons = await courseLessons(course.id);
+const mapModules = course.data.modules.map((m) => ({
+  ...m,
+  lessons: lessons
+    .filter((l) => l.data.module === m.id)
+    .map((l) => ({ title: l.data.title, href: lessonHref(l), type: l.data.type })),
+}));
 const firstLesson = lessons[0];
 const hint = firstLesson && {
   command: `less ${firstLesson.id.split('/').slice(1).join('/')}`,
@@ -27,9 +34,11 @@ const hint = firstLesson && {
     <p class="t-lead">{course.data.description}</p>
   </section>
 
+  <CourseMap modules={mapModules} />
+
   <section class="ea-pane" aria-labelledby="modules-title">
     <div class="ea-pane__bar">
-      <span class="ea-pane__id">0:</span>
+      <span class="ea-pane__id">1:</span>
       <span class="ea-pane__title" id="modules-title">
         modules
       </span>

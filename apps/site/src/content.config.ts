@@ -24,7 +24,19 @@ const courses = defineCollection({
     title: z.string().min(1),
     description: z.string().min(1).max(160),
     boards: z.array(BOARD).min(1),
-    modules: z.array(z.object({ id: MODULE, title: z.string().min(1), summary: z.string().min(1) })).min(1),
+    modules: z
+      .array(
+        z.object({
+          id: MODULE,
+          title: z.string().min(1),
+          summary: z.string().min(1),
+          /** Where the module sits on the course map's boot path. Omit for modules beside the path. */
+          chain: z
+            .object({ short: z.string().min(1).max(16), world: z.enum(['firmware', 'secure', 'normal', 'mixed']) })
+            .optional(),
+        }),
+      )
+      .min(1),
   }),
 });
 
