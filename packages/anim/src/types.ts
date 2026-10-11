@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: Embedded Academy contributors
 // SPDX-License-Identifier: MIT
 
-import type { Board, Source, StageLog, Verification, World } from '@ea/boards';
+import type { Board, Privilege, Source, StageLog, Verification, World } from '@ea/boards';
 import { formatAddress } from '@ea/boards';
 
 /** Everything a chain animation needs about one board, serialisable to JSON for the client. */
@@ -11,6 +11,7 @@ export interface ChainBoard {
   soc: string;
   cpu: string;
   summary: string;
+  arch: Board['arch'];
   logIllustrative: boolean;
   regions: ChainRegion[];
   stages: ChainStage[];
@@ -32,6 +33,7 @@ export interface ChainStage {
   core: string;
   level: string;
   world: World;
+  privilege?: Privilege | undefined;
   does: string[];
   /** Images this stage copies into memory. */
   loads: ChainLoad[];
@@ -62,6 +64,7 @@ export function toChainBoard(board: Board, log: StageLog): ChainBoard {
     soc: board.soc,
     cpu: board.cpu,
     summary: board.summary,
+    arch: board.arch,
     logIllustrative: log.header.captured !== 'yes',
     regions: board.regions.map((r) => ({
       id: r.id,
@@ -83,6 +86,7 @@ export function toChainBoard(board: Board, log: StageLog): ChainBoard {
       core: s.core,
       level: s.level,
       world: s.world,
+      privilege: s.privilege,
       does: s.does,
       loads: (s.loads ?? []).map((l) => ({
         file: l.file,

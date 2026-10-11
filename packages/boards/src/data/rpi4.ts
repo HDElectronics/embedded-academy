@@ -98,6 +98,7 @@ export const rpi4: Board = {
       core: 'Cortex-A72 ×4',
       level: 'EL3',
       world: 'secure',
+      privilege: { level: 'EL3', world: 'secure' },
       does: [
         'The first Arm instructions run here, at EL3 in the secure world.',
         'Sets up the generic timer frequency, the GIC and SCR_EL3.NS = 1.',
@@ -115,6 +116,7 @@ export const rpi4: Board = {
       core: 'Cortex-A72',
       level: 'EL2',
       world: 'normal',
+      privilege: { level: 'EL2', world: 'normal' },
       does: [
         'Relocates itself to the top of DRAM.',
         'bootflow scan finds extlinux.conf or boot.scr.',
@@ -136,6 +138,7 @@ export const rpi4: Board = {
       core: 'Cortex-A72',
       level: 'EL2 → EL1',
       world: 'normal',
+      privilege: { level: 'EL1', world: 'normal' },
       does: [
         'arm64 entry: no decompressor, MMU off, x0 = physical address of the DTB.',
         'start_kernel → setup_arch → unflatten the device tree → initcalls probe drivers.',

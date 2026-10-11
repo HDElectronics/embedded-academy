@@ -64,3 +64,13 @@ export const OPTEE_PLATFORMS: Source = {
   title: 'OP-TEE documentation: platforms supported',
   url: 'https://optee.readthedocs.io/en/latest/general/platforms.html',
 };
+
+export const ARM_ARM_A: Source = {
+  title: 'Arm Architecture Reference Manual for A-profile architecture (DDI 0487)',
+  url: 'https://developer.arm.com/documentation/ddi0487/latest',
+};
+
+export const ARM_ARM_V7A: Source = {
+  title: 'ARM Architecture Reference Manual, ARMv7-A and ARMv7-R edition (DDI 0406)',
+  url: 'https://developer.arm.com/documentation/ddi0406/latest',
+};

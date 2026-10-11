@@ -48,6 +48,15 @@ export const Load = z.object({
   sources: z.array(Source).min(1),
 });
 
+/**
+ * Where the Arm core runs a stage on the privilege ladder: an exception level
+ * (Armv8-A) or privilege level (Armv7-A), and the security state.
+ */
+export const Privilege = z.object({
+  level: z.enum(['EL3', 'EL2', 'EL1', 'EL0', 'PL2', 'PL1', 'PL0']),
+  world: z.enum(['secure', 'normal']),
+});
+
 export const Stage = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
   name: z.string().min(1),
@@ -61,6 +70,8 @@ export const Stage = z.object({
   /** Exception level or processor mode, as the architecture names it. */
   level: z.string().min(1),
   world: World,
+  /** Omit when no Arm core runs the stage, or when the source does not state the security state. */
+  privilege: Privilege.optional(),
   does: z.array(z.string().min(1)).min(1).max(4),
   /** Images this stage copies into memory, in order. */
   loads: z.array(Load).max(6).optional(),
@@ -85,6 +96,7 @@ export type Source = z.infer<typeof Source>;
 export type Verification = z.infer<typeof Verification>;
 export type World = z.infer<typeof World>;
 export type Load = z.infer<typeof Load>;
+export type Privilege = z.infer<typeof Privilege>;
 export type Region = z.infer<typeof Region>;
 export type Stage = z.infer<typeof Stage>;
 export type Board = z.infer<typeof Board>;

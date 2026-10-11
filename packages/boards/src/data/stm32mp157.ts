@@ -35,6 +35,7 @@ export const stm32mp157: Board = {
       core: 'Cortex-A7 #0',
       level: 'Secure SVC',
       world: 'secure',
+      privilege: { level: 'PL1', world: 'secure' },
       does: [
         'Samples the BOOT pins: SD card, eMMC, NOR, NAND, or USB/UART for STM32CubeProgrammer.',
         'Reads the GPT partition fsbl1, with fsbl2 as backup.',
@@ -60,6 +61,7 @@ export const stm32mp157: Board = {
       core: 'Cortex-A7 #0',
       level: 'Secure SVC',
       world: 'secure',
+      privilege: { level: 'PL1', world: 'secure' },
       does: [
         'Sets up the clock tree and the STPMIC1 power rails over I2C.',
         'Initializes the DDR controller and PHY.',
@@ -81,6 +83,7 @@ export const stm32mp157: Board = {
       core: 'Cortex-A7',
       level: 'Monitor + Secure SVC',
       world: 'secure',
+      privilege: { level: 'PL1', world: 'secure' },
       does: [
         'Installs the monitor vectors: from now on every SMC lands here.',
         'Configures the DDR firewall and which peripherals are secure.',
@@ -98,6 +101,7 @@ export const stm32mp157: Board = {
       core: 'Cortex-A7',
       level: 'NS SVC',
       world: 'normal',
+      privilege: { level: 'PL1', world: 'normal' },
       does: [
         'Runs in the normal world. The OP-TEE carve-out is now invisible to it.',
         'Standard boot finds /extlinux/extlinux.conf on bootfs.',
@@ -119,6 +123,7 @@ export const stm32mp157: Board = {
       core: 'Cortex-A7 ×2',
       level: 'NS SVC',
       world: 'normal',
+      privilege: { level: 'PL1', world: 'normal' },
       does: [
         'Armv7 boot protocol: r2 = DTB address.',
         'PSCI CPU_ON over SMC wakes the second Cortex-A7; the OP-TEE driver exposes /dev/tee0.',
