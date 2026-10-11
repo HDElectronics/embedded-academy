@@ -6,7 +6,14 @@
 export default {
   extends: ['stylelint-config-standard', 'stylelint-config-html/astro'],
   // tokens.css is generated from tokens.json; lint the source, not the output.
-  ignoreFiles: ['**/dist/**', '**/.astro/**', 'docs/_build/**', 'coverage/**', 'packages/ui/src/tokens.css'],
+  ignoreFiles: [
+    '.claude/worktrees/**',
+    '**/dist/**',
+    '**/.astro/**',
+    'docs/_build/**',
+    'coverage/**',
+    'packages/ui/src/tokens.css',
+  ],
   rules: {
     'color-no-hex': true,
     'color-named': 'never',
