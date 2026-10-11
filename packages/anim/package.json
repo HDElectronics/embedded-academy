@@ -10,7 +10,8 @@
     "./BootChain.astro": "./astro/BootChain.astro",
     "./SerialConsole.astro": "./astro/SerialConsole.astro",
     "./MemoryMap.astro": "./astro/MemoryMap.astro",
-    "./CourseMap.astro": "./astro/CourseMap.astro"
+    "./CourseMap.astro": "./astro/CourseMap.astro",
+    "./PrivilegeLadder.astro": "./astro/PrivilegeLadder.astro"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p ."

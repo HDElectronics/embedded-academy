@@ -33,6 +33,15 @@ describe.each(boards.map((b) => [b.id, b] as const))('board %s', (_id, board) =>
     }
   });
 
+  it('places stages on the ladder of its architecture, matching the world', () => {
+    const levels = board.arch === 'armv8-a' ? ['EL3', 'EL2', 'EL1', 'EL0'] : ['PL2', 'PL1', 'PL0'];
+    for (const stage of board.stages) {
+      if (!stage.privilege) continue;
+      expect(levels, stage.id).toContain(stage.privilege.level);
+      expect(stage.privilege.world, stage.id).toBe(stage.world);
+    }
+  });
+
   it('starts in ROM and ends in Linux', () => {
     const first = board.stages.at(0);
     const last = board.stages.at(-1);

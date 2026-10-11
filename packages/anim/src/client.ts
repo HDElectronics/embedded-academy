@@ -5,8 +5,10 @@
 
 import { defineBootChain } from './boot-chain.ts';
 import { defineCourseMap } from './course-map.ts';
+import { definePrivilegeLadder } from './privilege-ladder.ts';
 import { defineSerialConsole } from './serial-console.ts';
 
 defineBootChain();
 defineCourseMap();
+definePrivilegeLadder();
 defineSerialConsole();

@@ -8,6 +8,7 @@ import type { Board } from './schema.ts';
 
 export * from './log.ts';
 export * from './schema.ts';
+export * from './sources.ts';
 
 /** Boards in teaching order. */
 export const boards: readonly Board[] = [rpi4, bbb, stm32mp157];

@@ -1,0 +1,49 @@
+---
+// SPDX-FileCopyrightText: Embedded Academy contributors
+// SPDX-License-Identifier: MIT
+import { type Board, getBoard } from '@ea/boards';
+import { readBoardLog } from '@ea/boards/node';
+import { ladderState, renderLadder, toChainBoard } from '../src/index.ts';
+
+interface Props {
+  board: Board['id'];
+  pane?: number;
+}
+
+const { board: id, pane = 1 } = Astro.props;
+const board = getBoard(id);
+const data = toChainBoard(board, readBoardLog(board));
+const json = JSON.stringify(data).replace(/</g, '<');
+---
+
+<ea-privilege-ladder class="ea-ladder">
+  <script is:inline type="application/json" data-ladder set:html={json} />
+  <section class="ea-pane" aria-label={`Privilege ladder, ${board.name}`}>
+    <div class="ea-pane__bar">
+      <span class="ea-pane__id">{pane}:</span>
+      <span class="ea-pane__title">privilege</span>
+      <span class="ea-pane__meta">
+        {board.name} · {board.arch}
+      </span>
+    </div>
+    <div class="ea-pane__body ea-chain__body">
+      <div class="ea-chain__controls">
+        <button type="button" class="ea-btn" data-part="prev">
+          Previous
+        </button>
+        <button type="button" class="ea-btn ea-btn--primary" data-part="play" aria-pressed="false">
+          Play boot
+        </button>
+        <button type="button" class="ea-btn" data-part="next">
+          Next
+        </button>
+        <p class="visually-hidden" aria-live="polite" data-part="status"></p>
+      </div>
+      <div class="ea-ladder__body" data-part="ladder" set:html={renderLadder(data, ladderState(data, 0))} />
+    </div>
+  </section>
+</ea-privilege-ladder>
+
+<script>
+  import '@ea/anim/client';
+</script>

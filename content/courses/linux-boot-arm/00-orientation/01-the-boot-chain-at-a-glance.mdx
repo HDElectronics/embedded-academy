@@ -22,6 +22,7 @@ sources:
 
 import BootChain from '@ea/anim/BootChain.astro';
 import MemoryMap from '@ea/anim/MemoryMap.astro';
+import PrivilegeLadder from '@ea/anim/PrivilegeLadder.astro';
 import SerialConsole from '@ea/anim/SerialConsole.astro';
 
 <p class="t-lead">
@@ -41,6 +42,10 @@ Play the chain on each board and watch three things:
 1. **Where code runs** moves from ROM, to on-chip memory, to DRAM.
 2. **Who runs first** differs. On the Raspberry Pi 4 the VideoCore GPU starts before the Arm cores. On the BeagleBone Black and the STM32MP157, an Arm core runs the boot ROM.
 3. **The world changes.** On the STM32MP157 the early stages run in the secure world, and U-Boot and Linux run in the normal world.
+
+Step through the STM32MP157 below. The marker stays at the same privilege level, PL1, but crosses from the secure world to the normal world when OP-TEE hands over to U-Boot.
+
+<PrivilegeLadder board="stm32mp157" pane={3} />
 
 ## Memory decides the order
 
