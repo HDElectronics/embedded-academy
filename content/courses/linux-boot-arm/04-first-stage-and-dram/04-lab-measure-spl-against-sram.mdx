@@ -35,11 +35,11 @@ import MemoryMap from '@ea/anim/MemoryMap.astro';
   tested in the lab container. If a step fails or a number does not add up, report it with the inaccuracy issue form.
 </Callout>
 
-<p class="t-lead">
+<div class="t-lead">
   In this lab you build the BeagleBone Black's first stage, then hold it up against the memory it has to fit in. You
   will end with three numbers side by side: the limit the TI manual sets, the limit U-Boot enforces, and the size of the
   SPL you built.
-</p>
+</div>
 
 Everything happens in the lab container. Nothing boots: QEMU does not emulate the AM335x, so this lab builds and measures only. You need the lab container running; start it with `sh labs/lab.sh` from the repository root.
 
