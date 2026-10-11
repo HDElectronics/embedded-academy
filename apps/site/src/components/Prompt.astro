@@ -1,0 +1,62 @@
+---
+// SPDX-FileCopyrightText: Embedded Academy contributors
+// SPDX-License-Identifier: MIT
+import { getCollection } from 'astro:content';
+import { lessonHref } from '../lib/lessons.ts';
+import { type PromptHint, promptPath } from '../lib/prompt.ts';
+
+interface Props {
+  hint?: PromptHint | undefined;
+}
+
+const { hint } = Astro.props;
+const courses = await getCollection('courses');
+const lessons = await getCollection('lessons');
+const pages = new Set(['/', ...courses.map((c) => `/courses/${c.id}/`), ...lessons.map(lessonHref)]);
+const segments = promptPath(Astro.url.pathname, (href) => pages.has(href));
+// Phones fold the far segments into one link to the deepest of them that has a page.
+const fold = segments.filter((s) => s.far && s.href).at(-1);
+const folds = segments.some((s) => s.far);
+---
+
+<nav class="site-prompt" aria-label="You are here">
+  <span class="ea-prompt__user">
+    learner<span class="site-prompt__host">@embedded-academy</span>
+  </span>
+  <span class="ea-prompt__sigil">:</span>
+  <span class="site-prompt__path">
+    {segments.map((s, k) => (
+      <>
+        {k === 1 &&
+          folds &&
+          (fold ? (
+            <a class="site-prompt__fold site-prompt__seg" href={fold.href}>
+              /…<span class="visually-hidden"> up to {fold.label}</span>
+            </a>
+          ) : (
+            <span class="site-prompt__fold" aria-hidden="true">
+              /…
+            </span>
+          ))}
+        {k > 0 && <span class:list={['site-prompt__sep', { 'is-far': s.far }]}>/</span>}
+        {s.href ? (
+          <a class:list={['site-prompt__seg', { 'is-far': s.far }]} href={s.href}>
+            {s.label}
+          </a>
+        ) : (
+          <span class:list={['site-prompt__seg', { 'is-far': s.far }]} aria-current={s.current ? 'page' : undefined}>
+            {s.label}
+          </span>
+        )}
+      </>
+    ))}
+  </span>
+  <span class="ea-prompt__sigil">$</span>
+  {hint && (
+    <a class="site-prompt__hint" href={hint.href}>
+      {hint.command}
+      <span class="visually-hidden"> ({hint.label})</span>
+    </a>
+  )}
+  <span class="site-prompt__cursor" aria-hidden="true"></span>
+</nav>

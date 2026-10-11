@@ -28,7 +28,7 @@ body {
 
 .site-header {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2) var(--space-4);
@@ -40,16 +40,93 @@ body {
 
 .site-prompt {
   display: inline-flex;
-  text-decoration: none;
-  font-size: 15px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  min-width: 0;
+  font-size: 16px;
+  line-height: 24px;
+  white-space: nowrap;
 }
 
-.site-nav {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-4);
-  font-size: 14px;
+.site-prompt__path {
+  display: contents;
+}
+
+.site-prompt__sep,
+.site-prompt__seg {
+  color: var(--ansi-blue);
+  font-weight: 700;
+}
+
+.site-prompt__seg {
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+a.site-prompt__seg {
+  border-bottom: 1px dashed var(--line-strong);
+}
+
+a.site-prompt__seg:hover {
+  border-bottom-color: var(--ansi-blue);
+}
+
+.site-prompt__fold {
+  display: none;
+}
+
+.site-prompt__hint {
+  margin-left: 1ch;
+  color: var(--ink-muted);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.site-prompt__hint:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.site-prompt__cursor {
+  display: inline-block;
+  align-self: center;
+  width: 1ch;
+  height: 1.1em;
+  margin-left: 2px;
+  background: var(--accent);
+  animation: ea-blink 1s steps(1) infinite;
+}
+
+@media (width <= 640px) {
+  .site-prompt__host,
+  .site-prompt .is-far {
+    display: none;
+  }
+
+  .site-prompt__fold {
+    display: inline;
+  }
+
+  .site-prompt {
+    font-size: 15px;
+  }
+
+  .site-header .theme-toggle {
+    flex: none;
+    padding-inline: var(--space-2);
+  }
+
+  .theme-toggle__key {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-prompt__cursor {
+    animation: none;
+  }
 }
 
 .site-main {

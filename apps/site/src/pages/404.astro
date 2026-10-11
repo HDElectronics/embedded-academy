@@ -4,7 +4,11 @@
 import Base from '../layouts/Base.astro';
 ---
 
-<Base title="Not found" description="This page does not exist.">
+<Base
+  title="Not found"
+  description="This page does not exist."
+  hint={{ command: 'cd ~', href: '/', label: 'back to the start page' }}
+>
   <section class="ea-pane">
     <div class="ea-pane__bar">
       <span class="ea-pane__id">0:</span>

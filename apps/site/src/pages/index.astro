@@ -6,11 +6,18 @@ import { getCollection } from 'astro:content';
 import Base from '../layouts/Base.astro';
 
 const courses = await getCollection('courses');
+const first = courses[0];
+const hint = first && {
+  command: `cd courses/${first.id}/`,
+  href: `/courses/${first.id}/`,
+  label: `open the course ${first.data.title}`,
+};
 ---
 
 <Base
   title="Embedded Academy"
   description="Open-source, animated courses on embedded systems. Start with how Linux boots on ARM."
+  hint={hint}
 >
   <section class="hero">
     <h1>Embedded Academy</h1>

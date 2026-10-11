@@ -4,14 +4,18 @@
 import '@ea/ui/index.css';
 import '@ea/anim/anim.css';
 import '../styles/site.css';
+import Prompt from '../components/Prompt.astro';
 import ThemeToggle from '../components/ThemeToggle.astro';
+import type { PromptHint } from '../lib/prompt.ts';
 
 interface Props {
   title: string;
   description: string;
+  /** Suggested next command in the header prompt. */
+  hint?: PromptHint | undefined;
 }
 
-const { title, description } = Astro.props;
+const { title, description, hint } = Astro.props;
 const fullTitle = title === 'Embedded Academy' ? title : `${title} · Embedded Academy`;
 ---
 
@@ -35,16 +39,8 @@ const fullTitle = title === 'Embedded Academy' ? title : `${title} · Embedded A
       Skip to content
     </a>
     <header class="site-header">
-      <a class="site-prompt" href="/">
-        <span class="ea-prompt__user">learner@embedded-academy</span>
-        <span class="ea-prompt__sigil">:</span>
-        <span class="ea-prompt__path">~</span>
-        <span class="ea-prompt__sigil">$</span>
-      </a>
-      <nav class="site-nav" aria-label="Main">
-        <a href="/courses/linux-boot-arm/">courses</a>
-        <ThemeToggle />
-      </nav>
+      <Prompt hint={hint} />
+      <ThemeToggle />
     </header>
     <main id="main" class="site-main">
       <slot />

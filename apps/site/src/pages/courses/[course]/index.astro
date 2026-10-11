@@ -12,9 +12,15 @@ export async function getStaticPaths() {
 
 const { course } = Astro.props;
 const lessons = await courseLessons(course.id);
+const firstLesson = lessons[0];
+const hint = firstLesson && {
+  command: `less ${firstLesson.id.split('/').slice(1).join('/')}`,
+  href: lessonHref(firstLesson),
+  label: `first lesson: ${firstLesson.data.title}`,
+};
 ---
 
-<Base title={course.data.title} description={course.data.description}>
+<Base title={course.data.title} description={course.data.description} hint={hint}>
   <section class="hero">
     <p class="t-label">course · {course.id}</p>
     <h1>{course.data.title}</h1>
