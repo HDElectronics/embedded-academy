@@ -1,0 +1,76 @@
+# board: QEMU virt (cortex-a57), 128 MiB default RAM
+# software: U-Boot v2026.07 (qemu_arm64_defconfig), GCC 14.2.0 (aarch64-linux-gnu)
+# command: qemu-system-aarch64 -machine virt -nographic -cpu cortex-a57 -bios $HOME/work/build/qemu_arm64/u-boot.bin -nic none
+# captured: 2026-10-11 (UTC), embedded-academy-lab container (Debian 13.7, QEMU 10.0.13)
+# note: lab image built without trixie-updates; the container clock matched an HTTP Date header at capture time, so build dates in the output are real UTC
+# input: no key during the countdown; then bdinfo; then Ctrl-A X
+# verification: emulated
+
+Bloblist at 0 not found (err=-2)
+alloc space exhausted ptr 400 limit 0
+Bloblist at 0 not found (err=-2)
+
+
+U-Boot 2026.07 (Oct 11 2026 - 21:24:38 +0000)
+
+DRAM:  128 MiB
+using memory 0x4664f000-0x4768f000 for malloc()
+Core:  51 devices, 14 uclasses, devicetree: board
+Flash: 64 MiB
+Loading Environment from Flash... *** Warning - bad CRC, using default environment
+
+In:    serial,usbkbd
+Out:   serial,vidconsole
+Err:   serial,vidconsole
+No USB controllers found
+Net:   No ethernet found.
+
+Hit any key to stop autoboot: 2Hit any key to stop autoboot: 1Hit any key to stop autoboot: 0
+Scanning for bootflows in all bootdevs
+Seq  Method       State   Uclass    Part  Name                      Filename
+---  -----------  ------  --------  ----  ------------------------  ----------------
+Scanning global bootmeth 'efi_mgr':
+Cannot persist EFI variables without system partition
+Missing TPMv2 device for EFI_TCG_PROTOCOL
+Missing RNG device for EFI_RNG_PROTOCOL
+Scanning bootdev 'fw-cfg@9020000.bootdev':
+fatal: no kernel available
+scanning bus for devices...
+No more bootdevs
+---  -----------  ------  --------  ----  ------------------------  ----------------
+(0 bootflows, 0 valid)
+=> bdinfo
+boot_params = 0x0000000000000000
+DRAM bank   = 0x0000000000000000
+-> start    = 0x0000000040000000
+-> size     = 0x0000000008000000
+flashstart  = 0x0000000000000000
+flashsize   = 0x0000000004000000
+flashoffset = 0x000000000016e9b0
+baudrate    = 115200 bps
+relocaddr   = 0x000000004768f000
+reloc off   = 0x000000004768f000
+Build       = 64-bit
+current eth = unknown
+eth-1addr   = (not set)
+IP addr     = <NULL>
+fdt_blob    = 0x000000004654ed80
+lmb_dump_all:
+ memory.count = 0x1
+ memory[0]	[0x40000000-0x47ffffff], 0x8000000 bytes, flags: none
+ reserved.count = 0x3
+ reserved[0]	[0x45400000-0x45400fff], 0x1000 bytes, flags: no-notify, no-overwrite
+ reserved[1]	[0x45505000-0x4552cfff], 0x28000 bytes, flags: no-notify, no-overwrite
+ reserved[2]	[0x4552dff0-0x47ffffff], 0x2ad2010 bytes, flags: no-overwrite
+devicetree  = board
+serial addr = 0x0000000009000000
+ width      = 0x0000000000000004
+ shift      = 0x0000000000000002
+ offset     = 0x0000000000000000
+ clock      = 0x0000000000000000
+arch_number = 0x0000000000000000
+TLB addr    = 0x0000000047fe0000
+irq_sp      = 0x000000004652dff0
+sp start    = 0x000000004652dff0
+Early malloc usage: e88 / 2000
+=> QEMU: Terminated
