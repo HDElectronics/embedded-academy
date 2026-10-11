@@ -79,3 +79,15 @@ export function toChainBoard(board: Board, log: StageLog): ChainBoard {
     })),
   };
 }
+
+/** Where a module sits on the boot path drawn by CourseMap. */
+export type MapWorld = 'firmware' | 'secure' | 'normal' | 'mixed';
+
+/** One module as CourseMap draws it. Modules without `chain` sit before or after the line. */
+export interface MapModule {
+  id: string;
+  title: string;
+  summary: string;
+  chain?: { short: string; world: MapWorld } | undefined;
+  lessons: { title: string; href: string; type: string }[];
+}
