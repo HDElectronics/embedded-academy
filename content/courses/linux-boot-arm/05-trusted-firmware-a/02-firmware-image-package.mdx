@@ -38,11 +38,11 @@ import Prompt from '@ea/ui/Prompt.astro';
 import Callout from '@ea/ui/Callout.astro';
 import Deeper from '@ea/ui/Deeper.astro';
 
-<p class="t-lead">
+<div class="t-lead">
   BL2 has to load several images: BL31, maybe BL32, BL33, and sometimes device trees and certificates. Rather than keep
   each one in its own file or partition, TF-A packs them into one archive, the Firmware Image Package (FIP). BL2 opens
   the archive, finds each image by its identity, and loads it.
-</p>
+</div>
 
 ## A FIP is a table of contents followed by data
 
