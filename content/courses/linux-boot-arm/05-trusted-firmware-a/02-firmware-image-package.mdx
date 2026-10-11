@@ -1,0 +1,140 @@
+---
+title: The FIP packs every later image into one file
+description: Why TF-A loads its images from a Firmware Image Package, what a FIP holds on QEMU and on the STM32MP157, and how fiptool reads and writes one.
+course: linux-boot-arm
+module: m05
+order: 2
+type: explanation
+boards: [stm32mp157]
+verification: unverified
+sources:
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Firmware Design'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/design/firmware-design.html
+    section: Firmware Image Package (FIP)
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Image Terminology'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/getting_started/image-terminology.html
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Building Supporting Tools'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/getting_started/tools-build.html
+    section: Building and using the FIP tool
+  - title: 'Trusted Firmware-A source (lts-v2.14.10): tools/fiptool/tbbr_config.c'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/tools/fiptool/tbbr_config.c
+  - title: 'Trusted Firmware-A source (lts-v2.14.10): include/tools_share/firmware_image_package.h'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/include/tools_share/firmware_image_package.h
+  - title: 'Trusted Firmware-A source (lts-v2.14.10): Makefile'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/Makefile
+  - title: 'Trusted Firmware-A source (lts-v2.14.10): plat/qemu/qemu/include/platform_def.h'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/qemu/qemu/include/platform_def.h
+  - title: 'Trusted Firmware-A source (lts-v2.14.10): plat/qemu/common/qemu_io_storage.c'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/qemu/common/qemu_io_storage.c
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): QEMU virt Armv8-A'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/qemu.html
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): STM32 MPUs'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/st/stm32mpus.html
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): STM32MP1'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/st/stm32mp1.html
+---
+
+import Prompt from '@ea/ui/Prompt.astro';
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<div class="t-lead">
+  BL2 has to load several images: BL31, maybe BL32, BL33, and sometimes device trees and certificates. Rather than keep
+  each one in its own file or partition, TF-A packs them into one archive, the Firmware Image Package (FIP). BL2 opens
+  the archive, finds each image by its identity, and loads it.
+</div>
+
+## A FIP is a table of contents followed by data
+
+The format is small. A FIP starts with a table of contents (ToC): a header, one entry per image, and an end marker. The image data follows the ToC.[^fip]
+
+Each ToC entry holds four fields:[^fip]
+
+- `uuid`: which image this is. Every image type has a fixed UUID, defined in `include/tools_share/firmware_image_package.h`.
+- `offset_address`: where the image data starts, counted from the start of the ToC.
+- `size`: the image size in bytes.
+- `flags`: none are defined yet.
+
+The loader never looks for a file name. When BL2 needs BL33, the platform code turns the request into the BL33 UUID and reads the matching entry.[^fip] That is why one FIP format can serve every platform: the platform decides which images it expects, and the FIP carries them.[^terms]
+
+## The same packer serves every board
+
+The tool that builds a FIP is `fiptool`, in `tools/fiptool` in the TF-A tree.[^fip] You rarely call it yourself. The TF-A build has a `fip` make target that builds `fiptool`, packs the images and writes `build/<platform>/<build-type>/fip.bin`.[^tools] The TF-A `Makefile` also runs `fiptool info` on the new file, so the build log lists what went in.[^makefile]
+
+Each image has a `fiptool` option named after its role in the Trusted Board Boot Requirements, not after the BL number. These are the ones this course meets:[^tbbr-config]
+
+| `fiptool` option  | Image                                               |
+| ----------------- | --------------------------------------------------- |
+| `--tb-fw`         | BL2, Trusted Boot Firmware                          |
+| `--soc-fw`        | BL31, EL3 Runtime Firmware                          |
+| `--tos-fw`        | BL32, Secure Payload (Trusted OS)                   |
+| `--tos-fw-extra1` | BL32 Extra1, a second Trusted OS image              |
+| `--tos-fw-extra2` | BL32 Extra2, a third Trusted OS image               |
+| `--nt-fw`         | BL33, Non-Trusted Firmware                          |
+| `--hw-config`     | `HW_CONFIG`, a hardware description such as a `dtb` |
+| `--fw-config`     | `FW_CONFIG`, a firmware configuration `dtb`         |
+
+## What goes into the FIP depends on who loads BL2
+
+BL1 and BL2 decide what the FIP must hold.
+
+**On QEMU `virt`**, TF-A's own BL1 is the boot ROM. BL1 sits at the start of flash and the FIP follows it. TF-A's QEMU platform puts the FIP at offset `0x0004_0000` in flash.[^qemu-def] The QEMU guide builds the boot ROM with two `dd` commands: `bl1.bin` at the start, `fip.bin` at 64 blocks of 4096 bytes, which is the same `0x40000`.[^qemu] BL1 loads BL2 from the FIP, so this FIP holds BL2, BL31 and BL33, plus BL32 when you build one in. You build exactly this in the lab at the end of this module.
+
+**On the STM32MP157**, the ROM code loads BL2 from its own partition, so BL2 is not in the FIP. The FIP holds OP-TEE, U-Boot and their device trees.[^mpus] On an SD card both live in GPT partitions: `fsbl1` and `fsbl2` carry BL2, and a partition named `fip`, with GUID `19d5df83-11b0-457b-be2c-7559c13142a5`, carries the FIP.[^mpus] TF-A's STM32MP1 guide builds that FIP with U-Boot's `u-boot-nodtb.bin` as BL33 and `u-boot.dtb` as its configuration, and the three OP-TEE images as BL32 and its extras.[^mp1]
+
+<Callout level="info">
+  The STM32MP157 build in TF-A's guide uses the `stm32mp157c-ev1` board as its example. This course has not yet built or
+  run a FIP for the DK2 board.
+</Callout>
+
+## You can open a FIP and look inside
+
+`fiptool` has five commands: `create`, `info`, `update`, `unpack` and `remove`.[^tools] The one you will use most is `info`. Inside the lab container, after a TF-A build for QEMU, this lists the FIP's entries:[^tools]
+
+<Prompt dir="~/work/src/trusted-firmware-a" cmd="./tools/fiptool/fiptool info build/qemu/release/fip.bin" />
+
+The build leaves the tool at `build/<platform>/<build-type>/tools/fiptool/fiptool` and links it to `tools/fiptool/fiptool`, so the short path works after any build.[^makefile]
+
+`update` replaces one image and keeps the rest. That is useful when you rebuild only U-Boot: you can swap the BL33 entry without rebuilding TF-A. `unpack` writes every entry to a file in the current folder.[^tools]
+
+<Deeper depth="practitioner" title="QEMU can also load images without a FIP">
+
+TF-A's QEMU platform has a second way in: semihosting. With it, every image except BL1 is read from files named `bl2.bin`, `bl31.bin` and `bl33.bin` in the folder QEMU starts from.[^qemu-semi] The QEMU platform code keeps both paths, a FIP entry and a semihosting file name for each image.[^qemu-io] The lab uses the flash and FIP path, because the STM32MP157 also loads its images from a FIP.
+
+</Deeper>
+
+<Deeper depth="expert" title="The ToC header and secure boot">
+
+The ToC header carries a `name` field used to check that the data really is a FIP, a non-zero `serial_number`, and 64 bits of `flags` of which bits 32 to 47 are platform-defined.[^fip] The expected name is `TOC_HEADER_NAME`, `0xAA640001`.[^fip-h]
+
+With Trusted Board Boot, the FIP also carries the certificates that authenticate each image. `fiptool` has options for them, such as `--trusted-key-cert` and `--nt-fw-cert`.[^tbbr-config] TF-A's STM32MP1 guide shows a complete `fiptool create` with certificates.[^mp1] Module 03 covers the chain of trust these certificates build.
+
+</Deeper>
+
+## What comes next
+
+The next page lists the TF-A build options you need to make these images. Then the lab builds a FIP for QEMU and boots it.
+
+[^fip]: Trusted Firmware-A documentation, Firmware Design: "Firmware Image Package (FIP)", including "Firmware Image Package layout" and "Loading from a Firmware Image Package (FIP)".
+
+[^terms]: Trusted Firmware-A documentation, Image Terminology: "Firmware Image Package: FIP".
+
+[^tools]: Trusted Firmware-A documentation, Building Supporting Tools: "Building and using the FIP tool".
+
+[^makefile]: Trusted Firmware-A source at `lts-v2.14.10`, `Makefile`: the `fip` rule runs `fiptool create` then `fiptool info`; `FIPTOOL` is `$(BUILD_PLAT)/tools/fiptool/fiptool`, linked to `tools/fiptool/fiptool`.
+
+[^tbbr-config]: Trusted Firmware-A source at `lts-v2.14.10`, `tools/fiptool/tbbr_config.c`: image names and `cmdline_name` values.
+
+[^qemu-def]: Trusted Firmware-A source at `lts-v2.14.10`, `plat/qemu/qemu/include/platform_def.h`: `PLAT_QEMU_FIP_BASE` is `0x00040000`.
+
+[^qemu]: Trusted Firmware-A documentation, QEMU virt Armv8-A: "Booting via flash based firmware".
+
+[^qemu-semi]: Trusted Firmware-A documentation, QEMU virt Armv8-A: "Booting via semi-hosting option".
+
+[^qemu-io]: Trusted Firmware-A source at `lts-v2.14.10`, `plat/qemu/common/qemu_io_storage.c`: the semihosting file specs and the FIP UUID specs.
+
+[^mpus]: Trusted Firmware-A documentation, STM32 MPUs: "Boot" and "Populate SD-card".
+
+[^mp1]: Trusted Firmware-A documentation, STM32MP1: "Boot with FIP" and "Trusted Boot Board".
+
+[^fip-h]: Trusted Firmware-A source at `lts-v2.14.10`, `include/tools_share/firmware_image_package.h`.
