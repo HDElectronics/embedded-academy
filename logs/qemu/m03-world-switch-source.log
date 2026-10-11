@@ -1,0 +1,71 @@
+# board: none (source reading in the lab container, no emulation)
+# software: Linux v6.18.55, TF-A lts-v2.14.10, OP-TEE 4.10.0 (shallow clones from fetch-sources.sh); GNU grep 3.11
+# command: the commands of 03-trustzone-and-secure-boot/04-lab-find-the-world-switch.mdx, in order; each run line below names one
+# captured: 2026-10-11 (UTC), embedded-academy-lab container (Debian 13.7, QEMU 10.0.13)
+# note: lab image built without trixie-updates; the host and container UTC clocks matched the Date headers of google.com, github.com and deb.debian.org at capture, so timestamps in the output are real UTC
+# verification: emulated
+# --- run: sh ~/course/fetch-sources.sh
+skip   linux (already in /home/learner/work/src/linux)
+skip   u-boot (already in /home/learner/work/src/u-boot)
+skip   trusted-firmware-a (already in /home/learner/work/src/trusted-firmware-a)
+skip   optee_os (already in /home/learner/work/src/optee_os)
+skip   buildroot (already in /home/learner/work/src/buildroot)
+# --- run: ls ~/work/src
+buildroot
+linux
+optee_os
+trusted-firmware-a
+u-boot
+# --- run: cd ~/work/src/linux
+# --- run: grep -n "arm_smccc_smc" drivers/tee/optee/smc_abi.c
+1465:	arm_smccc_smc(a0, a1, a2, a3, a4, a5, a6, a7, res);
+# --- run: grep -n "__arm_smccc_smc" arch/arm64/kernel/smccc-call.S
+31:SYM_FUNC_START(__arm_smccc_smc)
+33:SYM_FUNC_END(__arm_smccc_smc)
+34:EXPORT_SYMBOL(__arm_smccc_smc)
+# --- run: cd ~/work/src/trusted-firmware-a
+# --- run: grep -n "vector_entry sync_exception_aarch64" bl31/aarch64/runtime_exceptions.S
+222:vector_entry sync_exception_aarch64
+233:end_vector_entry sync_exception_aarch64
+# --- run: grep -n "Copy SCR_EL3.NS bit" bl31/aarch64/runtime_exceptions.S
+389:	/* Copy SCR_EL3.NS bit to the flag to indicate caller's security */
+# --- run: grep -n "define SCR_NS_BIT" include/arch/aarch64/arch.h
+761:#define SCR_NS_BIT		(UL(1) << 0)
+# --- run: grep -n "SCR_NS_BIT" lib/el3_runtime/aarch64/context_mgmt.c
+171:	scr_el3 |= SCR_NS_BIT | SCR_NSE_BIT;
+241:	scr_el3 |= SCR_NS_BIT;
+1389:	write_scr_el3(scr_el3 | SCR_NS_BIT);
+1401:			write_scr_el3(scr_el3 & ~SCR_NS_BIT);
+1403:			write_scr_el3(scr_el3 | SCR_NS_BIT);
+1423:	write_scr_el3(scr_el3 | SCR_NS_BIT);
+1435:			write_scr_el3(scr_el3 & ~SCR_NS_BIT);
+1437:			write_scr_el3(scr_el3 | SCR_NS_BIT);
+# --- run: grep -n "exception_return" lib/el3_runtime/aarch64/context.S
+662:	exception_return
+# --- run: cd ~/work/src/optee_os
+# --- run: grep -n -A2 "CFG_WITH_ARM_TRUSTED_FW" core/arch/arm/arm.mk
+218:ifneq ($(CFG_WITH_ARM_TRUSTED_FW),y)
+219-core-platform-subdirs += $(arch-dir)/sm
+220-endif
+# --- run: grep -l "CFG_WITH_ARM_TRUSTED_FW" core/arch/arm/plat-stm32mp1/conf.mk core/arch/arm/plat-stm32mp2/conf.mk
+core/arch/arm/plat-stm32mp2/conf.mk
+# --- run: grep -n "SCR_NS" core/arch/arm/sm/sm_a32.S
+105:	tst	r1, #SCR_NS
+159:	orr	r0, r0, #(SCR_NS | SCR_FIQ) /* Set NS and FIQ bit in SCR */
+177:	bic	r1, r1, #(SCR_NS | SCR_FIQ) /* Clear NS and FIQ bit in SCR */
+225:	bic	r1, r1, #(SCR_NS | SCR_FIQ) /* Clear NS and FIQ bit in SCR */
+340:	orr	r0, r0, #SCR_NS /* Set NS bit in SCR */
+364:	bic	r0, r0, #SCR_NS /* Clr NS bit in SCR */
+# --- run: cd ~/work/src/trusted-firmware-a
+# --- run: grep -n "secure=on" docs/plat/qemu.rst
+85:    qemu-system-aarch64 -nographic -machine virt,secure=on -cpu cortex-a57  \
+139:      qemu-system-aarch64 -nographic -machine virt,secure=on
+# --- run: ls services/spd/opteed
+opteed.mk
+opteed_common.c
+opteed_helpers.S
+opteed_main.c
+opteed_pm.c
+opteed_private.h
+teesmc_opteed.h
+teesmc_opteed_macros.h
