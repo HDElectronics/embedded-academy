@@ -84,6 +84,16 @@ test('the course map shows the module you pick', async ({ page }) => {
   await expect(map.getByRole('heading', { level: 2, name: 'Orientation' })).toBeHidden();
 });
 
+test('the serial console jumps to the stage you pick', async ({ page }) => {
+  await page.goto(LESSON);
+  const serial = page.locator('ea-serial-console');
+  await expect(serial).toHaveAttribute('data-ready', '');
+  const strip = serial.getByRole('list', { name: 'Jump to a stage' });
+  await strip.getByRole('button', { name: /U-Boot/ }).click();
+  await expect(strip.locator('[aria-current="step"]')).toContainText('U-Boot');
+  await expect(serial.locator('.ea-serial__line').last()).toContainText('U-Boot');
+});
+
 test.describe('with reduced motion', () => {
   test.use({ reducedMotion: 'reduce' });
 
