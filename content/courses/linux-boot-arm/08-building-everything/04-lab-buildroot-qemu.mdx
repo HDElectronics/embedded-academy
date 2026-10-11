@@ -1,0 +1,129 @@
+---
+title: 'Lab: build a system with Buildroot and boot it in QEMU'
+description: Build qemu_aarch64_virt_defconfig with Buildroot in the lab container, then boot the kernel and root filesystem it made under QEMU.
+course: linux-boot-arm
+module: m08
+order: 4
+type: tutorial
+boards: []
+verification: unverified
+sources:
+  - title: 'Buildroot 2026.02.3 source: board/qemu/aarch64-virt/readme.txt'
+    url: https://gitlab.com/buildroot.org/buildroot/-/blob/2026.02.3/board/qemu/aarch64-virt/readme.txt
+  - title: 'Buildroot 2026.02.3 source: configs/qemu_aarch64_virt_defconfig'
+    url: https://gitlab.com/buildroot.org/buildroot/-/blob/2026.02.3/configs/qemu_aarch64_virt_defconfig
+  - title: 'Buildroot 2026.02.3 source: board/qemu/post-image.sh and start-qemu.sh.in'
+    url: https://gitlab.com/buildroot.org/buildroot/-/tree/2026.02.3/board/qemu
+  - title: 'Buildroot 2026.02.3 source: system/Config.in'
+    url: https://gitlab.com/buildroot.org/buildroot/-/blob/2026.02.3/system/Config.in
+    section: BR2_TARGET_GENERIC_ROOT_PASSWD
+  - title: The Buildroot user manual
+    url: https://buildroot.org/downloads/manual/manual.html
+    section: Buildroot quick start; How to speed-up the build process
+  - title: "QEMU documentation: 'virt' generic virtual platform"
+    url: https://www.qemu.org/docs/master/system/arm/virt.html
+  - title: 'QEMU documentation: keys in the character backend multiplexer'
+    url: https://www.qemu.org/docs/master/system/mux-chardev.html
+---
+
+import Prompt from '@ea/ui/Prompt.astro';
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<Callout level="warning">
+  Nobody has run this lab yet: the steps come from Buildroot's own files at tag `2026.02.3`, not from a recorded run. If
+  a step fails or does something this page does not describe, report it with the inaccuracy issue form.
+</Callout>
+
+<p class="t-lead">
+  In this lab you build a complete 64-bit Arm Linux system with one Buildroot defconfig, then boot it in QEMU. No board
+  is needed: the target is QEMU's `virt` machine.
+</p>
+
+## Before you start
+
+You need the lab container running, as the `labs/README.md` file of the repository describes, and the course sources fetched. If you have not fetched them yet, run this inside the container:
+
+<Prompt cmd="sh ~/course/fetch-sources.sh" />
+
+It clones Buildroot at tag `2026.02.3` into `~/work/src/buildroot`.
+
+Plan for a long build. This defconfig builds its own cross toolchain from source, because it selects none; the Buildroot manual puts the toolchain alone at about 15 to 20 minutes.[^faq] It also builds a kernel, a root filesystem and QEMU itself for your host.[^defconfig] The build downloads every source it needs, so keep the network up.[^quick] The manual gives no figure for disk space; check that the disk behind `~/work` has room before you start.
+
+## Load the defconfig
+
+Go to the Buildroot tree:
+
+<Prompt cmd="cd ~/work/src/buildroot" />
+
+Load the board configuration:
+
+<Prompt dir="~/work/src/buildroot" cmd="make qemu_aarch64_virt_defconfig" />
+
+This writes a full `.config` from the short defconfig. Find the kernel version in it:
+
+<Prompt dir="~/work/src/buildroot" cmd="grep BR2_LINUX_KERNEL_CUSTOM_VERSION_VALUE .config" />
+
+The value is the version the defconfig pins, 6.18.7.[^defconfig] Buildroot chose it; it is not the course's `v6.18.55`.
+
+## Build the system
+
+Start the build:
+
+<Prompt dir="~/work/src/buildroot" cmd="make" />
+
+Leave it running. You don't need `-j`: Buildroot does not build packages in parallel at the top level by default.[^quick] When `make` returns to the prompt without an error, list the results:
+
+<Prompt dir="~/work/src/buildroot" cmd="ls output/images" />
+
+Look for three files:
+
+- `Image`: the arm64 kernel;
+- `rootfs.ext4`: the root filesystem;
+- `start-qemu.sh`: a launcher that the board's post-image script wrote.[^post]
+
+## Boot it in QEMU
+
+Run the command from the board's `readme.txt`, unchanged, from the Buildroot tree:[^readme]
+
+<Prompt
+  dir="~/work/src/buildroot"
+  cmd='qemu-system-aarch64 -M virt -cpu cortex-a53 -nographic -smp 1 -kernel output/images/Image -append "rootwait root=/dev/vda console=ttyAMA0" -netdev user,id=eth0 -device virtio-net-device,netdev=eth0 -drive file=output/images/rootfs.ext4,if=none,format=raw,id=hd0 -device virtio-blk-device,drive=hd0'
+/>
+
+This runs the container's own QEMU. The readme says the login prompt appears in the terminal that started QEMU.[^readme] Log in as `root`: Buildroot sets no root password unless you configure one.[^passwd]
+
+When you are done, leave QEMU with `Ctrl+a` then `x`.[^mux]
+
+## QEMU skips every stage before the kernel
+
+Compare this boot with the chains in earlier modules. Here there is no boot ROM, no TF-A and no U-Boot:
+
+- `-kernel` hands `Image` straight to QEMU, which starts it with the Linux boot protocol.
+- QEMU generates the Device Tree for `virt` itself and passes its address in `x0`.[^virt]
+- `root=/dev/vda` names the virtio disk that `-drive` and `-device virtio-blk-device` attach, holding `rootfs.ext4`.[^readme]
+
+The kernel's own start is the part of the chain this lab does exercise: module 09 follows it to PID 1.
+
+<Deeper depth="practitioner" title="Boot with the generated launcher">
+`output/images/start-qemu.sh` runs the readme command with paths relative to `output/images/`. By default it puts Buildroot's own QEMU, built in `output/host/bin`, first in `PATH`. Pass `--use-system-qemu` to use the container's QEMU instead, or `--serial-only` to force serial-only output.[^post]
+
+<Prompt dir="~/work/src/buildroot" cmd="output/images/start-qemu.sh --use-system-qemu" />
+
+</Deeper>
+
+[^faq]: Buildroot manual, How to speed-up the build process.
+
+[^defconfig]: Buildroot 2026.02.3, `configs/qemu_aarch64_virt_defconfig`.
+
+[^quick]: Buildroot manual, Buildroot quick start.
+
+[^post]: Buildroot 2026.02.3, `board/qemu/post-image.sh` and `board/qemu/start-qemu.sh.in`.
+
+[^readme]: Buildroot 2026.02.3, `board/qemu/aarch64-virt/readme.txt`.
+
+[^passwd]: Buildroot 2026.02.3, `system/Config.in`: `BR2_TARGET_GENERIC_ROOT_PASSWD` defaults to empty, so root logs in without a password.
+
+[^mux]: QEMU documentation, keys in the character backend multiplexer: the multiplexer is the default with `-nographic`.
+
+[^virt]: QEMU documentation, `virt` generic virtual platform: hardware configuration information.
