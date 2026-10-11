@@ -1,0 +1,230 @@
+---
+title: 'Lab: lay out the boot media each ROM expects'
+description: Build three SD card images in the lab container, each laid out the way one board's boot ROM looks for its first loader.
+course: linux-boot-arm
+module: m02
+order: 4
+type: tutorial
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'Raspberry Pi documentation: config.txt'
+    url: https://www.raspberrypi.com/documentation/computers/config_txt.html
+    section: autoboot.txt; Boot options
+  - title: 'Raspberry Pi documentation: Configuration'
+    url: https://www.raspberrypi.com/documentation/computers/configuration.html
+    section: boot folder contents
+  - title: TI AM335x and AMIC110 Sitara Processors Technical Reference Manual (SPRUH73Q)
+    url: https://www.ti.com/lit/ug/spruh73q/spruh73q.pdf
+    section: 26.1.8.5 MMC / SD Cards
+  - title: 'U-Boot documentation (v2026.07): STM32MP1xx boards'
+    url: https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html
+    section: Prepare an SD card
+  - title: 'Trusted Firmware-A documentation (lts-v2.14): STM32 MPUs'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14/plat/st/stm32mpus.html
+    section: Populate SD-card
+  - title: 'Debian trixie manual page: sfdisk(8)'
+    url: https://manpages.debian.org/trixie/fdisk/sfdisk.8.en.html
+  - title: 'Debian trixie manual page: mkfs.fat(8)'
+    url: https://manpages.debian.org/trixie/dosfstools/mkfs.fat.8.en.html
+  - title: 'GNU mtools manual'
+    url: https://www.gnu.org/software/mtools/manual/mtools.html
+    section: Drive letters
+  - title: 'QEMU documentation: Raspberry Pi boards'
+    url: https://www.qemu.org/docs/master/system/arm/raspi.html
+  - title: 'QEMU documentation: Arm System emulator'
+    url: https://www.qemu.org/docs/master/system/target-arm.html
+---
+
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+import Prompt from '@ea/ui/Prompt.astro';
+import SerialConsole from '@ea/anim/SerialConsole.astro';
+
+<p class="t-lead">
+  In this lab you build three SD card images, one per board. Each one is laid out the way that board's boot ROM, or the
+  Raspberry Pi 4's EEPROM bootloader, searches for the next stage. Then you read the console log of what would happen
+  next.
+</p>
+
+<Callout level="warning">
+  Nobody has run these steps in the lab container yet. If a command fails or behaves differently, report it with the
+  inaccuracy issue form.
+</Callout>
+
+## This lab is simulated
+
+No QEMU machine runs these boot ROMs. QEMU's `raspi4b` machine emulates the Arm side of the chip and models only the VideoCore firmware's property interface, so it does not run the boot ROM, the EEPROM bootloader or `start4.elf`.[^qemu-raspi] QEMU has no AM335x or STM32MP157 machine.[^qemu-arm]
+
+You build real partition layouts with standard tools, but the files in them are placeholders, so no board would boot these images. Module 08 builds the real files.
+
+## Open a working folder in the lab
+
+Start the lab container from the repository root with `sh labs/lab.sh`, as `labs/README.md` describes. Every command in this lab runs inside the container, as `learner`, and needs no root rights: you work on image files, not on real disks.
+
+<Prompt cmd="mkdir -p ~/work/m02" />
+
+<Prompt cmd="cd ~/work/m02" />
+
+`sfdisk` and `mkfs.vfat` are installed in `/usr/sbin`. If your shell doesn't find them, type the full path, for example `/usr/sbin/sfdisk`.
+
+## Raspberry Pi 4: firmware files on a FAT partition
+
+The EEPROM bootloader boots from a FAT12, FAT16 or FAT32 partition that contains `start4.elf`. By default it picks the first such partition, normally partition 1.[^rpi-autoboot]
+
+1. Create an empty 256 MiB image file:
+
+   <Prompt dir="~/work/m02" cmd="truncate -s 256M rpi4-sd.img" />
+
+2. Write an MBR partition table with one partition. It starts at sector 2048, which is 1 MiB, holds 262144 sectors (128 MiB), and has type `0x0C`, FAT32:[^sfdisk]
+
+   <Prompt dir="~/work/m02" cmd="echo 'start=2048, size=262144, type=0c' | sfdisk rpi4-sd.img" />
+
+3. List the table. Check that there is one partition, that it starts at sector 2048, and that its type is FAT32:
+
+   <Prompt dir="~/work/m02" cmd="sfdisk -l rpi4-sd.img" />
+
+4. Create a FAT32 filesystem inside the partition. `--offset` gives the start sector, and the last argument gives the size in KiB:[^mkfs]
+
+   <Prompt dir="~/work/m02" cmd="mkfs.vfat -F 32 -n BOOT --offset 2048 rpi4-sd.img 131072" />
+
+5. Create placeholders for the firmware, the Device Tree and the 64-bit kernel, and a one-line `config.txt` that enables the serial console:[^rpi-folder] [^rpi-uart]
+
+   <Prompt dir="~/work/m02" cmd="touch start4.elf fixup4.dat kernel8.img bcm2711-rpi-4-b.dtb" />
+
+   <Prompt dir="~/work/m02" cmd="echo enable_uart=1 > config.txt" />
+
+6. Copy the files into the FAT filesystem. `@@1M` tells mtools that the filesystem starts 1 MiB into the image:[^mtools]
+
+   <Prompt
+     dir="~/work/m02"
+     cmd="mcopy -i rpi4-sd.img@@1M start4.elf fixup4.dat kernel8.img bcm2711-rpi-4-b.dtb config.txt ::"
+   />
+
+7. List the root directory of the partition and check that all five files are there:
+
+   <Prompt dir="~/work/m02" cmd="mdir -i rpi4-sd.img@@1M ::" />
+
+The bootloader would find a FAT partition with `start4.elf` in partition 1, load the firmware, and let it read `config.txt`.
+
+## BeagleBone Black: `MLO` on an active FAT partition
+
+The AM335x ROM looks for a file named `MLO` in the root directory of a primary FAT partition that is marked active. If more than one partition is active, it fails.[^ti-fat]
+
+1. Create the image and a partition like the Raspberry Pi's, this time marked bootable, which sets the active flag:[^sfdisk]
+
+   <Prompt dir="~/work/m02" cmd="truncate -s 256M bbb-sd.img" />
+
+   <Prompt dir="~/work/m02" cmd="echo 'start=2048, size=262144, type=0c, bootable' | sfdisk bbb-sd.img" />
+
+2. Read the first partition entry the way the ROM does. It starts at byte 446 (`0x1BE`) of the first sector and is 16 bytes long:[^ti-mbr]
+
+   <Prompt dir="~/work/m02" cmd="od -A d -t x1 -j 446 -N 16 bbb-sd.img" />
+
+   The first byte is the partition state: `80` means active, `00` inactive. The fifth byte is the partition type, here `0c`, one of the FAT32 types the ROM accepts.[^ti-mbr]
+
+3. Create the filesystem and copy a placeholder `MLO` into its root directory:
+
+   <Prompt dir="~/work/m02" cmd="mkfs.vfat -F 32 -n BOOT --offset 2048 bbb-sd.img 131072" />
+
+   <Prompt dir="~/work/m02" cmd="echo 'placeholder, not a real MLO' > MLO" />
+
+   <Prompt dir="~/work/m02" cmd="mcopy -i bbb-sd.img@@1M MLO ::" />
+
+4. Check that `MLO` is in the root directory. The ROM reads 8.3 names only, and `MLO` is one:[^ti-fat]
+
+   <Prompt dir="~/work/m02" cmd="mdir -i bbb-sd.img@@1M ::" />
+
+A real `MLO` starts with an 8-byte header that gives its size and load address.[^ti-image] This placeholder has none, so a real ROM would reject it and try the next device.
+
+## STM32MP157: the FSBL in GPT partitions `fsbl1` and `fsbl2`
+
+The STM32MP157 ROM reads its first-stage bootloader from GPT partitions named `fsbl1` and `fsbl2`, each at least 256 KiB. TF-A then looks for the FIP in a partition named `fip`.[^uboot-sd] [^tfa-sd]
+
+1. Create a 64 MiB image:
+
+   <Prompt dir="~/work/m02" cmd="truncate -s 64M stm32mp157-sd.img" />
+
+2. Write a GPT with four partitions. Sizes are in 512-byte sectors: 512 sectors is 256 KiB, and 8192 sectors is 4 MiB. Each partition starts on a 1 MiB boundary, so you can address it in whole MiB later. The `fip` partition gets the type GUID from TF-A's documentation, and the last partition gets the legacy BIOS bootable attribute, as in U-Boot's example:[^uboot-sd] [^tfa-sd] [^sfdisk]
+
+   <Prompt
+     dir="~/work/m02"
+     cmd="printf 'label: gpt\nstart=2048, size=512, name=fsbl1\nstart=4096, size=512, name=fsbl2\nstart=6144, size=8192, name=fip, type=19D5DF83-11B0-457B-BE2C-7559C13142A5\nstart=16384, name=rootfs, attrs=LegacyBIOSBootable\n' | sfdisk stm32mp157-sd.img"
+   />
+
+3. Dump the table. Check the names `fsbl1`, `fsbl2`, `fip` and `rootfs`, and the start sectors 2048, 4096, 6144 and 16384:
+
+   <Prompt dir="~/work/m02" cmd="sfdisk --dump stm32mp157-sd.img" />
+
+4. Write the same placeholder FSBL into both copies. `fsbl1` starts at 1 MiB and `fsbl2` at 2 MiB, so `seek` counts 1 MiB blocks:
+
+   <Prompt dir="~/work/m02" cmd="echo 'placeholder, not a real FSBL' > fsbl.stm32" />
+
+   <Prompt dir="~/work/m02" cmd="dd if=fsbl.stm32 of=stm32mp157-sd.img bs=1M seek=1 conv=notrunc" />
+
+   <Prompt dir="~/work/m02" cmd="dd if=fsbl.stm32 of=stm32mp157-sd.img bs=1M seek=2 conv=notrunc" />
+
+5. Search the image for the placeholder text. You should find it twice, once per copy:
+
+   <Prompt dir="~/work/m02" cmd="strings stm32mp157-sd.img | grep placeholder" />
+
+A real FSBL starts with an STM32 image header. This placeholder has none, so a real ROM would not run it.[^uboot-files]
+
+<Deeper depth="practitioner" title="Compare with U-Boot's sgdisk layout">
+
+The U-Boot documentation builds the same table with `sgdisk`, packing `fsbl1` right after the GPT at sector 34 and `fsbl2` right after it.[^uboot-sd] `sgdisk` is not in the lab container, and the ROM finds the partitions by name, so this lab uses `sfdisk` and starts each partition on a 1 MiB boundary instead.
+
+</Deeper>
+
+## Read what comes after the ROM
+
+The boot ROMs print nothing in these logs. The first lines you see come from the stage each ROM loaded. Step through each log and find where the ROM's stage ends and the next one begins.
+
+<SerialConsole board="rpi4" pane={1} />
+
+<SerialConsole board="bbb" pane={2} />
+
+<SerialConsole board="stm32mp157" pane={3} />
+
+<Callout level="info">
+  These console logs are illustrative. They are not captured from real boards yet and will be replaced with real
+  captures.
+</Callout>
+
+## What you built
+
+| Image               | Table | What the ROM or bootloader searches for                 |
+| ------------------- | ----- | ------------------------------------------------------- |
+| `rpi4-sd.img`       | MBR   | A FAT partition that contains `start4.elf`              |
+| `bbb-sd.img`        | MBR   | `MLO` in the root of the active primary FAT partition   |
+| `stm32mp157-sd.img` | GPT   | Partitions named `fsbl1` and `fsbl2` that hold the FSBL |
+
+Module 04 picks up from here: why on-chip SRAM is small, and how the first loader sets up DDR before a larger stage can run.
+
+[^rpi-autoboot]: Raspberry Pi documentation, [`autoboot.txt`](https://www.raspberrypi.com/documentation/computers/config_txt.html#autoboot-txt), `boot_partition`.
+
+[^rpi-folder]: Raspberry Pi documentation, [boot folder contents](https://www.raspberrypi.com/documentation/computers/configuration.html#boot-folder-contents).
+
+[^rpi-uart]: Raspberry Pi documentation, [Boot options](https://www.raspberrypi.com/documentation/computers/config_txt.html#boot-options), `enable_uart`.
+
+[^sfdisk]: Debian trixie manual page [sfdisk(8)](https://manpages.debian.org/trixie/fdisk/sfdisk.8.en.html), sections Input formats and Named-fields format.
+
+[^mkfs]: Debian trixie manual page [mkfs.fat(8)](https://manpages.debian.org/trixie/dosfstools/mkfs.fat.8.en.html), `BLOCK-COUNT` and `--offset`.
+
+[^mtools]: GNU mtools manual, [Drive letters](https://www.gnu.org/software/mtools/manual/mtools.html#drive-letters).
+
+[^ti-fat]: TI SPRUH73Q, sections 26.1.8.5.6 MMC/SD Read Sector Procedure in FAT Mode and 26.1.8.5.7 FAT File system.
+
+[^ti-mbr]: TI SPRUH73Q, section 26.1.8.5.7.1, Tables 26-20 Master Boot Record Structure, 26-21 Partition Entry and 26-22 Partition Types.
+
+[^ti-image]: TI SPRUH73Q, section 26.1.10.2, Table 26-37 GP Device Image Format.
+
+[^uboot-sd]: U-Boot documentation, [Prepare an SD card](https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html#prepare-an-sd-card).
+
+[^uboot-files]: U-Boot documentation, [STM32MP1xx boards](https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html), The bootloaders files.
+
+[^tfa-sd]: Trusted Firmware-A documentation, [STM32 MPUs](https://trustedfirmware-a.readthedocs.io/en/lts-v2.14/plat/st/stm32mpus.html), Populate SD-card.
+
+[^qemu-raspi]: QEMU documentation, [Raspberry Pi boards](https://www.qemu.org/docs/master/system/arm/raspi.html), Implemented devices.
+
+[^qemu-arm]: QEMU documentation, [Arm System emulator](https://www.qemu.org/docs/master/system/target-arm.html), Board-specific documentation.
