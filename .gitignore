@@ -19,3 +19,6 @@ __pycache__/
 .env
 .env.*
 labs/work/
+
+# Git worktrees made by coding agents
+.claude/worktrees/

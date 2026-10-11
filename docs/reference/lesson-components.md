@@ -23,6 +23,18 @@ From `@ea/ui`:
 `Deeper`
 : A collapsed panel for readers who want more. Props: `depth` (`practitioner` or `expert`) and `title`. The base path must read complete without it.
 
+## Lead paragraph
+
+Open a lesson with one lead paragraph in a `div`, not a `p`:
+
+```html
+<div class="t-lead">
+  The first paragraph, on its own lines.
+</div>
+```
+
+MDX turns text on its own lines into a paragraph. Inside a `<p>` that makes a paragraph inside a paragraph, which is invalid HTML: the browser drops the lead style.
+
 ## Figures
 
 From `@ea/anim`. Each figure reads its facts from `packages/boards` and its console lines from `logs/`; never hard-code them in a lesson.
