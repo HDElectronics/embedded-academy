@@ -25,12 +25,12 @@ import PrivilegeLadder from '@ea/anim/PrivilegeLadder.astro';
 import Callout from '@ea/ui/Callout.astro';
 import Deeper from '@ea/ui/Deeper.astro';
 
-<p class="t-lead">
+<div class="t-lead">
   An ARM application core is never only "running". It is running in one of two security states. Firmware that holds keys
   and guards memory lives in one; Linux lives in the other. One small piece of firmware, the secure monitor, is the only
   way across. This page explains how that works, because every later stage of the boot either sets this up or depends on
   it.
-</p>
+</div>
 
 ## TrustZone gives the chip two worlds
 
