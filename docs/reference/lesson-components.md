@@ -33,7 +33,7 @@ Open a lesson with one lead paragraph in a `div`, not a `p`:
 </div>
 ```
 
-MDX turns text on its own lines into a paragraph. Inside a `<p>` that makes a paragraph inside a paragraph, which is invalid HTML: the browser drops the lead style.
+MDX turns text on its own lines into a paragraph. Inside a `<p>` that would make a paragraph inside a paragraph, which is invalid HTML: the browser drops the lead style. The site's remark plugin `apps/site/src/lib/remark-unwrap-paragraphs.mjs` unwraps that inner paragraph in `p`, `span`, headings, `figcaption` and `summary`, so a `<p class="t-lead">` still renders correctly. Prefer the `div` all the same: it reads the same everywhere and does not depend on the plugin.
 
 ## Figures
 
