@@ -1,0 +1,113 @@
+---
+title: Exception levels and modes
+description: Armv8-A exception levels EL0 to EL3, Armv7-A privilege levels and processor modes, and which ones the three boards' cores have.
+course: linux-boot-arm
+module: m01
+order: 1
+type: explanation
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'Arm Cortex-A72 MPCore Processor Technical Reference Manual r0p1'
+    url: https://developer.arm.com/documentation/100095/0001
+    section: 3.2 ARMv8-A architecture concepts
+  - title: 'ARM Architecture Reference Manual, ARMv7-A and ARMv7-R edition (DDI 0406C.d)'
+    url: https://developer.arm.com/documentation/ddi0406/cd
+    section: B1.3 ARM processor modes and ARM core registers
+  - title: 'Arm Cortex-A8 Technical Reference Manual r3p2 (DDI 0344K)'
+    url: https://developer.arm.com/documentation/ddi0344/k
+    section: 1.2 ARMv7-A architecture; 2.12 Operating modes
+  - title: 'Arm Cortex-A7 MPCore Technical Reference Manual r0p5 (DDI 0464F)'
+    url: https://developer.arm.com/documentation/ddi0464/f
+    section: 1.2.1 ARM architecture
+---
+
+import PrivilegeLadder from '@ea/anim/PrivilegeLadder.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<p class="t-lead">
+  On Linux you know two kinds of code: the kernel and user programs. An Arm core has more levels than that, and a board
+  climbs down them while it boots. To follow a boot, you need to know which level each stage runs at.
+</p>
+
+## Privilege decides what code may touch
+
+Unprivileged code, such as a user program, cannot change most of the core's configuration settings. Privileged code can, and a higher level reaches settings that the levels below it cannot[^v7-pl]. Arm defines these levels in the architecture, so every core that implements the architecture has them. The names differ between the 64-bit architecture, Armv8-A, and the 32-bit one, Armv7-A.
+
+## Armv8-A has four exception levels
+
+Armv8-A defines four exception levels, EL0 to EL3[^a72-el]:
+
+- **EL0** has the lowest privilege. Execution there is called unprivileged.
+- **EL1, EL2 and EL3** have more privilege as the number grows.
+- **EL2** supports virtualization.
+- **EL3** supports the two security states, Secure and Non-secure.
+
+The architecture does not say what software runs where. The common model is applications at EL0, an OS kernel at EL1, a hypervisor at EL2 and a secure monitor at EL3[^a72-use].
+
+Each exception level runs in one of two execution states: AArch64, with 64-bit registers and the A64 instruction set, or AArch32, which is compatible with Armv7-A. A core can change execution state only when it changes exception level[^a72-state].
+
+On power-up and reset, the Cortex-A72 enters EL3, the highest level[^a72-state]. The boot then works its way down.
+
+Step through the Raspberry Pi 4 on the privilege ladder. The board data places the Arm stub at EL3, U-Boot at EL2 and Linux at EL1, in the secure world first and then the normal world.
+
+<PrivilegeLadder board="rpi4" pane={1} />
+
+## Armv7-A has privilege levels and processor modes
+
+Armv7-A uses different names. It defines privilege levels PL0 to PL2, and the current processor mode decides the level[^v7-pl]:
+
+- **User mode** runs at PL0, unprivileged.
+- **FIQ, IRQ, Supervisor, Abort, Undefined and System modes** run at PL1. An operating system kernel normally runs at PL1.
+- **Monitor mode** runs at PL1 and exists only with the Security Extensions. It is always in the Secure state.
+- **Hyp mode** runs at PL2 and exists only with the Virtualization Extensions. It is always in the Non-secure state.
+
+Most PL1 modes are where the core goes to handle one kind of exception: IRQ mode for an IRQ interrupt, Abort mode for a data or prefetch abort. Supervisor mode receives the `SVC` instruction, and the core enters Supervisor mode on reset[^v7-modes].
+
+In the Secure state, Armv7-A has only PL0 and PL1. In the Non-secure state it has PL0, PL1 and, with the Virtualization Extensions, PL2[^v7-pl].
+
+<Deeper depth="expert" title="Mode encodings in CPSR.M">
+
+The low five bits of the CPSR, `CPSR.M`, hold the current mode[^v7-modes]. You meet these values in boot code that switches mode, and in debugger register dumps:
+
+- `0b10000` User (`usr`)
+- `0b10001` FIQ (`fiq`)
+- `0b10010` IRQ (`irq`)
+- `0b10011` Supervisor (`svc`)
+- `0b10110` Monitor (`mon`)
+- `0b10111` Abort (`abt`)
+- `0b11010` Hyp (`hyp`)
+- `0b11011` Undefined (`und`)
+- `0b11111` System (`sys`)
+
+</Deeper>
+
+## Each board's core has a different set
+
+- **Raspberry Pi 4, Cortex-A72.** Armv8-A with all four exception levels, EL0 to EL3. It supports AArch64 and AArch32 at each of them[^a72-el].
+- **BeagleBone Black, Cortex-A8.** Armv7-A with the Security Extensions[^a8]. It has Monitor mode, but no Virtualization Extensions, so it has no Hyp mode and no PL2.
+- **STM32MP157 DK2, Cortex-A7.** Armv7-A with the Security Extensions and the Virtualization Extensions[^a7]. It has both Monitor mode and Hyp mode.
+
+These differences show up later in the course. A Cortex-A8 must start Linux in Supervisor mode, while a Cortex-A7 may start it in Hyp mode. The page on hand-over registers lists those rules.
+
+<Deeper depth="practitioner" title="Armv7 modes inside an Armv8 core">
+
+When an Armv8-A core such as the Cortex-A72 runs an exception level in AArch32, it uses the Armv7 processor modes there. User mode maps to EL0, Hyp mode to EL2, and Monitor mode to EL3. The other PL1 modes map to EL1, except in the Secure state when EL3 runs AArch32: there they are at EL3 too[^a72-modes].
+
+</Deeper>
+
+[^a72-el]: Arm Cortex-A72 MPCore TRM r0p1, 3.2.2 Exception levels.
+
+[^a72-use]: Arm Cortex-A72 MPCore TRM r0p1, Typical Exception level usage model.
+
+[^a72-state]: Arm Cortex-A72 MPCore TRM r0p1, 3.2.2 Execution states and 3.2.4 Rules for changing Exception state.
+
+[^a72-modes]: Arm Cortex-A72 MPCore TRM r0p1, Table 3-2 AArch32 processor modes and associated Exception levels.
+
+[^v7-pl]: ARM Architecture Reference Manual ARMv7-A and ARMv7-R, DDI 0406C.d, A3 Privilege level and B1.3 Privilege level.
+
+[^v7-modes]: ARM Architecture Reference Manual ARMv7-A and ARMv7-R, DDI 0406C.d, B1.3.1 ARM processor modes, Table B1-1.
+
+[^a8]: Arm Cortex-A8 TRM r3p2, 1.2 ARMv7-A architecture and 2.12 Operating modes.
+
+[^a7]: Arm Cortex-A7 MPCore TRM r0p5, 1.2.1 ARM architecture.
