@@ -65,9 +65,19 @@ A Device Tree is a tree of nodes. Each node has a name and properties, and may h
 
 Here is how the STM32MP157's SoC include file describes UART4. The file is licensed `GPL-2.0+ OR BSD-3-Clause`, copyright STMicroelectronics 2017; lines are cut where the comments say so.
 
+{/* REUSE-IgnoreStart */}
+
 <CodeBlock path="arch/arm/boot/dts/st/stm32mp151.dtsi" project="Linux v6.18.55" lang="dts" simplified>
 
 ```dts
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/*
+ * Copyright (C) STMicroelectronics 2017 - All Rights Reserved
+ * Author: Ludovic Barre <ludovic.barre@st.com> for STMicroelectronics.
+ */
+
+/* ... */
+
 / {
 	#address-cells = <1>;
 	#size-cells = <1>;
@@ -97,6 +107,8 @@ Here is how the STM32MP157's SoC include file describes UART4. The file is licen
 
 </CodeBlock>
 
+{/* REUSE-IgnoreEnd */}
+
 Read it from the inside out.
 
 ### `compatible` picks the driver
@@ -117,9 +129,19 @@ The SoC file marks UART4 `"disabled"`. A node without `status` counts as `"okay"
 
 The DK1 and DK2 boards share `stm32mp15xx-dkx.dtsi`. It refers to UART4 by its label, `&uart4`, and turns it on. It also names it `serial0` in `/aliases`. The file has the same license as the SoC file, copyright STMicroelectronics 2019.
 
+{/* REUSE-IgnoreStart */}
+
 <CodeBlock path="arch/arm/boot/dts/st/stm32mp15xx-dkx.dtsi" project="Linux v6.18.55" lang="dts" simplified>
 
 ```dts
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/*
+ * Copyright (C) STMicroelectronics 2019 - All Rights Reserved
+ * Author: Alexandre Torgue <alexandre.torgue@st.com> for STMicroelectronics.
+ */
+
+/* ... */
+
 / {
 	aliases {
 		serial0 = &uart4;
@@ -137,6 +159,8 @@ The DK1 and DK2 boards share `stm32mp15xx-dkx.dtsi`. It refers to UART4 by its l
 ```
 
 </CodeBlock>
+
+{/* REUSE-IgnoreEnd */}
 
 Labels like `uart4:` exist only in the source. `dtc` turns references to them into paths or numeric phandles.[^dts] When the same node appears twice, `dtc` merges the two, and later values override earlier ones.[^rpi] A block such as `&uart4 { ... }` after the root node adds to the node that carries the label. That is how one `.dts` builds on several `.dtsi` files without copying them.
 
