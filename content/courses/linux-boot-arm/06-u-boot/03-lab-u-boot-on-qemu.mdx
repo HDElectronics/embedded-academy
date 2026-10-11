@@ -45,10 +45,10 @@ import Deeper from '@ea/ui/Deeper.astro';
   report it with the `inaccuracy` issue form.
 </Callout>
 
-<p class="t-lead">
+<div class="t-lead">
   In this lab you build U-Boot for QEMU's `virt` machine, start it, and stop at its prompt. Then you ask U-Boot where it
   relocated itself and how it would boot. Everything runs in the lab container: no board needed.
-</p>
+</div>
 
 QEMU emulates a generic Arm machine called `virt`, not one of the course boards. U-Boot supports it with its own defconfig, `qemu_arm64_defconfig`.[^qemu] What you learn here about relocation and the environment holds on the Raspberry Pi 4, the BeagleBone Black and the STM32MP157 too.
 
