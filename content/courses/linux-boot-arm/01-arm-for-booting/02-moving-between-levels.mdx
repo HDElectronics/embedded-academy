@@ -1,0 +1,119 @@
+---
+title: How a core changes level
+description: The Secure and Non-secure states, and how an Arm core changes level with exceptions, ERET, SVC, HVC and SMC.
+course: linux-boot-arm
+module: m01
+order: 2
+type: explanation
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'Learn the architecture: AArch64 Exception Model (102412, version 1.3)'
+    url: https://developer.arm.com/documentation/102412/0103
+    section: Execution and Security states; Exception types; Handling exceptions
+  - title: 'Arm Cortex-A72 MPCore Processor Technical Reference Manual r0p1'
+    url: https://developer.arm.com/documentation/100095/0001
+    section: 3.2 ARMv8-A architecture concepts
+  - title: 'ARM Architecture Reference Manual, ARMv7-A and ARMv7-R edition (DDI 0406C.d)'
+    url: https://developer.arm.com/documentation/ddi0406/cd
+    section: B1.3.1 ARM processor modes; B9.3.3 ERET
+  - title: 'Arm Cortex-A8 Technical Reference Manual r3p2 (DDI 0344K)'
+    url: https://developer.arm.com/documentation/ddi0344/k
+    section: 2.5 Security Extensions architecture
+  - title: 'Linux kernel documentation: Booting AArch64 Linux'
+    url: https://docs.kernel.org/arch/arm64/booting.html
+    section: 4. Call the kernel image
+  - title: 'Linux v6.18.55 source: arch/arm64/kernel/head.S'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm64/kernel/head.S?h=v6.18.55
+---
+
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<div class="t-lead">
+  A boot starts at the top of the privilege ladder and works its way down to the level where the kernel starts. This
+  page shows the two ways a core moves on the ladder, and the second axis the ladder has: the security state.
+</div>
+
+## The ladder has two sides: Secure and Non-secure
+
+A core with TrustZone runs in one of two security states[^sec]:
+
+- In the **Secure state** it can access both the Secure and the Non-secure physical address space.
+- In the **Non-secure state** it can access only the Non-secure physical address space, and cannot access the Secure system control resources. This state is also called the Normal world.
+
+On Armv8-A, the `NS` bit of the register `SCR_EL3` selects the state of the levels below EL3. EL3 itself is always Secure. To switch from one state to the other, a core must pass through EL3, and the change takes effect when EL3 returns to a lower level[^sec].
+
+On the Cortex-A72, EL3 exists only in the Secure state and EL2 only in the Non-secure state. EL0 and EL1 exist in both[^a72-sec].
+
+Armv7-A works the same way with different names. `SCR.NS` selects the state, and Monitor mode is always Secure, whatever `SCR.NS` says. Software in Monitor mode can reach both copies of the banked system registers, so Monitor mode is the normal place to switch states[^v7-mon]. The Cortex-A8 enters the Secure state on reset[^a8].
+
+## An exception moves the core up, or keeps it level
+
+An exception is an event that makes the core stop what it runs and jump to a handler: an interrupt, a fault, or an instruction that asks for a service. When the core takes an exception, its exception level goes up or stays the same. It never goes down, and no exception targets EL0[^a72-el].
+
+On entry to an exception level that uses AArch64, the core saves two things for the way back[^entry]:
+
+- `PSTATE`, the current processor state including the exception level, goes into `SPSR_ELx`, the Saved Program Status Register of the target level.
+- The return address goes into `ELR_ELx`, the Exception Link Register of the target level.
+
+## ERET moves the core down
+
+`ERET`, Exception Return, restores `PSTATE` from `SPSR_ELx` and the program counter from `ELR_ELx`, in one step[^eret]. The exception level after `ERET` comes from the saved `PSTATE`. A return can lower the level or keep it, never raise it[^a72-el].
+
+Boot code uses this as a one-way door. It does not wait for an exception: it writes the level it wants into `SPSR_ELx`, writes the address of the next code into `ELR_ELx`, and executes `ERET`. The Linux kernel does exactly this in `init_kernel_el` in `arch/arm64/kernel/head.S`. When it finds itself at EL2, it sets `SPSR_EL2` and `ELR_EL2` and runs `ERET` to continue at EL1[^head].
+
+The execution state can change only at these moments. Going up, AArch32 may become AArch64; going down, AArch64 may become AArch32. Never the other way[^a72-state].
+
+## Three instructions call a higher level
+
+Software asks a more privileged level for help with an exception-generating instruction[^calls]:
+
+- **`SVC`**, Supervisor Call: a program at EL0 asks the OS kernel at EL1.
+- **`HVC`**, Hypervisor Call: the kernel asks the hypervisor at EL2. It exists only with the Virtualization Extensions.
+- **`SMC`**, Secure Monitor Call: the Normal world asks the firmware at EL3. It exists only with the Security Extensions.
+
+EL0 cannot call EL2 or EL3 directly. A program asks the kernel with `SVC`, and the kernel makes the `HVC` or `SMC` call for it[^calls].
+
+On Armv7-A the same instructions lead to modes[^v7-mon]:
+
+- `SVC` is taken to Supervisor mode.
+- `SMC`, executed at PL1, is taken to Monitor mode.
+- `HVC`, executed in a Non-secure PL1 mode, is taken to Hyp mode.
+
+Armv7-A has `ERET` too. In Hyp mode it restores the CPSR from `SPSR_hyp` and the PC from `ELR_hyp`. In the PL1 modes it behaves as `MOVS PC, LR`, an exception return that restores the CPSR from the mode's SPSR[^v7-eret].
+
+<Callout level="info">
+  Module 03 covers TrustZone in depth: what the secure monitor does with an `SMC`, and how memory and devices are split
+  between the two worlds.
+</Callout>
+
+<Deeper depth="practitioner" title="Why the boot goes down and the kernel calls back up">
+
+A boot stage that runs at a high level sets up what only that level can set up, then drops to a lower level with `ERET` and does not come back on its own. Code it leaves resident at the higher level can still serve calls from below. The kernel document Booting AArch64 Linux lists one such service as a way to start secondary CPUs: the kernel issues PSCI `CPU_ON` calls, defined in Arm document DEN 0022A, to bring those CPUs into the kernel[^psci].
+
+</Deeper>
+
+[^sec]: Learn the architecture: AArch64 Exception Model, 3.2 Security states and Changing Security state.
+
+[^a72-sec]: Arm Cortex-A72 MPCore TRM r0p1, 3.2.3 Security state and 3.2.6 ARMv8 security model.
+
+[^v7-mon]: ARM Architecture Reference Manual ARMv7-A and ARMv7-R, DDI 0406C.d, B1.3.1, notes on Supervisor, Monitor and Hyp modes.
+
+[^a8]: Arm Cortex-A8 TRM r3p2, 2.5 Security Extensions architecture.
+
+[^a72-el]: Arm Cortex-A72 MPCore TRM r0p1, 3.2.2 Exception levels.
+
+[^entry]: Learn the architecture: AArch64 Exception Model, Taking an exception.
+
+[^eret]: Learn the architecture: AArch64 Exception Model, Returning from an exception.
+
+[^head]: Linux v6.18.55, `arch/arm64/kernel/head.S`, `init_kernel_el` and its label `init_el2`.
+
+[^a72-state]: Arm Cortex-A72 MPCore TRM r0p1, 3.2.4 Rules for changing Exception state.
+
+[^calls]: Learn the architecture: AArch64 Exception Model, Exception-generating instructions.
+
+[^psci]: Linux kernel documentation, Booting AArch64 Linux, 4. Call the kernel image, the `psci` enable method.
+
+[^v7-eret]: ARM Architecture Reference Manual ARMv7-A and ARMv7-R, DDI 0406C.d, B9.3.3 ERET, B1.3.4 ELR_hyp, and SUBS PC, LR and related instructions (ARM).
