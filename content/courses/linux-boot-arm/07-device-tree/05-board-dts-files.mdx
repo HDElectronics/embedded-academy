@@ -111,9 +111,12 @@ The aliases are set in `bcm283x.dtsi`, `am33xx.dtsi` and `stm32mp15xx-dkx.dtsi`.
 
 The Raspberry Pi 4 board file. Its license tag is `GPL-2.0`; it has no copyright line.
 
+{/* REUSE-IgnoreStart */}
+
 <CodeBlock path="arch/arm/boot/dts/broadcom/bcm2711-rpi-4-b.dts" project="Linux v6.18.55" lang="dts" simplified>
 
 ```dts
+// SPDX-License-Identifier: GPL-2.0
 /dts-v1/;
 #include "bcm2711.dtsi"
 #include "bcm2711-rpi.dtsi"
@@ -136,11 +139,19 @@ The Raspberry Pi 4 board file. Its license tag is `GPL-2.0`; it has no copyright
 
 </CodeBlock>
 
+{/* REUSE-IgnoreEnd */}
+
 The BeagleBone Black board file. License `GPL-2.0-only`, copyright 2012 Texas Instruments Incorporated.
+
+{/* REUSE-IgnoreStart */}
 
 <CodeBlock path="arch/arm/boot/dts/ti/omap/am335x-boneblack.dts" project="Linux v6.18.55" lang="dts" simplified>
 
 ```dts
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2012 Texas Instruments Incorporated - https://www.ti.com/
+ */
 /dts-v1/;
 
 #include "am33xx.dtsi"
@@ -157,11 +168,20 @@ The BeagleBone Black board file. License `GPL-2.0-only`, copyright 2012 Texas In
 
 </CodeBlock>
 
+{/* REUSE-IgnoreEnd */}
+
 The STM32MP157 DK2 board file. License `GPL-2.0+ OR BSD-3-Clause`, copyright STMicroelectronics 2019.
+
+{/* REUSE-IgnoreStart */}
 
 <CodeBlock path="arch/arm/boot/dts/st/stm32mp157c-dk2.dts" project="Linux v6.18.55" lang="dts" simplified>
 
 ```dts
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/*
+ * Copyright (C) STMicroelectronics 2019 - All Rights Reserved
+ * Author: Alexandre Torgue <alexandre.torgue@st.com> for STMicroelectronics.
+ */
 /dts-v1/;
 
 #include "stm32mp157.dtsi"
@@ -188,6 +208,8 @@ The STM32MP157 DK2 board file. License `GPL-2.0+ OR BSD-3-Clause`, copyright STM
 ```
 
 </CodeBlock>
+
+{/* REUSE-IgnoreEnd */}
 
 ## Related variants in the same folders
 
