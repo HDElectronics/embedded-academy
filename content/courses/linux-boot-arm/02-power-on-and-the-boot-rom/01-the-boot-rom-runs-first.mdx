@@ -1,0 +1,154 @@
+---
+title: The boot ROM runs first
+description: Before any code you wrote runs, a program fixed inside the chip picks a boot device and loads the first loader. See what it does on each board.
+course: linux-boot-arm
+module: m02
+order: 1
+type: explanation
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'Raspberry Pi documentation: Raspberry Pi hardware, boot sequence and boot EEPROM'
+    url: https://www.raspberrypi.com/documentation/computers/raspberry-pi.html
+    section: EEPROM boot flow; Raspberry Pi boot EEPROM; Raspberry Pi bootloader configuration
+  - title: 'Raspberry Pi documentation: Configuration'
+    url: https://www.raspberrypi.com/documentation/computers/configuration.html
+    section: boot folder contents
+  - title: TI AM335x and AMIC110 Sitara Processors Technical Reference Manual (SPRUH73Q)
+    url: https://www.ti.com/lit/ug/spruh73q/spruh73q.pdf
+    section: 26.1 ROM Code Memory and Peripheral Booting
+  - title: 'BeagleBone Black System Reference Manual: Detailed Hardware Design'
+    url: https://docs.beagleboard.org/boards/beaglebone/black/ch06.html
+    section: Boot Configuration
+  - title: 'U-Boot documentation (v2026.07): AM335x Generation'
+    url: https://docs.u-boot.org/en/v2026.07/board/ti/am335x_evm.html
+  - title: 'U-Boot source (v2026.07): common/spl/Kconfig'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/common/spl/Kconfig
+    section: SPL_TEXT_BASE
+  - title: 'U-Boot documentation (v2026.07): STM32MP1xx boards'
+    url: https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html
+    section: Boot Sequences; Switch Setting for Boot Mode; Prepare an SD card
+  - title: 'Trusted Firmware-A documentation (lts-v2.14): STM32 MPUs'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14/plat/st/stm32mpus.html
+  - title: 'Trusted Firmware-A source (lts-v2.14.10): plat/st/stm32mp1/include/boot_api.h'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/st/stm32mp1/include/boot_api.h
+---
+
+import BootChain from '@ea/anim/BootChain.astro';
+import MemoryMap from '@ea/anim/MemoryMap.astro';
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<div class="t-lead">
+  The first instruction your board executes was fixed when the chip was made. It sits in a read-only memory inside the
+  SoC: the boot ROM. You can't change it, so everything you build later has to fit what it expects.
+</div>
+
+## Something has to run before storage can be read
+
+At power-on, no code of yours is reachable. The SD card, the eMMC and the flash chips need a driver before a single byte comes off them, and the board's main memory (DRAM) is not set up yet. The boot ROM solves that problem once, in silicon. It holds enough drivers to read a few boot devices, load a small image into on-chip memory, and run it.
+
+Every boot ROM in this course follows the same four steps:
+
+1. **Read the boot configuration.** Pins on the board, fuses inside the chip, or a configuration in an EEPROM say which devices to try.
+2. **Try each device in order.** The ROM looks in a fixed place on each one: a file name, a partition name or a raw offset.
+3. **Load and check the image.** A small header gives its size and where to put it. Secure parts also check a signature.
+4. **Jump to it.** If no device holds a valid image, the ROM falls back to a download over USB or a serial port, or waits for a reset.
+
+<BootChain />
+
+Select each board on the boot chain and stay on its first stage. The ROM is the only stage you can't replace, and on two of the three boards it loads its image into on-chip SRAM, because DRAM is not ready yet.
+
+## The BeagleBone Black reads its SYSBOOT pins
+
+On the AM335x, the Arm core starts in the secure ROM code, which then hands over to the public ROM code. The public ROM code sets a three-minute watchdog, configures the clocks, and builds a list of boot devices from the SYSBOOT pins.[^ti-start] Those pins are latched when the power-on reset signal rises.[^ti-sysboot] On the BeagleBone Black, the board's wiring sets them, and the S2 button changes one bit to give a second boot order.[^bbb-srm]
+
+For an SD card or eMMC, the ROM accepts two layouts:[^ti-mmc]
+
+- **FAT mode:** a file named `MLO` in the root directory of an active, primary FAT12, FAT16 or FAT32 partition.
+- **Raw mode:** an image at one of four offsets from the start of the device: `0x0`, `0x20000`, `0x40000` or `0x60000`.
+
+The image starts with an 8-byte header: its size, then the address to copy it to, which is also where the ROM jumps.[^ti-image] On a general-purpose (GP) device, the ROM reserves a download area in internal RAM that starts at `0x402F0400` and holds up to 109 KB.[^ti-ram] U-Boot links its first stage, SPL, to run from that same address on the AM335x.[^uboot-spl-base] On TI's high-secure (HS) devices, the ROM runs only an authenticated image.[^ti-types] U-Boot's `am335x_evm_defconfig`, which supports the BeagleBone family, builds an unsigned `MLO`; a signed image is needed only for TI's secure devices.[^uboot-am335x]
+
+<MemoryMap board="bbb" upTo={0} />
+
+On the memory map, the ROM is the only stage that has run: `MLO` sits in internal SRAM and DDR is still empty.
+
+## The STM32MP157 reads its BOOT pins and a GPT partition
+
+The STM32MP157 resets into the ROM code on its Cortex-A7 cores. Core 0 runs the boot sequence while core 1 waits in a holding loop.[^tfa-mpus] The ROM reads the BOOT pins to choose a device: SD card, eMMC, NAND, NOR, SPI-NAND, or a recovery mode that downloads over UART or USB for STM32CubeProgrammer.[^uboot-pins]
+
+On an SD card, the ROM expects a GPT partition table with two partitions named `fsbl1` and `fsbl2`, each at least 256 KiB. Both hold the same first-stage bootloader (FSBL), so a failed update of one copy still leaves a bootable board.[^uboot-sd] The FSBL must start with an STM32 image header,[^uboot-files] and the ROM loads it into the embedded SRAM.[^tfa-mpus] In this course the FSBL is TF-A BL2.
+
+The STM32 header has room for an ECDSA public key and signature. The ROM reports to the FSBL whether it authenticated the image, and whether that check passed or failed.[^tfa-bootapi] You will follow that chain of trust in module 03.
+
+<MemoryMap board="stm32mp157" upTo={0} />
+
+## The Raspberry Pi 4 loads its bootloader from an EEPROM
+
+The Raspberry Pi 4 splits the job in two. Its ROM is small: it checks one-time programmable (OTP) settings, may run a `recovery.bin` from the SD card to rewrite the EEPROM, and otherwise loads the second-stage bootloader from an SPI EEPROM on the board. If none of that works, it waits for a host to send `recovery.bin` over USB.[^rpi-rom]
+
+The EEPROM bootloader does what the other ROMs do in one step. It sets up clocks and SDRAM, reads its configuration, and walks the boot modes listed in `BOOT_ORDER`: SD card, USB mass storage, network and others.[^rpi-second] From the boot partition it loads the firmware, `start4.elf`, which runs on the VideoCore GPU and takes over the boot.[^rpi-folder] The Arm cores start only after that: the bootloader's watchdog stops as soon as the Arm CPU starts.[^rpi-watchdog]
+
+Because the second stage lives in an EEPROM, you can update it and change its settings. On the other two boards, you choose the boot device with pins. The reference page in this module lists each board's options, and the how-to changes the Raspberry Pi 4 boot order.
+
+<Deeper depth="practitioner" title="Raspberry Pi 5 differences">
+
+The Raspberry Pi 5 also boots from an EEPROM bootloader, but it does not load `start.elf` from the boot partition. The bootloader contains the firmware and loads the Linux kernel directly.[^rpi-pi5] Its `BOOT_ORDER` also accepts NVMe, which the Raspberry Pi 4 does not.[^rpi-order]
+
+</Deeper>
+
+<Deeper depth="expert" title="What the ROM leaves behind for the next stage">
+
+The ROM's choices stay readable after it hands over. On the AM335x, all SYSBOOT values are latched into the `CONTROL_STATUS` register,[^ti-sysboot] and the ROM writes trace vectors and a copy of the reset reasons into its RAM area, from `0x4030CE40`.[^ti-ram] On the STM32MP15, TF-A reads a boot context from the ROM. It records which boot interface succeeded, the authentication status, and which FSBL partition the board booted from.[^tfa-bootapi]
+
+</Deeper>
+
+<Callout level="info">
+  Every fact on this page comes from the vendor and upstream documents listed under Sources, and is marked not yet
+  verified on hardware.
+</Callout>
+
+## What comes next
+
+The AM335x starts in its secure ROM code, and the STM32MP157's ROM can check the signature of the first loader. Module 03 covers both ideas: TrustZone's secure and normal worlds, and the chain of trust that starts at the ROM.
+
+[^ti-start]: TI SPRUH73Q, sections 26.1.3 Functionality and 26.1.5.1 ROM Code Start-up.
+
+[^ti-sysboot]: TI SPRUH73Q, section 26.1.6.2.1 SYSBOOT Configuration Pins, Table 26-7 and its notes.
+
+[^ti-mmc]: TI SPRUH73Q, sections 26.1.8.5.5 (raw mode) and 26.1.8.5.6 (FAT mode).
+
+[^ti-image]: TI SPRUH73Q, section 26.1.10.2, Table 26-37 GP Device Image Format.
+
+[^ti-ram]: TI SPRUH73Q, section 26.1.4.2 Public RAM Memory Map, and section 26.1.9.2 Boot Image Location and Size.
+
+[^ti-types]: TI SPRUH73Q, section 26.1.1 Device Types.
+
+[^bbb-srm]: BeagleBone Black System Reference Manual, [Boot configuration](https://docs.beagleboard.org/boards/beaglebone/black/ch06.html#boot-configuration).
+
+[^uboot-spl-base]: U-Boot source at `v2026.07`, [`common/spl/Kconfig`](https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/common/spl/Kconfig): `SPL_TEXT_BASE` defaults to `0x402F0400` if `AM33XX`.
+
+[^uboot-am335x]: U-Boot documentation, [AM335x Generation](https://docs.u-boot.org/en/v2026.07/board/ti/am335x_evm.html), sections Hardware and Secure Boot.
+
+[^tfa-mpus]: Trusted Firmware-A documentation, [STM32 MPUs](https://trustedfirmware-a.readthedocs.io/en/lts-v2.14/plat/st/stm32mpus.html), section Design.
+
+[^uboot-pins]: U-Boot documentation, [STM32MP1xx boards](https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html#switch-setting-for-boot-mode), section Switch Setting for Boot Mode.
+
+[^uboot-sd]: U-Boot documentation, [STM32MP1xx boards](https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html#prepare-an-sd-card), section Prepare an SD card.
+
+[^uboot-files]: U-Boot documentation, [STM32MP1xx boards](https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html), section The bootloaders files.
+
+[^tfa-bootapi]: Trusted Firmware-A source at `lts-v2.14.10`, [`plat/st/stm32mp1/include/boot_api.h`](https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/st/stm32mp1/include/boot_api.h): the image header structure and `boot_api_context_t`.
+
+[^rpi-rom]: Raspberry Pi documentation, [EEPROM boot flow](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#eeprom-boot-flow), First stage bootloader.
+
+[^rpi-second]: Raspberry Pi documentation, [EEPROM boot flow](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#eeprom-boot-flow), Second stage bootloader.
+
+[^rpi-folder]: Raspberry Pi documentation, [boot folder contents](https://www.raspberrypi.com/documentation/computers/configuration.html#boot-folder-contents), `start*.elf`.
+
+[^rpi-watchdog]: Raspberry Pi documentation, [bootloader configuration](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#BOOT_WATCHDOG_TIMEOUT), `BOOT_WATCHDOG_TIMEOUT`.
+
+[^rpi-pi5]: Raspberry Pi documentation, [EEPROM boot flow](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#eeprom-boot-flow), Differences on Raspberry Pi 5.
+
+[^rpi-order]: Raspberry Pi documentation, [`BOOT_ORDER`](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#BOOT_ORDER), `BOOT_ORDER` fields.
