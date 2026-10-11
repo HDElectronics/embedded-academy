@@ -45,11 +45,11 @@ import Prompt from '@ea/ui/Prompt.astro';
   with the inaccuracy form and paste what you saw.
 </Callout>
 
-<p class="t-lead">
+<div class="t-lead">
   In this lab you capture the Device Tree that QEMU builds for its virt machine, turn it back into source, and find the
   nodes from the previous pages. Then you build the Raspberry Pi 4 dtb from the Linux tree and check it against its
   source.
-</p>
+</div>
 
 Everything runs in the lab container. Part 1 uses QEMU's `virt` machine, but no guest code runs: QEMU writes the tree to a file and exits. Part 2 builds a file for the Raspberry Pi 4 and does not run it. No board is emulated.
 
