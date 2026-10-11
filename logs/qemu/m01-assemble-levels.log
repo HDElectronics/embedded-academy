@@ -1,0 +1,38 @@
+# board: none (cross binutils in the lab container, no emulation)
+# software: GNU Binutils 2.44 (Debian), aarch64-linux-gnu and arm-linux-gnueabihf
+# command: aarch64-linux-gnu-objdump -d el64.o
+# command: arm-linux-gnueabihf-objdump -d el32-a7.o
+# command: arm-linux-gnueabihf-as -mcpu=cortex-a8 -o el32-a8.o el32.s
+# captured: 2026-10-11 (UTC), embedded-academy-lab container (Debian 13.7, QEMU 10.0.13)
+# note: lab image built without trixie-updates; the host and container UTC clocks matched the Date headers of google.com, github.com and deb.debian.org at capture, so timestamps in the output are real UTC
+# verification: emulated
+# --- run: aarch64-linux-gnu-objdump -d el64.o
+
+el64.o:     file format elf64-littleaarch64
+
+
+Disassembly of section .text:
+
+0000000000000000 <.text>:
+   0:	d5384240 	mrs	x0, currentel
+   4:	d4000001 	svc	#0x0
+   8:	d4000002 	hvc	#0x0
+   c:	d4000003 	smc	#0x0
+  10:	d69f03e0 	eret
+# --- run: arm-linux-gnueabihf-objdump -d el32-a7.o
+
+el32-a7.o:     file format elf32-littlearm
+
+
+Disassembly of section .text:
+
+00000000 <.text>:
+   0:	e10f0000 	mrs	r0, CPSR
+   4:	ef000000 	svc	0x00000000
+   8:	e1600070 	smc	0
+   c:	e1400070 	hvc	0
+  10:	e160006e 	eret
+# --- run: arm-linux-gnueabihf-as -mcpu=cortex-a8 -o el32-a8.o el32.s
+el32.s: Assembler messages:
+el32.s:4: Error: selected processor does not support `hvc #0' in ARM mode
+el32.s:5: Error: selected processor does not support `eret' in ARM mode

@@ -6,7 +6,7 @@ module: m01
 order: 4
 type: tutorial
 boards: [rpi4, stm32mp157]
-verification: unverified
+verification: emulated
 sources:
   - title: 'GNU Binutils 2.44 documentation: ARM options (as)'
     url: https://sourceware.org/binutils/docs-2.44/as/ARM-Options.html
@@ -18,7 +18,7 @@ sources:
   - title: 'GNU Binutils 2.44 source: opcodes/aarch64-tbl.h'
     url: 'https://sourceware.org/git/?p=binutils-gdb.git;a=blob;f=opcodes/aarch64-tbl.h;hb=refs/tags/binutils-2_44'
     section: svc, hvc and smc opcode entries
-  - title: 'QEMU 10.0 source: qemu-options.hx (-machine, -cpu, -display, -serial, -monitor, -S)'
+  - title: 'QEMU 10.0 source: qemu-options.hx (-machine, -cpu, -nic, -display, -serial, -monitor, -S)'
     url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/qemu-options.hx
   - title: "QEMU 10.0 documentation source: 'virt' generic virtual platform (docs/system/arm/virt.rst)"
     url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/docs/system/arm/virt.rst
@@ -46,10 +46,11 @@ import Prompt from '@ea/ui/Prompt.astro';
   between levels, then start a QEMU CPU with and without EL2 and EL3 and ask it which level it reset into.
 </div>
 
-<Callout level="warning">
-  Nobody has run this lab yet, so it is marked unverified. If a step fails for you, please report it with the
-  [inaccuracy issue form](https://github.com/HDElectronics/embedded-academy/issues/new?template=inaccuracy.yml) and
-  paste the command and the error.
+<Callout level="info">
+  Every command on this page was run in the lab container on 2026-10-11, with QEMU 10.0.13 and GNU Binutils 2.44, so it
+  is marked emulated. If a step fails for you, please report it with the [inaccuracy issue
+  form](https://github.com/HDElectronics/embedded-academy/issues/new?template=inaccuracy.yml) and paste the command and
+  the error.
 </Callout>
 
 You need the lab container from module 00, running. The last part also needs the sources from `fetch-sources.sh`.
@@ -92,12 +93,14 @@ This time the assembler reports errors for the `hvc` and `eret` lines. In binuti
 
 ## Reset a 64-bit CPU and read its level
 
-Start QEMU's `virt` machine with a Cortex-A72, the Raspberry Pi 4's core. The options say: no display, no serial device, the QEMU monitor on your terminal, and `-S` to keep the CPU stopped at reset[^qemu-opts]:
+Start QEMU's `virt` machine with a Cortex-A72, the Raspberry Pi 4's core. The options say: no network card, no display, no serial device, the QEMU monitor on your terminal, and `-S` to keep the CPU stopped at reset[^qemu-opts]:
 
 <Prompt
   dir="~/work/m01"
-  cmd="qemu-system-aarch64 -machine virt -cpu cortex-a72 -display none -serial none -monitor stdio -S"
+  cmd="qemu-system-aarch64 -machine virt -cpu cortex-a72 -nic none -display none -serial none -monitor stdio -S"
 />
+
+Leave `-nic none` in. Without a network option, QEMU gives the machine its default network card[^qemu-opts], whose boot ROM is not in the lab image, and QEMU exits with `failed to find romfile "efi-virtio.rom"`.
 
 QEMU shows its monitor prompt, `(qemu)`. Type `info registers` and press Enter[^hmp]. Find the `PSTATE` line: after the flags, QEMU writes the current exception level, `EL` and a number[^dump]. Note the level, then type `quit`.
 
@@ -105,12 +108,12 @@ Run it twice more, each time with one machine option added. `secure=on` gives th
 
 <Prompt
   dir="~/work/m01"
-  cmd="qemu-system-aarch64 -machine virt,secure=on -cpu cortex-a72 -display none -serial none -monitor stdio -S"
+  cmd="qemu-system-aarch64 -machine virt,secure=on -cpu cortex-a72 -nic none -display none -serial none -monitor stdio -S"
 />
 
 <Prompt
   dir="~/work/m01"
-  cmd="qemu-system-aarch64 -machine virt,virtualization=on -cpu cortex-a72 -display none -serial none -monitor stdio -S"
+  cmd="qemu-system-aarch64 -machine virt,virtualization=on -cpu cortex-a72 -nic none -display none -serial none -monitor stdio -S"
 />
 
 Compare the three levels. By default, `virt` removes EL3 and EL2 from the CPU unless you ask for them[^virt-c], and an AArch64 CPU resets into the highest exception level it has[^reset]. So the same Cortex-A72 model resets at EL1, at EL3 with `secure=on`, and at EL2 with `virtualization=on`. A real Cortex-A72 always has EL3, and resets there[^a72].
@@ -123,10 +126,10 @@ Do the same with a Cortex-A7 and the 32-bit QEMU:
 
 <Prompt
   dir="~/work/m01"
-  cmd="qemu-system-arm -machine virt -cpu cortex-a7 -display none -serial none -monitor stdio -S"
+  cmd="qemu-system-arm -machine virt -cpu cortex-a7 -nic none -display none -serial none -monitor stdio -S"
 />
 
-In `info registers`, find the `PSR` line. For an AArch32 CPU, QEMU prints the mode name there, such as `svc` or `hyp`[^dump]. Quit, then try `virt,virtualization=on` and `virt,secure=on` as before. An AArch32 CPU that has EL2 but not EL3 resets in Hyp mode; otherwise it resets in Supervisor mode[^reset]. With `secure=on`, QEMU also marks the line with the security state.
+In `info registers`, find the `PSR` line. For an AArch32 CPU, QEMU prints the mode name there, followed by `32`: `svc32` or `hyp32`[^dump]. Quit, then try `virt,virtualization=on` and `virt,secure=on` as before, keeping the other options. An AArch32 CPU that has EL2 but not EL3 resets in Hyp mode; otherwise it resets in Supervisor mode[^reset]. With `secure=on`, QEMU also marks the line with the security state: an `S` before the mode name, for Secure.
 
 ## Read how Linux drops from EL2 to EL1
 
@@ -152,7 +155,7 @@ Without `-kernel`, QEMU starts the CPU at its highest exception level, like real
 
 [^tc-arm]: GNU Binutils 2.44, `gas/config/tc-arm.c`: `cortex-a7` uses `ARM_ARCH_V7VE`, which includes `ARM_EXT_VIRT` and `ARM_EXT_SEC`; `cortex-a8` uses `ARM_ARCH_V7A` plus `ARM_EXT_SEC`; `smc` is listed under `arm_ext_sec`, `hvc` and `eret` under `arm_ext_virt`. The `-mcpu` option is described in ARM Options.
 
-[^qemu-opts]: QEMU 10.0, `qemu-options.hx`: `-machine`, `-cpu`, `-display none`, `-serial none`, `-monitor`, `-S`.
+[^qemu-opts]: QEMU 10.0, `qemu-options.hx`: `-machine`, `-cpu`, `-nic none` (no network devices, overriding the default network card), `-display none`, `-serial none`, `-monitor`, `-S`.
 
 [^hmp]: QEMU 10.0, `hmp-commands-info.hx` (`info registers`) and `hmp-commands.hx` (`quit`).
 
