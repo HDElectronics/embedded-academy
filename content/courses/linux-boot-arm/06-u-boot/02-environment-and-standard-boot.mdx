@@ -54,11 +54,15 @@ The environment is a list of `name=value` variables. You read it with `printenv`
 
 Until you save, you work on a copy in memory. A reset brings back the stored environment, or the default one if nothing was stored.[^env]
 
-Each board ships a default environment. Newer boards write it as a text file in the board directory, with a `.env` extension. Older boards build it from C defines such as `CFG_EXTRA_ENV_SETTINGS`.[^env] This is the file for the QEMU `virt` board, which you use in this module's lab, without its license header, which says GPL-2.0-or-later:
+Each board ships a default environment. Newer boards write it as a text file in the board directory, with a `.env` extension. Older boards build it from C defines such as `CFG_EXTRA_ENV_SETTINGS`.[^env] This is the file for the QEMU `virt` board, which you use in this module's lab. It keeps its upstream license header, GPL-2.0-or-later:
+
+{/* REUSE-IgnoreStart */}
 
 <CodeBlock path="board/emulation/qemu-arm/qemu-arm.env" project="U-Boot" simplified>
 
 ```text
+/* SPDX-License-Identifier: GPL-2.0+ */
+
 /* environment for qemu-arm and qemu-arm64 */
 
 stdin=serial,usbkbd
@@ -73,6 +77,8 @@ boot_targets=qfw usb scsi virtio nvme dhcp
 ```
 
 </CodeBlock>
+
+{/* REUSE-IgnoreEnd */}
 
 Names ending in `_addr_r` are RAM addresses where boot commands load images: `kernel_addr_r` for the kernel, `fdt_addr_r` for the Device Tree, `ramdisk_addr_r` for the initial RAM disk. They are a naming convention, not something U-Boot's code requires, and some boards use other names.[^env]
 

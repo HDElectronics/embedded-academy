@@ -63,9 +63,24 @@ U-Boot's start-up code splits the work in two:[^crt0]
 
 Once DRAM works, U-Boot knows its size. It sets the top of usable RAM, `gd->ram_top`, and starts the relocation address `gd->relocaddr` at that same value.[^boardf] Each reservation then moves `gd->relocaddr` further down.
 
+{/* REUSE-IgnoreStart */}
+
 <CodeBlock path="common/board_f.c" project="U-Boot" lang="c" simplified>
 
 ```c
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright (c) 2011 The Chromium OS Authors.
+ * (C) Copyright 2002-2006
+ * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
+ *
+ * (C) Copyright 2002
+ * Sysgo Real-Time Solutions, GmbH <www.elinos.com>
+ * Marius Groeger <mgroeger@sysgo.de>
+ */
+
+/* ... */
+
 static int setup_dest_addr(void)
 {
         gd->ram_top = gd->ram_base + get_effective_memsize();
@@ -85,6 +100,8 @@ static int reserve_uboot(void)
 ```
 
 </CodeBlock>
+
+{/* REUSE-IgnoreEnd */}
 
 The excerpt keeps the license of `common/board_f.c`, GPL-2.0-or-later. The space for U-Boot's own code, data and BSS is reserved first, right under the top. Below it come the `malloc()` heap, the board information, the global data, a copy of U-Boot's Device Tree and finally the stack, which grows down.[^memory] [^boardf]
 
