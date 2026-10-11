@@ -9,7 +9,12 @@
     "./components.css": "./src/components.css",
     "./fonts.css": "./src/fonts.css",
     "./index.css": "./src/index.css",
-    "./base.css": "./src/base.css"
+    "./base.css": "./src/base.css",
+    "./content.css": "./src/content.css",
+    "./Prompt.astro": "./astro/Prompt.astro",
+    "./CodeBlock.astro": "./astro/CodeBlock.astro",
+    "./Callout.astro": "./astro/Callout.astro",
+    "./Deeper.astro": "./astro/Deeper.astro"
   },
   "scripts": {
     "build:tokens": "node scripts/build-tokens.mjs",

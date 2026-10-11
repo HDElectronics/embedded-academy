@@ -1,0 +1,26 @@
+---
+// SPDX-FileCopyrightText: Embedded Academy contributors
+// SPDX-License-Identifier: MIT
+
+// An aside, labelled with a kernel log level.
+
+interface Props {
+  level?: 'info' | 'warning' | 'error';
+}
+
+const LEVEL = {
+  info: { tag: '<6> info', mod: 'ea-callout--info' },
+  warning: { tag: '<4> warning', mod: 'ea-callout--warn' },
+  error: { tag: '<3> error', mod: 'ea-callout--err' },
+} as const;
+
+const { level = 'info' } = Astro.props;
+const { tag, mod } = LEVEL[level];
+---
+
+<aside class:list={['ea-callout', mod]}>
+  <span class="ea-callout__level">{tag}</span>
+  <div class="ea-callout__body">
+    <slot />
+  </div>
+</aside>

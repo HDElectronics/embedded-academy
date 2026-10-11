@@ -24,6 +24,7 @@ import BootChain from '@ea/anim/BootChain.astro';
 import MemoryMap from '@ea/anim/MemoryMap.astro';
 import PrivilegeLadder from '@ea/anim/PrivilegeLadder.astro';
 import SerialConsole from '@ea/anim/SerialConsole.astro';
+import Callout from '@ea/ui/Callout.astro';
 
 <p class="t-lead">
   When you power on an ARM board, the first code that runs is not yours. It is a small program inside the chip: the boot
@@ -59,13 +60,10 @@ The BeagleBone Black's ROM copies the first loader, U-Boot SPL, into internal SR
 
 Each stage prints its own banner on the serial console. Reading those banners is the fastest way to find which stage failed when a board does not boot.
 
-<aside class="ea-callout ea-callout--info">
-  <span class="ea-callout__level">&lt;6&gt; info</span>
-  <p class="ea-callout__body">
-    The console output on this page is illustrative until it is replaced with captures from real boards. Every fact here
-    is marked not yet verified: it comes from vendor and upstream documentation, listed under Sources.
-  </p>
-</aside>
+<Callout level="info">
+  The console output on this page is illustrative until it is replaced with captures from real boards. Every fact here
+  is marked not yet verified: it comes from vendor and upstream documentation, listed under Sources.
+</Callout>
 
 ## What comes next
 

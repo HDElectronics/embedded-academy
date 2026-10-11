@@ -1,0 +1,32 @@
+---
+// SPDX-FileCopyrightText: Embedded Academy contributors
+// SPDX-License-Identifier: MIT
+
+// One shell command, as the learner types it in the lab container.
+
+interface Props {
+  /** The command, exactly as typed. */
+  cmd: string;
+  /** Working directory shown in the prompt. */
+  dir?: string;
+  /** Who runs it: `learner` in the lab container, `root` on the board. */
+  user?: 'learner' | 'root';
+  /** Host in the prompt: `lab` for the container, a board name for a serial console. */
+  host?: string;
+}
+
+const { cmd, dir = '~', user = 'learner', host = 'lab' } = Astro.props;
+const sigil = user === 'root' ? '#' : '$';
+---
+
+<div class="ea-prompt">
+  <code class="ea-prompt__line">
+    <span class="ea-prompt__user">
+      {user}@{host}
+    </span>
+    <span class="ea-prompt__sigil">:</span>
+    <span class="ea-prompt__path">{dir}</span>
+    <span class="ea-prompt__sigil">{sigil} </span>
+    {cmd}
+  </code>
+</div>
