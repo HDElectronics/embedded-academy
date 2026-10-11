@@ -1,0 +1,115 @@
+---
+title: TF-A build options used in this course
+description: The make variables and targets that select a TF-A platform, toolchain, payloads and build type, as TF-A lts-v2.14.10 defines them.
+course: linux-boot-arm
+module: m05
+order: 3
+type: reference
+boards: [stm32mp157]
+verification: unverified
+sources:
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Build Options'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/getting_started/build-options.html
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Performing an Initial Build'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/getting_started/initial-build.html
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Building Supporting Tools'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/getting_started/tools-build.html
+  - title: 'Trusted Firmware-A source (lts-v2.14.10): make_helpers/defaults.mk'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/make_helpers/defaults.mk
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): QEMU virt Armv8-A'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/qemu.html
+  - title: 'Trusted Firmware-A source (lts-v2.14.10): plat/qemu/qemu/platform.mk'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/qemu/qemu/platform.mk
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): STM32 MPUs'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/st/stm32mpus.html
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): STM32MP1'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/st/stm32mp1.html
+---
+
+import Callout from '@ea/ui/Callout.astro';
+
+<div class="t-lead">
+  You build TF-A with `make` and a set of variables on the command line. This page lists the variables and targets the
+  course uses, with their meaning and default value at tag `lts-v2.14.10`. TF-A has many more; the Build Options page in
+  its documentation lists them all.
+</div>
+
+## Common options
+
+Pass each option as `NAME=value` on the `make` command line.
+
+| Option                       | Values                                      | Default                        | Meaning                                                                                                                                  |
+| ---------------------------- | ------------------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `PLAT`                       | a folder under `plat/` with a `platform.mk` | `fvp`                          | The platform to build for, such as `qemu` or `stm32mp1`.[^opts][^defaults]                                                               |
+| `ARCH`                       | `aarch64`, `aarch32`                        | `aarch64`                      | The execution state TF-A is built for.[^opts]                                                                                            |
+| `ARM_ARCH_MAJOR`             | a number                                    | `8`                            | The major Arm architecture version to compile for. The STM32MP1 commands set `7`.[^opts][^mp1]                                           |
+| `CROSS_COMPILE`              | a toolchain prefix                          | none                           | The prefix of the cross compiler. TF-A's guide sets it as an environment variable; passing it to `make` also works.[^initial][^qemu]     |
+| `BL33`                       | path to an image                            | none                           | The BL33 image to pack into the FIP. Mandatory for the `fip` target when TF-A's BL2 is used.[^opts]                                      |
+| `BL32`                       | path to an image                            | none                           | Optional. A BL32 image for the `fip` target. When set, TF-A does not build its own BL32.[^opts]                                          |
+| `BL32_EXTRA1`, `BL32_EXTRA2` | path to an image                            | none                           | Optional. The Trusted OS Extra1 and Extra2 images for the `fip` target.[^opts]                                                           |
+| `SPD`                        | a folder under `services/spd/`              | `none`                         | The Secure Payload Dispatcher built into BL31, for example `opteed` for OP-TEE. Valid only with `ARCH=aarch64`.[^opts][^defaults][^qemu] |
+| `AARCH32_SP`                 | a folder under `bl32/`                      | `none`                         | With `ARCH=aarch32`, the AArch32 Secure Payload built as BL32: the EL3 runtime software, such as `sp_min`.[^opts][^defaults][^initial]   |
+| `DEBUG`                      | `0` (release), `1` (debug)                  | `0`                            | Build type. It also picks the output folder, `release` or `debug`.[^opts][^initial]                                                      |
+| `LOG_LEVEL`                  | `0`, `10`, `20`, `30`, `40`, `50`           | `40` in debug, `20` in release | How much console output is compiled in, from none (`0`) to verbose (`50`).[^opts]                                                        |
+| `V`                          | `0` or anything else                        | `0`                            | Verbose build: prints every build command.[^opts]                                                                                        |
+
+<Callout level="info">
+  `SPD` is the AArch64 switch for BL32, and `AARCH32_SP` is the AArch32 one. On AArch64, BL32 is a payload that BL31
+  dispatches to. On AArch32 there is no BL31, and BL32 is the EL3 runtime itself.
+</Callout>
+
+## Make targets
+
+| Target      | What it builds                                                                                        |
+| ----------- | ----------------------------------------------------------------------------------------------------- |
+| `all`       | The boot loader images for the platform, such as `bl1.bin`, `bl2.bin` and `bl31.bin`.[^initial]       |
+| `fip`       | `fip.bin`, the Firmware Image Package, using `fiptool`.[^tools]                                       |
+| `fiptool`   | `fiptool` alone.[^tools]                                                                              |
+| `clean`     | Removes the products of one build variant. Pass the same `PLAT` and `DEBUG` you built with.[^initial] |
+| `realclean` | Removes the whole `build` tree.[^initial]                                                             |
+
+## Output files
+
+Products land in `build/<platform>/<build-type>/`, where `<build-type>` is `release` or `debug`:[^initial]
+
+- `bl1.bin`, `bl2.bin`
+- `bl31.bin`, AArch64 only
+- `bl32.bin`, mandatory for AArch32
+- `fip.bin`, after the `fip` target
+
+The actual set depends on the platform.[^initial]
+
+## QEMU `virt` options
+
+For `PLAT=qemu`:
+
+- `BL32_RAM_LOCATION`: where BL32 runs, `tdram` (secure DRAM, the default) or `tsram` (secure SRAM).[^qemu-mk] The QEMU guide passes `BL32_RAM_LOCATION=tdram` with OP-TEE.[^qemu]
+- `ARM_LINUX_KERNEL_AS_BL33`: `0` by default. Set to `1` to boot a Linux kernel directly as BL33; the device tree address is then passed in `x0`.[^qemu-mk][^qemu]
+- When `BL33` is set, `all` also builds `qemu_fw.bios`, which is `bl1.bin` with `fip.bin` written at offset 256 KiB, and `qemu_fw.rom`, the same file padded to 64 MiB.[^qemu-mk]
+
+## STM32MP1 options
+
+For `PLAT=stm32mp1`, from TF-A's ST documentation:[^mpus][^mp1]
+
+- `STM32MP15`: `1` by default, selects the STM32MP15 family. `STM32MP13` selects the STM32MP13 family.
+- `DTB_FILE_NAME`: the board's device tree. The default is `stm32mp157c-ev1.dtb`.
+- The boot device: one of `STM32MP_SDMMC`, `STM32MP_EMMC`, `STM32MP_RAW_NAND`, `STM32MP_SPI_NAND`, `STM32MP_SPI_NOR`, or a serial boot device, `STM32MP_UART_PROGRAMMER` or `STM32MP_USB_PROGRAMMER`. Select only one, or BL2 may overflow SYSRAM.
+- `STM32MP_UART_BAUDRATE`: the UART baud rate. The default is `115200`.
+
+TF-A's guide builds these with `ARCH=aarch32 ARM_ARCH_MAJOR=7` and the `arm-none-eabi-` toolchain.[^mp1]
+
+[^opts]: Trusted Firmware-A documentation, Build Options: "Common build options".
+
+[^defaults]: Trusted Firmware-A source at `lts-v2.14.10`, `make_helpers/defaults.mk`: `ARCH := aarch64`, `DEBUG := 0`, `DEFAULT_PLAT := fvp`, `SPD := none`, `AARCH32_SP := none`.
+
+[^initial]: Trusted Firmware-A documentation, Performing an Initial Build.
+
+[^tools]: Trusted Firmware-A documentation, Building Supporting Tools: "Building and using the FIP tool".
+
+[^qemu]: Trusted Firmware-A documentation, QEMU virt Armv8-A: "Booting via flash based firmware".
+
+[^qemu-mk]: Trusted Firmware-A source at `lts-v2.14.10`, `plat/qemu/qemu/platform.mk`.
+
+[^mpus]: Trusted Firmware-A documentation, STM32 MPUs: "Build Instructions".
+
+[^mp1]: Trusted Firmware-A documentation, STM32MP1: "STM32MP1x specific flags" and "Boot with FIP".
