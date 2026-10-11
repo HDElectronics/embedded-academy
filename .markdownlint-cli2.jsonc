@@ -8,5 +8,5 @@
     "MD041": false
   },
   "globs": ["**/*.md"],
-  "ignores": ["**/node_modules/**", "**/dist/**", "docs/_build/**", "CHANGELOG.md", ".vale/**"]
+  "ignores": [".claude/worktrees/**", "**/node_modules/**", "**/dist/**", "docs/_build/**", "CHANGELOG.md", ".vale/**"]
 }
