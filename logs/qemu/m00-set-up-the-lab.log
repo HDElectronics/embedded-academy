@@ -1,0 +1,22 @@
+# board: none (lab container shell, no emulation)
+# software: labs/linux-boot-arm/fetch-sources.sh and versions.env from this repository; git 2.47.3 (Debian)
+# command: the container commands of 00-orientation/02-set-up-the-lab.mdx, in order; the sources were already cloned in the work volume, so the script skips them
+# captured: 2026-10-11 (UTC), embedded-academy-lab container (Debian 13.7, QEMU 10.0.13)
+# note: lab image built without trixie-updates; the host and container UTC clocks matched the Date headers of google.com, github.com and deb.debian.org at capture, so timestamps in the output are real UTC
+# verification: emulated
+# --- run: cd ~
+# --- run: sh ~/course/fetch-sources.sh
+skip   linux (already in /home/learner/work/src/linux)
+skip   u-boot (already in /home/learner/work/src/u-boot)
+skip   trusted-firmware-a (already in /home/learner/work/src/trusted-firmware-a)
+skip   optee_os (already in /home/learner/work/src/optee_os)
+skip   buildroot (already in /home/learner/work/src/buildroot)
+# --- run: ls ~/work/src
+buildroot
+linux
+optee_os
+trusted-firmware-a
+u-boot
+# --- run: cd ~/work/src/u-boot
+# --- run: git describe --tags
+v2026.07
