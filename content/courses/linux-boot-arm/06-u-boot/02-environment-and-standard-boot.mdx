@@ -1,0 +1,148 @@
+---
+title: The environment and bootcmd decide what U-Boot boots
+description: U-Boot keeps its settings in environment variables, runs bootcmd after a countdown, and uses standard boot to find extlinux.conf or boot.scr.
+course: linux-boot-arm
+module: m06
+order: 2
+type: explanation
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'U-Boot documentation (v2026.07): Environment Variables'
+    url: https://docs.u-boot.org/en/v2026.07/usage/environment.html
+  - title: 'U-Boot documentation (v2026.07): Standard Boot Overview'
+    url: https://docs.u-boot.org/en/v2026.07/develop/bootstd/overview.html
+  - title: 'U-Boot documentation (v2026.07): Extlinux Bootmeth'
+    url: https://docs.u-boot.org/en/v2026.07/develop/bootstd/extlinux.html
+  - title: 'U-Boot documentation (v2026.07): PXE Boot and extlinux.conf'
+    url: https://docs.u-boot.org/en/v2026.07/usage/pxe.html
+  - title: 'U-Boot documentation (v2026.07): QFW Bootmeth'
+    url: https://docs.u-boot.org/en/v2026.07/develop/bootstd/qfw.html
+  - title: 'U-Boot documentation (v2026.07): Script Bootmeth'
+    url: https://docs.u-boot.org/en/v2026.07/develop/bootstd/script.html
+  - title: 'U-Boot documentation (v2026.07): bootflow command'
+    url: https://docs.u-boot.org/en/v2026.07/usage/cmd/bootflow.html
+  - title: 'U-Boot documentation (v2026.07): source command'
+    url: https://docs.u-boot.org/en/v2026.07/usage/cmd/source.html
+  - title: 'U-Boot source (v2026.07): common/main.c'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/common/main.c
+  - title: 'U-Boot source (v2026.07): boot/Kconfig'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/boot/Kconfig
+  - title: 'U-Boot source (v2026.07): include/config_distro_bootcmd.h'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/include/config_distro_bootcmd.h
+  - title: 'U-Boot source (v2026.07): board/emulation/qemu-arm/qemu-arm.env'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/board/emulation/qemu-arm/qemu-arm.env
+  - title: 'U-Boot source (v2026.07): configs/rpi_arm64_defconfig, am335x_evm_defconfig, stm32mp15_defconfig'
+    url: https://source.denx.de/u-boot/u-boot/-/tree/v2026.07/configs
+  - title: 'U-Boot source (v2026.07): include/configs/stm32mp15_st_common.h'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/include/configs/stm32mp15_st_common.h
+---
+
+import SerialConsole from '@ea/anim/SerialConsole.astro';
+import CodeBlock from '@ea/ui/CodeBlock.astro';
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<p class="t-lead">
+  Once U-Boot has relocated and set up its devices, it has one job left: start an operating system. What it starts, and
+  from where, is not hard-coded. It comes from environment variables, and above all from one of them, `bootcmd`.
+</p>
+
+## The environment holds U-Boot's settings
+
+The environment is a list of `name=value` variables. You read it with `printenv`, change it with `setenv` and store it with `saveenv`. These are aliases of `env print`, `env set` and `env save`.[^env]
+
+Until you save, you work on a copy in memory. A reset brings back the stored environment, or the default one if nothing was stored.[^env]
+
+Each board ships a default environment. Newer boards write it as a text file in the board directory, with a `.env` extension. Older boards build it from C defines such as `CFG_EXTRA_ENV_SETTINGS`.[^env] This is the file for the QEMU `virt` board, which you use in this module's lab, without its license header, which says GPL-2.0-or-later:
+
+<CodeBlock path="board/emulation/qemu-arm/qemu-arm.env" project="U-Boot" simplified>
+
+```text
+/* environment for qemu-arm and qemu-arm64 */
+
+stdin=serial,usbkbd
+stdout=serial,vidconsole
+stderr=serial,vidconsole
+fdt_addr=0x40000000
+scriptaddr=0x40200000
+pxefile_addr_r=0x40300000
+kernel_addr_r=0x40400000
+ramdisk_addr_r=0x44000000
+boot_targets=qfw usb scsi virtio nvme dhcp
+```
+
+</CodeBlock>
+
+Names ending in `_addr_r` are RAM addresses where boot commands load images: `kernel_addr_r` for the kernel, `fdt_addr_r` for the Device Tree, `ramdisk_addr_r` for the initial RAM disk. They are a naming convention, not something U-Boot's code requires, and some boards use other names.[^env]
+
+## bootcmd runs when the countdown ends
+
+After start-up, U-Boot counts down for `bootdelay` seconds. If you press a key, you get the shell. If not, it runs the commands in `bootcmd`.[^env] If `bootcmd` returns because nothing booted, U-Boot falls back to the shell.[^main] Setting `bootdelay` to `-1` turns autoboot off.[^env]
+
+`bootcmd` is an ordinary variable, so you can read and change it like any other. On the boards in this course, its default comes from the Kconfig option `CONFIG_BOOTCOMMAND`.[^kconfig]
+
+## Standard boot finds the operating system for you
+
+Older boards found the kernel with long boot scripts kept in the environment. Standard boot replaces them with three concepts built into U-Boot:[^bootstd]
+
+- A **bootdev** is a device that can hold an operating system: an SD card, a USB disk, the network.
+- A **bootmeth** is a way to look for one on a bootdev. The `extlinux` bootmeth looks for a file, the `script` bootmeth for another.
+- A **bootflow** is what a bootmeth found: a description of how to boot.
+
+U-Boot tries each bootdev, each bootmeth on it, and each bootflow found, until one boots.[^bootstd] One command does all of it: `bootflow scan -lb` scans, lists what it finds (`-l`) and boots the first valid bootflow (`-b`).[^bootflow]
+
+The variable `boot_targets` sets which bootdevs are tried and in what order. In the QEMU file, that is `qfw` first and the network (`dhcp`) last.[^bootstd] Through `qfw`, U-Boot can boot a kernel that you hand to QEMU with its `-kernel` option.[^qfw]
+
+## Two files describe the boot
+
+**`extlinux.conf`.** The `extlinux` bootmeth looks for `extlinux/extlinux.conf` at the root of a partition or under `/boot`.[^extlinux] The file lists one or more labels. Each label names a `kernel`, the kernel command line (`append`), the Device Tree (`fdt`, or `fdtdir` for a directory) and optionally an `initrd`.[^pxe] Distributions write this file; U-Boot only reads it and does what it says.[^bootstd]
+
+**`boot.scr`.** The `script` bootmeth looks for `boot.scr.uimg`, then `boot.scr`, in the same places. U-Boot loads the file into memory and runs the commands in it.[^script] The commands are wrapped as a FIT or a legacy U-Boot image, which you build with the `mkimage` tool. The `source` command runs such a script by hand.[^source] A script gives you full control, at the price of writing the load and boot commands yourself.
+
+<Deeper depth="practitioner" title="What each board's bootcmd runs at v2026.07">
+
+Not every board in this course uses standard boot by default.
+
+- **Raspberry Pi 4**: `rpi_4_defconfig` and `rpi_arm64_defconfig` enable `CONFIG_BOOTSTD_DEFAULTS` and set no `CONFIG_BOOTCOMMAND`, so `bootcmd` gets the Kconfig default, a `bootflow scan` command.[^kconfig] [^defconfigs]
+- **BeagleBone Black**: `am335x_evm_defconfig` enables `CONFIG_DISTRO_DEFAULTS` and sets `bootcmd` to run board scripts, then `distro_bootcmd`.[^defconfigs]
+- **STM32MP157 DK2**: `stm32mp15_defconfig` also enables `CONFIG_DISTRO_DEFAULTS` and runs `bootcmd_stm32mp`. That script picks `boot_targets` from the device the board booted from, then runs `distro_bootcmd`.[^stm32]
+
+`distro_bootcmd` is the older, script-based distro boot. It walks `boot_targets` and, on each partition, looks for `extlinux/extlinux.conf` and then `boot.scr.uimg` or `boot.scr` under `/` and `/boot/`.[^distro] Kconfig marks it deprecated and points new boards to standard boot.[^kconfig]
+
+</Deeper>
+
+<SerialConsole board="stm32mp157" pane={2} />
+
+On the STM32MP157 serial console, watch the U-Boot stage. Its last line before Linux shows U-Boot reading `extlinux.conf`. The log is illustrative until a capture from a real board replaces it.
+
+<Callout level="info">
+  Every fact on this page comes from the U-Boot documentation and source at `v2026.07`, listed under Sources. Nobody has
+  checked it on the boards yet, so the page is marked unverified.
+</Callout>
+
+[^env]: U-Boot documentation, Environment Variables: introduction, Text-based Environment, Old-style C environment, `bootdelay`, `bootcmd` and Image locations.
+
+[^main]: U-Boot source, `common/main.c`: `main_loop()` runs `autoboot_command()`, then `cli_loop()`.
+
+[^kconfig]: U-Boot source, `boot/Kconfig`: `BOOTCOMMAND`, `BOOTSTD_BOOTCOMMAND` and `DISTRO_DEFAULTS`.
+
+[^bootstd]: U-Boot documentation, Standard Boot Overview: Introduction, Bootflow, Boot process and `boot_targets`.
+
+[^bootflow]: U-Boot documentation, bootflow command: `bootflow scan`.
+
+[^extlinux]: U-Boot documentation, Extlinux Bootmeth.
+
+[^pxe]: U-Boot documentation, PXE Boot and extlinux.conf: label keywords.
+
+[^qfw]: U-Boot documentation, QFW Bootmeth.
+
+[^script]: U-Boot documentation, Script Bootmeth.
+
+[^source]: U-Boot documentation, source command.
+
+[^defconfigs]: U-Boot source, `configs/rpi_4_defconfig`, `configs/rpi_arm64_defconfig` and `configs/am335x_evm_defconfig`.
+
+[^stm32]: U-Boot source, `configs/stm32mp15_defconfig` and `include/configs/stm32mp15_st_common.h`.
+
+[^distro]: U-Boot source, `include/config_distro_bootcmd.h`.

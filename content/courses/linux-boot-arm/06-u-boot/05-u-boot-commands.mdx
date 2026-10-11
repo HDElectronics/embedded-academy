@@ -1,0 +1,82 @@
+---
+title: U-Boot commands used in this course
+description: The U-Boot shell commands this course uses, each with its syntax and a one-line description from the U-Boot v2026.07 documentation.
+course: linux-boot-arm
+module: m06
+order: 5
+type: reference
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'U-Boot documentation (v2026.07): Use U-Boot'
+    url: https://docs.u-boot.org/en/v2026.07/usage/index.html
+  - title: 'U-Boot documentation (v2026.07): env command'
+    url: https://docs.u-boot.org/en/v2026.07/usage/cmd/env.html
+  - title: 'U-Boot documentation (v2026.07): bootflow command'
+    url: https://docs.u-boot.org/en/v2026.07/usage/cmd/bootflow.html
+---
+
+<p class="t-lead">
+  The commands you type at the U-Boot prompt, `=>`, in this course. Syntax and descriptions follow the U-Boot `v2026.07`
+  documentation; each name links to its page there. Which commands exist depends on the board's configuration.
+</p>
+
+## Board and memory
+
+| Command                                      | What it does                                                      |
+| -------------------------------------------- | ----------------------------------------------------------------- |
+| [`bdinfo`][bdinfo]                           | Prints information about the board, including `relocaddr`.        |
+| [`md <address>[<data_size>] [<length>]`][md] | Dumps memory as address, hex data and ASCII.                      |
+| [`reset [-w]`][reset]                        | Resets the CPU. A cold reset by default, a warm reset with `-w`.  |
+| [`fdt addr [-c] [<addr>]`][fdt]              | Shows or sets the Device Tree address; `-c` for U-Boot's own one. |
+
+## Environment
+
+| Command                             | What it does                                                      |
+| ----------------------------------- | ----------------------------------------------------------------- |
+| [`printenv [<name> ...]`][printenv] | Prints the named variables, or all of them. Alias of `env print`. |
+| [`setenv <name> [<value>]`][env]    | Sets a variable, or deletes it when no value is given. `env set`. |
+| [`saveenv`][env]                    | Saves the environment in persistent storage. Alias of `env save`. |
+| [`env default -a`][env]             | Resets the environment to its default values.                     |
+| [`run <var> ...`][env]              | Runs the commands stored in a variable. Alias of `env run`.       |
+
+## Standard boot
+
+| Command                                       | What it does                                                    |
+| --------------------------------------------- | --------------------------------------------------------------- |
+| [`bootdev list`][bootdev]                     | Lists the available bootdevs.                                   |
+| [`bootmeth list`][bootmeth]                   | Lists the selected bootmeths, in the order they are used.       |
+| [`bootflow scan [-lb] [<bootdev>]`][bootflow] | Scans bootdevs for bootflows; `-l` lists them, `-b` boots them. |
+| [`bootflow list`][bootflow]                   | Lists the bootflows found by the last scan.                     |
+| [`bootflow select [<num>]`][bootflow]         | Selects a bootflow by number or name from `bootflow list`.      |
+| [`bootflow info`][bootflow]                   | Shows information on the selected bootflow.                     |
+| [`bootflow boot`][bootflow]                   | Boots the selected bootflow, reading any files it needs first.  |
+
+## Loading and booting by hand
+
+| Command                                               | What it does                                               |
+| ----------------------------------------------------- | ---------------------------------------------------------- |
+| [`load <interface> <dev[:part]> <addr> <file>`][load] | Reads a file from a filesystem into memory.                |
+| [`source <addr>`][source]                             | Runs a script from memory, in legacy image or FIT format.  |
+| [`booti <addr> [<initrd>[:<size>]] [<fdt>]`][booti]   | Boots a Linux kernel in `Image` format, as on 64-bit Arm.  |
+| [`bootz <addr> [<initrd>[:<size>]] [<fdt>]`][bootz]   | Boots a Linux kernel in `zImage` format, as on 32-bit Arm. |
+| [`bootm <addr>`][bootm]                               | Boots an operating system image, such as a FIT.            |
+
+For `booti` and `bootz`, pass `-` as `<initrd>` to boot with a Device Tree but without an initial RAM disk.[^boot]
+
+[^boot]: U-Boot documentation, booti command and bootz command: the `initrd` argument.
+
+[bdinfo]: https://docs.u-boot.org/en/v2026.07/usage/cmd/bdinfo.html
+[md]: https://docs.u-boot.org/en/v2026.07/usage/cmd/md.html
+[reset]: https://docs.u-boot.org/en/v2026.07/usage/cmd/reset.html
+[fdt]: https://docs.u-boot.org/en/v2026.07/usage/cmd/fdt.html
+[printenv]: https://docs.u-boot.org/en/v2026.07/usage/cmd/printenv.html
+[env]: https://docs.u-boot.org/en/v2026.07/usage/cmd/env.html
+[bootdev]: https://docs.u-boot.org/en/v2026.07/usage/cmd/bootdev.html
+[bootmeth]: https://docs.u-boot.org/en/v2026.07/usage/cmd/bootmeth.html
+[bootflow]: https://docs.u-boot.org/en/v2026.07/usage/cmd/bootflow.html
+[load]: https://docs.u-boot.org/en/v2026.07/usage/cmd/load.html
+[source]: https://docs.u-boot.org/en/v2026.07/usage/cmd/source.html
+[booti]: https://docs.u-boot.org/en/v2026.07/usage/cmd/booti.html
+[bootz]: https://docs.u-boot.org/en/v2026.07/usage/cmd/bootz.html
+[bootm]: https://docs.u-boot.org/en/v2026.07/usage/cmd/bootm.html
