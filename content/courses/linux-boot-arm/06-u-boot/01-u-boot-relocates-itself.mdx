@@ -42,11 +42,11 @@ import CodeBlock from '@ea/ui/CodeBlock.astro';
 import Callout from '@ea/ui/Callout.astro';
 import Deeper from '@ea/ui/Deeper.astro';
 
-<p class="t-lead">
+<div class="t-lead">
   U-Boot does not choose where it starts. The stage before it decides: a boot ROM, U-Boot SPL, the Raspberry Pi firmware
   or TF-A. Early in its start, U-Boot copies itself to the top of DRAM and carries on from there. This page explains
   why, and how you find the new address when you debug.
-</p>
+</div>
 
 ## U-Boot starts with almost nothing
 
