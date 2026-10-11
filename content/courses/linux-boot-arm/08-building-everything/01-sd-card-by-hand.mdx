@@ -41,6 +41,12 @@ sources:
   - title: 'Trusted Firmware-A lts-v2.14.10 documentation: STMicroelectronics STM32 MPUs'
     url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/st/stm32mpus.html
     section: Populate SD-card
+  - title: 'Trusted Firmware-A lts-v2.14.10 documentation: performing an initial build'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/getting_started/initial-build.html
+  - title: 'Trusted Firmware-A lts-v2.14.10 source: plat/st/common/common_rules.mk'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/st/common/common_rules.mk
+  - title: 'Trusted Firmware-A lts-v2.14.10 source: make_helpers/toolchains/aarch32.mk'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/make_helpers/toolchains/aarch32.mk
   - title: 'OP-TEE 4.10.0 documentation: STM32MP1'
     url: https://optee.readthedocs.io/en/4.10.0/building/devices/stm32mp1.html
   - title: 'Buildroot 2026.02.3 source: board/raspberrypi'
@@ -63,9 +69,10 @@ import Deeper from '@ea/ui/Deeper.astro';
 </div>
 
 <Callout level="warning">
-  Nobody has run these steps yet. Every command here is checked against upstream documentation and source, not against a
-  board. If a step fails, report it with the inaccuracy issue form. Partitioning and `dd` destroy the data on the device
-  you name: check the device with `lsblk` first.
+  The build commands on this page were run in the lab container on 2026-10-11, and each one wrote the files this page
+  names. Nobody has written a card or booted a board with them yet, so the page stays unverified. If a step fails,
+  report it with the inaccuracy issue form. Partitioning and `dd` destroy the data on the device you name: check the
+  device with `lsblk` first.
 </Callout>
 
 Run the build commands in the lab container, after `sh ~/course/fetch-sources.sh` has cloned the sources into `~/work/src`. Partition and write the card on a Linux machine with a card reader: the lab container has no access to your SD card.
@@ -203,15 +210,15 @@ It writes `tee-header_v2.bin`, `tee-pager_v2.bin` and `tee-pageable_v2.bin` to `
   cmd="make CROSS_COMPILE=arm-linux-gnueabihf- O=$HOME/work/build/u-boot-dk2 DEVICE_TREE=st/stm32mp157c-dk2 all"
 />
 
-It produces `u-boot-nodtb.bin` and `u-boot.dtb`.[^ubstm] Now build TF-A BL2 for SD card boot, then the FIP with OP-TEE as BL32 and U-Boot as BL33:[^tfa]
+It produces `u-boot-nodtb.bin` and `u-boot.dtb`.[^ubstm] Now build TF-A BL2 for SD card boot, then the FIP with OP-TEE as BL32 and U-Boot as BL33.[^tfa] `LD=arm-linux-gnueabihf-ld.bfd` makes TF-A link with the GNU linker instead of through `gcc`; the next section says why:
 
 <Prompt
   dir="~/work/src/trusted-firmware-a"
-  cmd="make CROSS_COMPILE=arm-linux-gnueabihf- PLAT=stm32mp1 ARCH=aarch32 ARM_ARCH_MAJOR=7 DTB_FILE_NAME=stm32mp157c-dk2.dtb STM32MP_SDMMC=1"
+  cmd="make CROSS_COMPILE=arm-linux-gnueabihf- LD=arm-linux-gnueabihf-ld.bfd PLAT=stm32mp1 ARCH=aarch32 ARM_ARCH_MAJOR=7 DTB_FILE_NAME=stm32mp157c-dk2.dtb STM32MP_SDMMC=1"
 />
 <Prompt
   dir="~/work/src/trusted-firmware-a"
-  cmd="make CROSS_COMPILE=arm-linux-gnueabihf- PLAT=stm32mp1 ARCH=aarch32 ARM_ARCH_MAJOR=7 AARCH32_SP=optee DTB_FILE_NAME=stm32mp157c-dk2.dtb BL33=$HOME/work/build/u-boot-dk2/u-boot-nodtb.bin BL33_CFG=$HOME/work/build/u-boot-dk2/u-boot.dtb BL32=$HOME/work/src/optee_os/out/arm-plat-stm32mp1/core/tee-header_v2.bin BL32_EXTRA1=$HOME/work/src/optee_os/out/arm-plat-stm32mp1/core/tee-pager_v2.bin BL32_EXTRA2=$HOME/work/src/optee_os/out/arm-plat-stm32mp1/core/tee-pageable_v2.bin fip"
+  cmd="make CROSS_COMPILE=arm-linux-gnueabihf- LD=arm-linux-gnueabihf-ld.bfd PLAT=stm32mp1 ARCH=aarch32 ARM_ARCH_MAJOR=7 AARCH32_SP=optee DTB_FILE_NAME=stm32mp157c-dk2.dtb BL33=$HOME/work/build/u-boot-dk2/u-boot-nodtb.bin BL33_CFG=$HOME/work/build/u-boot-dk2/u-boot.dtb BL32=$HOME/work/src/optee_os/out/arm-plat-stm32mp1/core/tee-header_v2.bin BL32_EXTRA1=$HOME/work/src/optee_os/out/arm-plat-stm32mp1/core/tee-pager_v2.bin BL32_EXTRA2=$HOME/work/src/optee_os/out/arm-plat-stm32mp1/core/tee-pageable_v2.bin fip"
 />
 
 The outputs are `build/stm32mp1/release/tf-a-stm32mp157c-dk2.stm32` and `build/stm32mp1/release/fip.bin`. The card needs a GPT table, not MBR. The U-Boot documentation gives the layout and the commands:[^ubstm]
@@ -248,9 +255,9 @@ label stm32mp157c-dk2-buildroot
 
 ## Where the sources disagree
 
-- **TF-A compiler.** The TF-A examples use `arm-none-eabi-`, which the lab container does not have. This guide uses `arm-linux-gnueabihf-`, and that is unverified for TF-A.[^tfa]
+- **TF-A compiler.** The TF-A examples use `arm-none-eabi-`, which the lab container does not have. This guide uses `arm-linux-gnueabihf-`.[^tfa] By default TF-A links through `gcc`, and the rule that wraps BL2 into the `.stm32` image passes `-static` without `-nostdlib`.[^tfarules] With `arm-linux-gnueabihf-gcc` that link looks for the C library, and in the lab container it stops with `cannot find -lc`. The `LD` variable overrides the linker,[^tfald] and with `LD=arm-linux-gnueabihf-ld.bfd` both TF-A builds finish in the lab container.
 - **U-Boot defconfig with FIP.** The TF-A documentation builds U-Boot with `stm32mp15_trusted_defconfig`. The U-Boot documentation says that configuration is for TF-A without FIP support and names `stm32mp15_defconfig` for FIP.[^ubstm] This guide follows U-Boot.
-- **`DEVICE_TREE` spelling.** The U-Boot documentation writes `DEVICE_TREE=stm32mp157c-ev1`, without a folder. But `configs/stm32mp15_defconfig` sets its default Device Tree to `st/stm32mp157c-ev1`, with a folder, and Buildroot 2026.02.3 passes `DEVICE_TREE=st/stm32mp157c-dk2`.[^brstm] This guide uses the `st/` form; it is unverified at `v2026.07`.
+- **`DEVICE_TREE` spelling.** The U-Boot documentation writes `DEVICE_TREE=stm32mp157c-ev1`, without a folder. But `configs/stm32mp15_defconfig` sets its default Device Tree to `st/stm32mp157c-ev1`, with a folder, and Buildroot 2026.02.3 passes `DEVICE_TREE=st/stm32mp157c-dk2`.[^brstm] This guide uses the `st/` form. At `v2026.07` it builds in the lab container, and the `u-boot.dtb` it writes has the model `STMicroelectronics STM32MP157C-DK2 Discovery Board`.
 - **BL2 file and partition names.** U-Boot calls the image `tf-a.stm32` and requires partitions named `fsbl1` and `fsbl2`. TF-A writes `tf-a-<dtb name>.stm32` and describes one `fsbl` partition, usually two copies.[^tfampus]
 - **OP-TEE or SP_min.** Both projects also document SP_min as BL32. Buildroot's DK2 configuration uses SP_min and builds no OP-TEE.[^brstm] TF-A calls OP-TEE the recommended choice.[^tfa]
 
@@ -287,5 +294,9 @@ label stm32mp157c-dk2-buildroot
 [^tfa]: TF-A documentation, STMicroelectronics STM32MP1: build instructions.
 
 [^tfampus]: TF-A documentation, STMicroelectronics STM32 MPUs: populate SD-card.
+
+[^tfarules]: TF-A `lts-v2.14.10`, `plat/st/common/common_rules.mk`: the `tf-a-%.elf` rule; `make_helpers/toolchains/aarch32.mk`: the default linker is `$(CROSS_COMPILE)gcc`.
+
+[^tfald]: TF-A documentation, performing an initial build: the default linker may be overridden with the `LD` variable.
 
 [^brstm]: Buildroot 2026.02.3, `configs/stm32mp157c_dk2_defconfig`.

@@ -6,7 +6,7 @@ module: m08
 order: 4
 type: tutorial
 boards: []
-verification: unverified
+verification: emulated
 sources:
   - title: 'Buildroot 2026.02.3 source: board/qemu/aarch64-virt/readme.txt'
     url: https://gitlab.com/buildroot.org/buildroot/-/blob/2026.02.3/board/qemu/aarch64-virt/readme.txt
@@ -30,9 +30,9 @@ import Prompt from '@ea/ui/Prompt.astro';
 import Callout from '@ea/ui/Callout.astro';
 import Deeper from '@ea/ui/Deeper.astro';
 
-<Callout level="warning">
-  Nobody has run this lab yet: the steps come from Buildroot's own files at tag `2026.02.3`, not from a recorded run. If
-  a step fails or does something this page does not describe, report it with the inaccuracy issue form.
+<Callout level="info">
+  Every command on this page was run in the lab container on 2026-10-11, and the system it built booted under QEMU to a
+  root shell. If a step fails or does something this page does not describe, report it with the inaccuracy issue form.
 </Callout>
 
 <div class="t-lead">
@@ -48,7 +48,7 @@ You need the lab container running, as the `labs/README.md` file of the reposito
 
 It clones Buildroot at tag `2026.02.3` into `~/work/src/buildroot`.
 
-Plan for a long build. This defconfig builds its own cross toolchain from source, because it selects none; the Buildroot manual puts the toolchain alone at about 15 to 20 minutes.[^faq] It also builds a kernel, a root filesystem and QEMU itself for your host.[^defconfig] The build downloads every source it needs, so keep the network up.[^quick] The manual gives no figure for disk space; check that the disk behind `~/work` has room before you start.
+Plan for a long build. This defconfig builds its own cross toolchain from source, because it selects none; the Buildroot manual puts the toolchain alone at about 15 to 20 minutes.[^faq] It also builds a kernel, a root filesystem and QEMU itself for your host.[^defconfig] The build downloads every source it needs, so keep the network up.[^quick] The manual gives no figure for disk space. In the lab container, with 8 CPUs, the whole build took 28 minutes and left 14 GB in `output/` and 1.2 GB of downloads in `dl/`; check that the disk behind `~/work` has that much room before you start.
 
 ## Load the defconfig
 
@@ -82,6 +82,8 @@ Look for three files:
 - `rootfs.ext4`: the root filesystem;
 - `start-qemu.sh`: a launcher that the board's post-image script wrote.[^post]
 
+The listing also shows `rootfs.ext2`. Buildroot writes the image as `rootfs.ext2` and makes `rootfs.ext4` a symbolic link to it, so both names open the same file.
+
 ## Boot it in QEMU
 
 Run the command from the board's `readme.txt`, unchanged, from the Buildroot tree:[^readme]
@@ -91,9 +93,9 @@ Run the command from the board's `readme.txt`, unchanged, from the Buildroot tre
   cmd='qemu-system-aarch64 -M virt -cpu cortex-a53 -nographic -smp 1 -kernel output/images/Image -append "rootwait root=/dev/vda console=ttyAMA0" -netdev user,id=eth0 -device virtio-net-device,netdev=eth0 -drive file=output/images/rootfs.ext4,if=none,format=raw,id=hd0 -device virtio-blk-device,drive=hd0'
 />
 
-This runs the container's own QEMU. The readme says the login prompt appears in the terminal that started QEMU.[^readme] Log in as `root`: Buildroot sets no root password unless you configure one.[^passwd]
+This runs the container's own QEMU. The readme says the login prompt appears in the terminal that started QEMU.[^readme] The first line is the kernel's `Booting Linux on physical CPU 0x0000000000`, then `Linux version 6.18.7`. The init scripts start `syslogd`, `klogd`, the network and `crond`, then the console shows `Welcome to Buildroot` and `buildroot login:`. Log in as `root`: Buildroot sets no root password unless you configure one, so you get a `#` prompt straight away.[^passwd]
 
-When you are done, leave QEMU with `Ctrl+a` then `x`.[^mux]
+When you are done, leave QEMU with `Ctrl+a` then `x`. QEMU prints `QEMU: Terminated` and you are back at the container prompt.[^mux]
 
 ## QEMU skips every stage before the kernel
 

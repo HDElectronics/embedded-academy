@@ -1,0 +1,37 @@
+# board: none; TF-A BL2 cross build for STM32MP157C-DK2 (PLAT=stm32mp1) in the lab container
+# software: TF-A lts-v2.14.10, arm-linux-gnueabihf-gcc 14.2.0 (Debian 14.2.0-19), GNU ld 2.44
+# command: make CROSS_COMPILE=arm-linux-gnueabihf- LD=arm-linux-gnueabihf-ld.bfd PLAT=stm32mp1 ARCH=aarch32 ARM_ARCH_MAJOR=7 DTB_FILE_NAME=stm32mp157c-dk2.dtb STM32MP_SDMMC=1
+# captured: 2026-10-11, embedded-academy-lab container (Debian 13.7, QEMU 10.0.13)
+# note: lab image built without trixie-updates; at capture the host clock matched the Date header of www.google.com, so build dates are as captured
+# note: run in ~/work/src/trusted-firmware-a after rm -rf build; the make exit status was 0
+# verification: emulated
+  MD      /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release
+  MD      /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/libfdt
+# ... (147 lines cut)
+  CC      lib/libc/strtol.c
+  CC      lib/libc/memset.c
+  AR      /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/lib/libc.a
+  LD      /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/bl2/bl2.elf
+  BIN     /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/bl2.bin
+
+Built /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/bl2.bin successfully
+
+  OD      /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/bl2/bl2.dump
+  CPP     plat/st/stm32mp1/stm32mp1.ld.S
+  AS      stm32mp1.S
+  LDS     /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/stm32mp1-stm32mp157c-dk2.o
+
+Built /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/tf-a-stm32mp157c-dk2.bin successfully
+
+
+Generate /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/tf-a-stm32mp157c-dk2.stm32
+Image Type   : ST Microelectronics STM32 V1.0
+Image Size   : 209060 bytes
+Image Load   : 0x2ffc2500
+Entry Point  : 0x2ffe9000
+Checksum     : 0x00554975
+Option     : 0x00000001
+Version	     : 0x00000000
+
+Building stm32mp1
+rm /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/tf-a-stm32mp157c-dk2.elf /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/stm32mp1-stm32mp157c-dk2.o /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/tf-a-stm32mp157c-dk2.bin
