@@ -32,9 +32,12 @@ import Prompt from '@ea/ui/Prompt.astro';
 </div>
 
 <Callout level="warning">
-  Nobody has run these steps end to end yet, so they are marked unverified. If a step fails for you, please report it
-  with the [inaccuracy issue form](https://github.com/HDElectronics/embedded-academy/issues/new?template=inaccuracy.yml)
-  and paste the command and the error.
+  The container steps on this page, `fetch-sources.sh`, `ls` and `git describe`, were run in the lab container on
+  2026-10-11. The image build that `lab.sh` starts was run with Docker on the same day. The `git clone`, the shell that
+  `lab.sh` opens and the Podman path were not run end to end, so the page stays unverified. If a step fails for you,
+  please report it with the [inaccuracy issue
+  form](https://github.com/HDElectronics/embedded-academy/issues/new?template=inaccuracy.yml) and paste the command and
+  the error.
 </Callout>
 
 ## You need Git and a container engine
