@@ -98,6 +98,8 @@ Before BL2 trusts the memory, `stm32mp1_ram.c` runs a data bus test and an addre
 
 The AM335x manual lists hardware leveling as unsupported because of a silicon bug, and says a software leveling procedure must be used.[^emif] U-Boot's SPL for the BeagleBone Black therefore programs fixed values. The board file names them after the Micron `MT41K256M16HA-125E` DDR3L part and passes them to `config_ddr()`:
 
+{/* REUSE-IgnoreStart */}
+
 <CodeBlock
   path="board/ti/am335x/board.c"
   project="U-Boot"
@@ -107,6 +109,17 @@ The AM335x manual lists hardware leveling as unsupported because of a silicon bu
 >
 
 ```c
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * board.c
+ *
+ * Board functions for TI AM335X based boards
+ *
+ * Copyright (C) 2011, Texas Instruments, Incorporated - https://www.ti.com/
+ */
+
+/* ... */
+
 void sdram_init(void)
 {
 	...
@@ -120,6 +133,8 @@ void sdram_init(void)
 ```
 
 </CodeBlock>
+
+{/* REUSE-IgnoreEnd */}
 
 The excerpt is U-Boot code under `GPL-2.0+`. `ddr3_beagleblack_data` holds the PHY ratio values, and `ddr3_beagleblack_emif_reg_data` holds the controller timings. The values themselves live in `arch/arm/include/asm/arch-am33xx/ddr_defs.h`. If you change the memory part, these are the numbers you would have to redo.
 

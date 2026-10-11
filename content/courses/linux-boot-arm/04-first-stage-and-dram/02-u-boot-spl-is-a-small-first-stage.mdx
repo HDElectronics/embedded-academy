@@ -98,6 +98,8 @@ The same board ID also chooses the DDR settings in `sdram_init()`. That is why o
 
 On OMAP-family SoCs the SPL linker script, `arch/arm/mach-omap2/u-boot-spl.lds`, defines two memory regions. Code, read-only data, data and linker lists go in `.sram`, which starts at `CONFIG_SPL_TEXT_BASE` and is `CONFIG_SPL_MAX_SIZE` long. The `.bss` section goes in `.sdram`, at `CONFIG_SPL_BSS_START_ADDR`. Its default for `ARCH_OMAP2PLUS` is `0x80A00000`, inside DDR.[^kconfig]
 
+{/* REUSE-IgnoreStart */}
+
 <CodeBlock
   path="arch/arm/mach-omap2/u-boot-spl.lds"
   project="U-Boot"
@@ -107,6 +109,15 @@ On OMAP-family SoCs the SPL linker script, `arch/arm/mach-omap2/u-boot-spl.lds`,
 >
 
 ```text
+/* SPDX-License-Identifier: GPL-2.0+ */
+/*
+ * (C) Copyright 2002
+ * Gary Jennejohn, DENX Software Engineering, <garyj@denx.de>
+ *
+ * (C) Copyright 2010
+ * Texas Instruments, <www.ti.com>
+ *	Aneesh V <aneesh@ti.com>
+ */
 MEMORY { .sram : ORIGIN = IMAGE_TEXT_BASE,\
 		LENGTH = IMAGE_MAX_SIZE }
 MEMORY { .sdram : ORIGIN = CONFIG_SPL_BSS_START_ADDR, \
@@ -114,6 +125,8 @@ MEMORY { .sdram : ORIGIN = CONFIG_SPL_BSS_START_ADDR, \
 ```
 
 </CodeBlock>
+
+{/* REUSE-IgnoreEnd */}
 
 This only works because SPL sets up DDR early. The comment in `include/configs/ti_armv7_common.h` says so: U-Boot initializes DRAM as soon as it can, so that it can place the stack, malloc and BSS there. Zeroed globals cost no SRAM, but the memory behind them does not exist until `sdram_init()` has run. The excerpt is U-Boot code under `GPL-2.0+`.
 
