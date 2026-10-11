@@ -1,0 +1,185 @@
+---
+title: The Device Tree tells the kernel what hardware exists
+description: Why Arm boards describe their hardware in a Device Tree, and how to read nodes, properties, compatible and reg.
+course: linux-boot-arm
+module: m07
+order: 1
+type: explanation
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'Devicetree Specification, Release v0.4'
+    url: https://github.com/devicetree-org/devicetree-specification/releases/tag/v0.4
+    section: '2.2.1 Node names; 2.3.1 compatible; 2.3.4 status; 2.3.6 reg; 2.3.8 ranges; 5 DTB format; 6 DTS format'
+  - title: 'Linux kernel documentation: Linux and the Devicetree'
+    url: https://www.kernel.org/doc/html/v6.18/devicetree/usage-model.html
+  - title: 'Linux source v6.18.55: arch/arm/boot/dts/st/stm32mp151.dtsi'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm/boot/dts/st/stm32mp151.dtsi?h=v6.18.55
+  - title: 'Linux source v6.18.55: arch/arm/boot/dts/st/stm32mp15xx-dkx.dtsi'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm/boot/dts/st/stm32mp15xx-dkx.dtsi?h=v6.18.55
+  - title: 'Linux source v6.18.55: arch/arm/boot/dts/st/stm32mp157c-dk2.dts'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm/boot/dts/st/stm32mp157c-dk2.dts?h=v6.18.55
+  - title: 'Linux source v6.18.55: scripts/Makefile.dtbs'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/scripts/Makefile.dtbs?h=v6.18.55
+  - title: 'Linux source v6.18.55: drivers/tty/serial/stm32-usart.c'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/tty/serial/stm32-usart.c?h=v6.18.55
+  - title: 'Raspberry Pi documentation: Device Trees, overlays, and parameters'
+    url: https://www.raspberrypi.com/documentation/computers/configuration.html#device-trees-overlays-and-parameters
+    section: 'An aside about /include/; Fragments'
+---
+
+import CodeBlock from '@ea/ui/CodeBlock.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<p class="t-lead">
+  On a PC, much of the hardware announces itself. Inside an Arm SoC, most of it can't. Before Linux can drive a UART on
+  your board, something has to tell it where the UART's registers are, which interrupt it uses and which driver fits.
+  That something is the Device Tree.
+</p>
+
+## Most SoC peripherals can't announce themselves
+
+Buses such as PCI and USB let the kernel enumerate devices at run time. The UARTs, timers and I2C controllers inside an Arm SoC sit at fixed addresses on internal buses that have no such mechanism. The kernel documentation calls them platform devices: memory-mapped devices that the hardware can't detect.[^usage]
+
+Linux used to describe them in C. Each board had a support file that registered static device structures at boot. Every new board meant new kernel code.[^usage] The Device Tree replaces that code with data: a description of the hardware that the operating system reads at boot, so it doesn't hard-code the machine's details.[^usage] One kernel image can then boot many boards, each with its own description.
+
+The kernel uses that description for three jobs:[^usage]
+
+1. **Platform identification.** The root node's `compatible` property names the board, so the kernel can pick machine-specific setup code.
+2. **Run-time configuration.** The `/chosen` node carries the kernel command line and the location of an initrd.
+3. **Device population.** Nodes with a `compatible` property become devices that drivers can bind to.
+
+## Three file types, one compiler
+
+You meet the Device Tree in three forms:
+
+- **`.dts`**, the source for one board, in a text format the specification defines.[^dts]
+- **`.dtsi`**, an include file. A `.dts` pulls in shared descriptions, such as one for the SoC and one for a family of boards.[^dts]
+- **`.dtb`**, the Device Tree blob: a flat binary encoding of the same tree, which the bootloader hands to the kernel.[^dtb]
+
+The Device Tree compiler, `dtc`, turns source into a blob, and a blob back into source.[^dts] In the kernel tree, the build first runs the C preprocessor on each `.dts`, so files use `#include` and macros from `include/dt-bindings/`, then it calls `dtc`.[^mk]
+
+## Nodes hold properties
+
+A Device Tree is a tree of nodes. Each node has a name and properties, and may have child nodes. A node's name has the form `node-name@unit-address`, and the unit address must match the first address in its `reg` property.[^names]
+
+Here is how the STM32MP157's SoC include file describes UART4. The file is licensed `GPL-2.0+ OR BSD-3-Clause`, copyright STMicroelectronics 2017; lines are cut where the comments say so.
+
+<CodeBlock path="arch/arm/boot/dts/st/stm32mp151.dtsi" project="Linux v6.18.55" lang="dts" simplified>
+
+```dts
+/ {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	/* ... */
+	soc {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		/* ... */
+		ranges;
+		/* ... */
+		etzpc: bus@5c007000 {
+			compatible = "st,stm32-etzpc", "simple-bus";
+			/* ... */
+			ranges;
+			/* ... */
+			uart4: serial@40010000 {
+				compatible = "st,stm32h7-uart";
+				reg = <0x40010000 0x400>;
+				/* ... */
+				status = "disabled";
+			};
+		};
+	};
+};
+```
+
+</CodeBlock>
+
+Read it from the inside out.
+
+### `compatible` picks the driver
+
+`compatible` is a list of strings ordered from the most specific to the most general, each usually in the form `"manufacturer,model"`.[^compat] The kernel's STM32 serial driver lists `"st,stm32h7-uart"` in its match table, so it binds to this node.[^driver] The root node's `compatible` works the same way for the whole board: an exact board name first, then the SoC family.[^usage]
+
+### `reg` says where the registers are
+
+`reg` is a list of address and length pairs.[^reg] How many 32-bit cells make up each address and each length is set by `#address-cells` and `#size-cells` in the parent node. Here the parent bus sets both to 1, so `<0x40010000 0x400>` reads as one block of registers at `0x4001_0000`, `0x400` bytes long.
+
+The parent buses have an empty `ranges` property. An empty `ranges` means the child and parent address spaces are the same,[^ranges] so `0x4001_0000` is also the address the CPU uses.
+
+### `status` switches a node on
+
+The SoC file marks UART4 `"disabled"`. A node without `status` counts as `"okay"`.[^status] SoC files describe every block the chip has, and leave it to each board to enable what is wired up.
+
+## The board file finishes the description
+
+The DK1 and DK2 boards share `stm32mp15xx-dkx.dtsi`. It refers to UART4 by its label, `&uart4`, and turns it on. It also names it `serial0` in `/aliases`. The file has the same license as the SoC file, copyright STMicroelectronics 2019.
+
+<CodeBlock path="arch/arm/boot/dts/st/stm32mp15xx-dkx.dtsi" project="Linux v6.18.55" lang="dts" simplified>
+
+```dts
+/ {
+	aliases {
+		serial0 = &uart4;
+		/* ... */
+	};
+	/* ... */
+};
+
+/* ... */
+
+&uart4 {
+	/* ... */
+	status = "okay";
+};
+```
+
+</CodeBlock>
+
+Labels like `uart4:` exist only in the source. `dtc` turns references to them into paths or numeric phandles.[^dts] When the same node appears twice, `dtc` merges the two, and later values override earlier ones.[^rpi] A block such as `&uart4 { ... }` after the root node adds to the node that carries the label. That is how one `.dts` builds on several `.dtsi` files without copying them.
+
+<Deeper depth="practitioner" title="Follow the console from /chosen to a register block">
+
+The DK2's top-level `stm32mp157c-dk2.dts` sets `stdout-path = "serial0:115200n8"` in `/chosen`. The specification says the text before `:` is a node path or an alias.[^chosen] `serial0` is an alias for `&uart4`, which is the node at `0x4001_0000`. You can trace any board's console the same way: `/chosen`, then `/aliases`, then the labelled node, then its `reg`.
+
+Buses are nodes too. UART4 sits under `bus@5c007000`, which has its own `compatible` and `reg`. Its full path is `/soc/bus@5c007000/serial@40010000`, while its label stays `uart4`.
+
+</Deeper>
+
+<Deeper depth="expert" title="What the blob looks like">
+
+A `.dtb` starts with a header whose `magic` field is `0xD00DFEED`, stored big-endian. After the header come three blocks: the memory reservation block, the structure block and the strings block.[^dtb] Property names are stored once in the strings block, and the structure block refers to them by offset.[^strings] Labels are not encoded in the blob.[^dts] The exception is `dtc -@`: it records every label in a `__symbols__` node, which is what lets an overlay refer to a label in a base tree.[^rpi]
+
+</Deeper>
+
+## What comes next
+
+The next page follows the `dtb` from the boot media into memory on each board, and shows how the kernel finds it.
+
+[^usage]: Linux kernel documentation, "Linux and the Devicetree": introduction and sections 2.1 to 2.4.
+
+[^dts]: Devicetree Specification v0.4, chapter 6, "Devicetree Source (DTS) Format (version 1)", including "Compiler directives" and "Labels".
+
+[^dtb]: Devicetree Specification v0.4, chapter 5, "Flattened Devicetree (DTB) Format", and section 5.2 for the header magic.
+
+[^mk]: `scripts/Makefile.dtbs` at Linux v6.18.55: `cmd_dtc` runs `$(HOSTCC) -E` with `-I scripts/dtc/include-prefixes`, then `$(DTC)`.
+
+[^names]: Devicetree Specification v0.4, section 2.2.1, "Node Names".
+
+[^compat]: Devicetree Specification v0.4, section 2.3.1, "compatible".
+
+[^driver]: `drivers/tty/serial/stm32-usart.c` at Linux v6.18.55: the `stm32_match` table.
+
+[^reg]: Devicetree Specification v0.4, section 2.3.6, "reg", and section 2.3.5, "#address-cells and #size-cells".
+
+[^ranges]: Devicetree Specification v0.4, section 2.3.8, "ranges".
+
+[^status]: Devicetree Specification v0.4, section 2.3.4, "status".
+
+[^chosen]: Devicetree Specification v0.4, section 3.6, "/chosen Node".
+
+[^strings]: Devicetree Specification v0.4, section 5.5, "Strings Block".
+
+[^rpi]: Raspberry Pi documentation, "Device Trees, overlays, and parameters": "An aside about /include/" for merging, and "Fragments" for `dtc -@` and `__symbols__`.

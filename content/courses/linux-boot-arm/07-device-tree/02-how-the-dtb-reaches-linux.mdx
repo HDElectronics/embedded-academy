@@ -1,0 +1,153 @@
+---
+title: The bootloader hands Linux a dtb in a register
+description: How the Raspberry Pi 4 firmware and U-Boot on the BeagleBone Black and STM32MP157 pick, load and edit the dtb before the kernel starts.
+course: linux-boot-arm
+module: m07
+order: 2
+type: explanation
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'Linux kernel documentation: Booting AArch64 Linux'
+    url: https://www.kernel.org/doc/html/v6.18/arch/arm64/booting.html
+    section: '2. Setup the device tree; 4. Call the kernel image'
+  - title: 'Linux kernel documentation: Booting ARM Linux'
+    url: https://www.kernel.org/doc/html/v6.18/arch/arm/booting.html
+    section: '4b. Setup the device tree; 6. Calling the kernel image'
+  - title: 'Linux kernel documentation: Linux and the Devicetree'
+    url: https://www.kernel.org/doc/html/v6.18/devicetree/usage-model.html
+    section: '2.3 Runtime configuration'
+  - title: 'Devicetree Specification, Release v0.4'
+    url: https://github.com/devicetree-org/devicetree-specification/releases/tag/v0.4
+    section: '3.6 /chosen Node'
+  - title: 'Raspberry Pi documentation: Device Trees, overlays, and parameters'
+    url: https://www.raspberrypi.com/documentation/computers/configuration.html#device-trees-overlays-and-parameters
+  - title: 'U-Boot documentation: Raspberry Pi'
+    url: https://docs.u-boot.org/en/latest/board/broadcom/raspberrypi.html
+  - title: 'U-Boot documentation: Generic Distro Configuration Concept'
+    url: https://docs.u-boot.org/en/latest/develop/distro.html
+  - title: 'U-Boot documentation: STM32MP1 boards'
+    url: https://docs.u-boot.org/en/latest/board/st/stm32mp1.html
+  - title: 'U-Boot documentation: fdt command'
+    url: https://docs.u-boot.org/en/latest/usage/cmd/fdt.html
+  - title: 'U-Boot source v2026.07: include/configs/am335x_evm.h and include/configs/ti_armv7_common.h'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/include/configs/am335x_evm.h
+  - title: 'U-Boot source v2026.07: board/st/stm32mp1/stm32mp1.c and include/configs/stm32mp15_common.h'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/board/st/stm32mp1/stm32mp1.c
+  - title: 'U-Boot source v2026.07: boot/fdt_support.c'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/boot/fdt_support.c
+  - title: 'Linux source v6.18.55: drivers/of/fdt.c'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/of/fdt.c?h=v6.18.55
+  - title: 'Linux source v6.18.55: Documentation/ABI/testing/sysfs-firmware-ofw'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/Documentation/ABI/testing/sysfs-firmware-ofw?h=v6.18.55
+---
+
+import BootChain from '@ea/anim/BootChain.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<p class="t-lead">
+  The kernel never searches for its Device Tree. The stage before it puts a dtb somewhere in RAM, edits it, and passes
+  its address in a register. On each of the three boards a different program does that job.
+</p>
+
+## One register carries the address
+
+The boot protocols are short on this point:
+
+- **64-bit Arm (Raspberry Pi 4 with `kernel8.img`).** Register `x0` holds the physical address of the dtb. The blob sits on an 8-byte boundary and is at most 2 MB.[^a64]
+- **32-bit Arm (BeagleBone Black, STM32MP157).** Register `r2` holds the physical address of the dtb. The kernel checks for the magic value `0xD00DFEED` at that address to tell a dtb from the older ATAG list.[^a32]
+
+Everything else the kernel learns at that moment comes from inside the blob, including its command line.
+
+## The bootloader writes `/chosen` before the jump
+
+The `/chosen` node does not describe a device. It holds parameters that the firmware chooses at run time, such as `bootargs` (the kernel command line) and `stdout-path` (the console).[^spec] Early in boot, Linux reads `bootargs` from `/chosen` and uses it as the command line.[^usage][^offdt]
+
+That makes `/chosen` the place where the bootloader and the kernel meet. For all three boards, the Linux `v6.18.55` sources set only `stdout-path` in `/chosen` and no `bootargs`. The stage that starts the kernel adds `bootargs`.
+
+U-Boot does this in `fdt_chosen()`: it finds or creates `/chosen` and copies the `bootargs` environment variable into it, as part of starting the kernel.[^ubchosen]
+
+<BootChain />
+
+On the boot chain, find the stage on each board that loads the dtb. On the Raspberry Pi 4 it is the VideoCore firmware. On the BeagleBone Black and the STM32MP157 it is U-Boot.
+
+## Raspberry Pi 4: the firmware owns the Device Tree
+
+On the Raspberry Pi 4 the GPU firmware, `start4.elf`, prepares the Device Tree before any Arm core runs:[^rpi]
+
+1. It picks a base dtb by the board revision. For a Pi 4 that is `bcm2711-rpi-4-b.dtb`, from the FAT boot partition.
+2. It applies the `dtparam=` and `dtoverlay=` lines from `config.txt`.
+3. It starts the kernel with a pointer to the merged dtb.
+
+On arm64, `x1` to `x3` must be zero,[^a64] so the command line from `cmdline.txt` has to travel inside the dtb, in `/chosen/bootargs`.
+
+If you put U-Boot between the firmware and Linux, U-Boot can keep that tree. The U-Boot documentation says `rpi_arm64_defconfig` uses the device tree the firmware provides instead of an embedded one.[^ubrpi]
+
+## BeagleBone Black: the board EEPROM chooses the file
+
+The BeagleBone Black has no firmware layer: U-Boot chooses, loads and edits the dtb. At U-Boot `v2026.07`, `am335x_evm_defconfig` sets the boot command to run `findfdt` first, then `distro_bootcmd`.[^bbb]
+
+- U-Boot reads the board name from the EEPROM on the board and stores it in `board_name`. A BeagleBone Black reports `A335BNLT`.[^bbb]
+- `findfdt` maps `A335BNLT` to `fdtfile=am335x-boneblack.dtb`.[^bbb]
+- The distro boot reads `extlinux.conf`. Its `fdt` or `fdtdir` line says where the dtb is; with `fdtdir`, U-Boot uses `fdtfile` to pick the file inside that folder. It loads the dtb to `fdt_addr_r`.[^distro]
+- On this board `fdt_addr_r` is `0x8800_0000`, in DDR.[^bbb]
+
+`bootz` then starts the kernel with `r2` pointing at the dtb.[^a32]
+
+## STM32MP157: U-Boot's own tree names the kernel's
+
+On the STM32MP157, U-Boot already runs with a Device Tree. In the TF-A boot chain with a FIP, TF-A loads that tree from the FIP next to U-Boot, as `HW_CONFIG`.[^st]
+
+At start-up, U-Boot reads the root `compatible` of that tree. If the first string starts with `st,`, it drops that prefix, adds `.dtb`, and stores the result in `fdtfile`.[^stsrc] On the DK2 the root compatible starts with `st,stm32mp157c-dk2`, so `fdtfile` becomes `stm32mp157c-dk2.dtb`.
+
+From there the flow matches the BeagleBone Black. A bootable partition holds `extlinux.conf`,[^st] U-Boot loads the dtb to `fdt_addr_r`, which is `0xC400_0000` here,[^stsrc] writes `/chosen`, and starts the kernel with `r2` set.
+
+<Deeper depth="practitioner" title="The SCMI variant changes the file name">
+
+ST recommends the `-scmi` Device Trees for products, used with OP-TEE.[^st] At Linux `v6.18.55`, `stm32mp157c-dk2-scmi.dts` has the root compatible `"st,stm32mp157c-dk2-scmi", "st,stm32mp157"`. If U-Boot's own tree carries that same compatible, the rule in `board_late_init()` sets `fdtfile` to `stm32mp157c-dk2-scmi.dtb`, and a file with that name has to be where `extlinux.conf` looks.
+
+</Deeper>
+
+<Deeper depth="expert" title="Control tree and working tree">
+
+U-Boot keeps two trees apart. The control FDT drives U-Boot's own drivers, and its documentation warns you to change it only if you know exactly why. The working FDT is the one passed to the operating system, and U-Boot may edit it freely. The `fdt addr -c` command selects the control tree; plain `fdt addr` selects the working tree.[^fdtcmd]
+
+The kernel also has a fallback for the command line. If `CONFIG_CMDLINE` is set, it is used when `bootargs` is empty. `CONFIG_CMDLINE_EXTEND` appends it to `bootargs`, and `CONFIG_CMDLINE_FORCE` replaces `bootargs`.[^offdt]
+
+</Deeper>
+
+## Linux shows you the tree it received
+
+On a running system, `/proc/device-tree` mirrors the tree as directories, one per node, with one file per property. The kernel ABI documents it as a symlink to `/sys/firmware/devicetree/base`. `/sys/firmware/fdt` holds the raw blob the bootloader passed, including the bootloader's edits.[^abi] Comparing that blob with the `.dtb` file on the boot partition shows you what the bootloader changed.
+
+## What comes next
+
+The lab dumps the Device Tree that QEMU builds for its `virt` machine, decompiles it, and compiles a real board's `.dts` from the Linux tree.
+
+[^a64]: Linux kernel documentation, "Booting AArch64 Linux", section 2 and section 4 (primary CPU register settings).
+
+[^a32]: Linux kernel documentation, "Booting ARM Linux", sections 4b and 6.
+
+[^spec]: Devicetree Specification v0.4, section 3.6, "/chosen Node".
+
+[^usage]: Linux kernel documentation, "Linux and the Devicetree", section 2.3.
+
+[^offdt]: `drivers/of/fdt.c` at Linux v6.18.55: `early_init_dt_scan_chosen()` reads `bootargs`, then applies `CONFIG_CMDLINE`, `CONFIG_CMDLINE_EXTEND` or `CONFIG_CMDLINE_FORCE`.
+
+[^ubchosen]: `boot/fdt_support.c` at U-Boot v2026.07: `fdt_chosen()`, called from `image_setup_libfdt()` in `boot/image-fdt.c`.
+
+[^rpi]: Raspberry Pi documentation, "Device Trees, overlays, and parameters", the introduction and "DTBs, overlays and config.txt".
+
+[^ubrpi]: U-Boot documentation, "Raspberry Pi", list of 64-bit defconfigs.
+
+[^bbb]: U-Boot v2026.07: `CONFIG_BOOTCOMMAND` in `configs/am335x_evm_defconfig`; `findfdt` in `include/configs/am335x_evm.h`; `fdt_addr_r` in `include/configs/ti_armv7_common.h`; `board_name` from the EEPROM via `set_board_info_env()` in `board/ti/common/board_detect.c`.
+
+[^distro]: U-Boot documentation, "Generic Distro Configuration Concept": the `fdtdir` option and the `fdt_addr_r` and `fdtfile` variables.
+
+[^st]: U-Boot documentation, "STM32MP1 boards": "Boot Sequence" (`HW_CONFIG`), "Device Tree" and the partition layout.
+
+[^stsrc]: U-Boot v2026.07: `board_late_init()` in `board/st/stm32mp1/stm32mp1.c`, which `ARCH_STM32MP` enables through `ENV_VARS_UBOOT_RUNTIME_CONFIG`; `fdt_addr_r` in `include/configs/stm32mp15_common.h`.
+
+[^fdtcmd]: U-Boot documentation, "fdt command".
+
+[^abi]: `Documentation/ABI/testing/sysfs-firmware-ofw` at Linux v6.18.55.
