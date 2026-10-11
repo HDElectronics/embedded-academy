@@ -1,0 +1,191 @@
+---
+title: 'Lab: boot U-Boot through TF-A on QEMU'
+description: Build U-Boot as BL33, build TF-A for QEMU virt with it, pack BL1 and the FIP into a flash image, and boot it with TrustZone enabled.
+course: linux-boot-arm
+module: m05
+order: 4
+type: tutorial
+boards: []
+verification: unverified
+sources:
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): QEMU virt Armv8-A'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/qemu.html
+    section: Booting via flash based firmware
+  - title: 'U-Boot documentation (v2026.07): QEMU ARM'
+    url: https://docs.u-boot.org/en/v2026.07/board/emulation/qemu-arm.html
+    section: Building (secure); Running U-Boot (non-secure)
+  - title: 'U-Boot source (v2026.07): configs/qemu_arm64_defconfig'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/configs/qemu_arm64_defconfig
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Performing an Initial Build'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/getting_started/initial-build.html
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Build Options'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/getting_started/build-options.html
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Building Supporting Tools'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/getting_started/tools-build.html
+  - title: 'Trusted Firmware-A source (lts-v2.14.10): plat/qemu/qemu/include/platform_def.h'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/qemu/qemu/include/platform_def.h
+  - title: 'Trusted Firmware-A source (lts-v2.14.10): plat/qemu/qemu/platform.mk'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/qemu/qemu/platform.mk
+  - title: 'QEMU documentation (v10.0.0): Arm virt board'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/docs/system/arm/virt.rst
+  - title: 'QEMU source (v10.0.0): qemu-options.hx and util/log.c'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/qemu-options.hx
+---
+
+import Prompt from '@ea/ui/Prompt.astro';
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<Callout level="warning">
+  Nobody has run these steps yet. Every command comes from the upstream documents listed under Sources, at the versions
+  this course pins, but the lab is unverified. If a step fails or behaves differently, open an issue with the
+  `inaccuracy` form and paste what you saw.
+</Callout>
+
+<p class="t-lead">
+  In this lab you build the whole AArch64 TF-A chain on your machine and boot it on QEMU's `virt` board with TrustZone
+  turned on. TF-A's BL1 is the boot ROM, BL2 loads the images, BL31 stays resident in the secure world, and U-Boot runs
+  as BL33 in the normal world.
+</p>
+
+## The lab follows two upstream guides
+
+TF-A's QEMU guide gives the TF-A build and the QEMU command line. Its BL33 is EDK II (`QEMU_EFI.fd`), not U-Boot, and it names no U-Boot configuration.[^tfa-qemu] U-Boot's QEMU ARM guide fills that gap: to run U-Boot with TF-A on AArch64, it builds U-Boot with `qemu_arm64_defconfig` and passes `u-boot.bin` to TF-A as `BL33`.[^uboot-qemu] That defconfig exists at U-Boot `v2026.07`.[^defconfig]
+
+This lab differs from both guides in four ways. Each is on purpose:
+
+1. **U-Boot is BL33**, as in U-Boot's guide, instead of EDK II.
+2. **No BL32.** Both guides add OP-TEE with `SPD=opteed`. This lab leaves it out, so BL31 starts BL33 directly.
+3. **No transfer list.** U-Boot's guide also passes `TRANSFER_LIST=1` to TF-A. This lab keeps TF-A's default, `0`.[^opts]
+4. **No Linux yet.** TF-A's QEMU command passes a kernel, a command line and an initramfs with `-kernel`, `-append` and `-initrd`. This lab drops those three options and stops at U-Boot's prompt.[^tfa-qemu]
+
+If one of these changes breaks the boot for you, say so in your report: it tells us which upstream step is required.
+
+## Start the lab and fetch the sources
+
+Start the lab container from the repository root on your machine with `sh labs/lab.sh`. You get a shell as `learner` on host `lab`. Then clone the pinned sources into `~/work/src`:
+
+<Prompt cmd="sh ~/course/fetch-sources.sh" />
+
+You need two of them: `~/work/src/u-boot` at `v2026.07` and `~/work/src/trusted-firmware-a` at `lts-v2.14.10`.
+
+## Build U-Boot for QEMU as BL33
+
+Tell U-Boot's build which cross compiler to use. The lab container has the 64-bit Arm GCC with the prefix `aarch64-linux-gnu-`:
+
+<Prompt dir="~/work/src/u-boot" cmd="export CROSS_COMPILE=aarch64-linux-gnu-" />
+
+Select the QEMU AArch64 configuration, then build:[^uboot-qemu]
+
+<Prompt dir="~/work/src/u-boot" cmd="make qemu_arm64_defconfig" />
+
+<Prompt dir="~/work/src/u-boot" cmd="make -j$(nproc)" />
+
+The build writes `u-boot.bin` in the top folder of the U-Boot tree. That file is your BL33.[^uboot-qemu]
+
+## Build TF-A with U-Boot inside the FIP
+
+Move to the TF-A tree and build every image plus the FIP in one command:
+
+<Prompt
+  dir="~/work/src/trusted-firmware-a"
+  cmd="make CROSS_COMPILE=aarch64-linux-gnu- PLAT=qemu BL33=$HOME/work/src/u-boot/u-boot.bin all fip"
+/>
+
+This is the flash build from TF-A's QEMU guide with the OP-TEE options removed.[^tfa-qemu] Each part has one job:
+
+- `CROSS_COMPILE=aarch64-linux-gnu-` selects the cross compiler, as in the guide.
+- `PLAT=qemu` selects the QEMU `virt` platform.
+- `BL33=...` is the image packed into the FIP as BL33. It is mandatory for the `fip` target.[^opts]
+- `all` builds `bl1.bin`, `bl2.bin` and `bl31.bin`; `fip` packs `fip.bin`.[^initial][^tools]
+
+`DEBUG` is not set, so this is a release build and its products are in `build/qemu/release/`.[^initial] Because `BL33` is set, the QEMU platform also writes `qemu_fw.bios` there.[^platform-mk]
+
+Check what went into the FIP:[^tools]
+
+<Prompt dir="~/work/src/trusted-firmware-a" cmd="./tools/fiptool/fiptool info build/qemu/release/fip.bin" />
+
+You should find three entries: Trusted Boot Firmware BL2, EL3 Runtime Firmware BL31 and Non-Trusted Firmware BL33. BL1 is not in the list. It is not loaded from the FIP: it is the code that reads it.
+
+## Put BL1 and the FIP into one flash image
+
+On `virt`, flash starts at address `0x0000_0000`.[^virt] TF-A's QEMU platform runs BL1 from there and expects the FIP at offset `0x0004_0000`.[^platform-def] Build the flash image with the two `dd` commands from TF-A's guide.[^tfa-qemu] First BL1, at the start:
+
+<Prompt dir="~/work/src/trusted-firmware-a" cmd="dd if=build/qemu/release/bl1.bin of=flash.bin bs=4096 conv=notrunc" />
+
+Then the FIP, 64 blocks of 4096 bytes in. That is `0x40000` bytes, the offset BL1 expects:
+
+<Prompt
+  dir="~/work/src/trusted-firmware-a"
+  cmd="dd if=build/qemu/release/fip.bin of=flash.bin seek=64 bs=4096 conv=notrunc"
+/>
+
+`flash.bin` now has the same layout as `build/qemu/release/qemu_fw.bios`, which the TF-A build made the same way.[^platform-mk]
+
+## Boot with the secure world enabled
+
+Run TF-A's QEMU command, without the three Linux options:[^tfa-qemu]
+
+<Prompt
+  dir="~/work/src/trusted-firmware-a"
+  cmd="qemu-system-aarch64 -nographic -machine virt,secure=on -cpu cortex-a57 -smp 2 -m 1024 -bios flash.bin -d unimp"
+/>
+
+What each option does:
+
+- `-machine virt,secure=on` emulates a CPU with the Arm Security Extensions, TrustZone. The default is `off`.[^virt] With it on, `virt` adds secure-only devices, among them a secure flash and 16 MB of secure RAM.[^virt] TF-A's QEMU platform places BL2 and BL31 in secure SRAM at `0x0E00_0000`.[^platform-def]
+- `-cpu cortex-a57` gives a 64-bit CPU. U-Boot's guide notes that `qemu-system-aarch64` needs this or it boots in 32-bit mode.[^uboot-qemu]
+- `-smp 2` starts two cores. BL1 picks one to boot; the other waits until the normal world releases it through PSCI.[^tfa-qemu]
+- `-m 1024` gives 1 GiB of RAM, starting at `0x4000_0000`.[^virt] BL2 loads BL33 at `0x6000_0000`, 512 MiB into RAM, so the machine needs more RAM than that.[^platform-def]
+- `-bios flash.bin` loads your flash image where the CPU starts after reset.[^tfa-qemu]
+- `-d unimp` asks QEMU to log accesses to functionality it does not implement.[^qemu-src]
+- `-nographic` sends the serial console to your terminal.[^qemu-src]
+
+## Read the boot on the console
+
+Watch the order of the output. A release build of TF-A compiles in log level 20, so it prints only errors and notices.[^opts] You should see a few lines from TF-A first, then U-Boot's banner. When U-Boot offers to stop autoboot, press a key to get its prompt.
+
+The first lines come from the secure world: BL1 and BL2 at boot, then BL31. Everything after U-Boot's banner runs in the normal world. BL31 is still in memory, waiting for an SMC.
+
+To quit QEMU, press `Ctrl-A`, then `X`.[^uboot-qemu]
+
+<Deeper depth="practitioner" title="See more of what TF-A does">
+
+Rebuild TF-A with `DEBUG=1`. Debug builds compile in log level 40, so each stage prints far more.[^opts] The products move to `build/qemu/debug/`, so change both `dd` commands to read from there.[^initial]
+
+<Prompt
+  dir="~/work/src/trusted-firmware-a"
+  cmd="make CROSS_COMPILE=aarch64-linux-gnu- PLAT=qemu BL33=$HOME/work/src/u-boot/u-boot.bin DEBUG=1 all fip"
+/>
+
+</Deeper>
+
+<Deeper depth="expert" title="Adding OP-TEE as BL32">
+
+U-Boot's guide adds OP-TEE: it builds `optee_os` for `PLATFORM=vexpress-qemu_armv8a`, then passes the three OP-TEE images to TF-A as `BL32`, `BL32_EXTRA1` and `BL32_EXTRA2`, with `SPD=opteed`, `BL32_RAM_LOCATION=tdram` and `TRANSFER_LIST=1`.[^uboot-qemu] It notes that OP-TEE for AArch64 needs both a 64-bit and a 32-bit cross compiler. Its run command also adds `virtualization=on` to `-machine`. This course has not tried that build in the lab container yet.
+
+</Deeper>
+
+## What you built
+
+You ran the full five-step AArch64 chain from the first page of this module, minus the optional BL32: BL1 from flash, BL2 and BL31 in secure RAM, and U-Boot as BL33 in normal RAM. The STM32MP157 runs a shorter version of it. Its ROM code replaces BL1, and because it is AArch32 there is no BL31: OP-TEE, as BL32, takes over the monitor.
+
+[^tfa-qemu]: Trusted Firmware-A documentation, QEMU virt Armv8-A: introduction, "Booting via semi-hosting option" and "Booting via flash based firmware".
+
+[^uboot-qemu]: U-Boot documentation at `v2026.07`, QEMU ARM: "Building (secure)", "Running U-Boot (secure)" and "Running U-Boot (non-secure)".
+
+[^defconfig]: U-Boot source at `v2026.07`: `configs/qemu_arm64_defconfig`.
+
+[^opts]: Trusted Firmware-A documentation, Build Options: `BL33`, `DEBUG`, `LOG_LEVEL` and `TRANSFER_LIST`.
+
+[^initial]: Trusted Firmware-A documentation, Performing an Initial Build: build products and build types.
+
+[^tools]: Trusted Firmware-A documentation, Building Supporting Tools: "Building and using the FIP tool".
+
+[^platform-mk]: Trusted Firmware-A source at `lts-v2.14.10`, `plat/qemu/qemu/platform.mk`: the `qemu_fw.bios` rule copies `bl1.bin` and writes `fip.bin` at 4 blocks of 64 KiB, and `all` depends on it when `BL33` is set.
+
+[^platform-def]: Trusted Firmware-A source at `lts-v2.14.10`, `plat/qemu/qemu/include/platform_def.h`: `PLAT_QEMU_FIP_BASE` is `0x00040000`; secure SRAM at `0x0e000000` and secure DRAM at `0x0e100000`; `BL2_BASE` and `BL31_BASE` sit inside the secure SRAM; `NS_IMAGE_OFFSET` is `NS_DRAM0_BASE + 0x20000000`, with `NS_DRAM0_BASE` at `0x40000000`.
+
+[^virt]: QEMU documentation at `v10.0.0`, `docs/system/arm/virt.rst`: supported devices, the `secure` option, and the fixed flash and RAM addresses.
+
+[^qemu-src]: QEMU source at `v10.0.0`: `qemu-options.hx` for `-nographic` and `-d`; `util/log.c` lists `unimp` as "log unimplemented functionality".
