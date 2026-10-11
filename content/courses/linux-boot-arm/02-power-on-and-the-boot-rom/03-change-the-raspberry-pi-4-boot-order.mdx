@@ -1,0 +1,125 @@
+---
+title: Change the Raspberry Pi 4 boot order
+description: Set BOOT_ORDER in the Raspberry Pi 4 EEPROM bootloader with rpi-eeprom-config, for example to try USB mass storage before the SD card.
+course: linux-boot-arm
+module: m02
+order: 3
+type: how-to
+boards: [rpi4]
+verification: unverified
+sources:
+  - title: 'Raspberry Pi documentation: Raspberry Pi hardware, boot sequence and boot EEPROM'
+    url: https://www.raspberrypi.com/documentation/computers/raspberry-pi.html
+    section: Raspberry Pi boot EEPROM; Raspberry Pi bootloader configuration; BOOT_ORDER
+  - title: 'Raspberry Pi documentation: config.txt'
+    url: https://www.raspberrypi.com/documentation/computers/config_txt.html
+    section: eeprom_write_protect
+---
+
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+import Prompt from '@ea/ui/Prompt.astro';
+
+<div class="t-lead">
+  The Raspberry Pi 4 keeps its boot order in the configuration of its EEPROM bootloader. This guide changes it with
+  `rpi-eeprom-config` so the board tries USB mass storage before the SD card.
+</div>
+
+<Callout level="warning">
+  Nobody has run these steps for this course yet. They follow the Raspberry Pi documentation. If a step fails, report it
+  with the inaccuracy issue form.
+</Callout>
+
+## Before you start
+
+- You need a Raspberry Pi 4 that boots Raspberry Pi OS, and a root shell on it. The commands here run as root. The Raspberry Pi documentation runs the same commands with `sudo`.
+- Update the system first, so you have the latest `rpi-eeprom` package.[^rpi-config]
+- `rpi-eeprom-config --edit` applies your configuration to the latest available bootloader release, so this also updates the bootloader.[^rpi-eeprom]
+- If the EEPROM was write-protected with `eeprom_write_protect` and the `/WP` pin, the update can't be written.[^rpi-wp]
+
+<Prompt user="root" host="rpi4" cmd="apt update" />
+
+<Prompt user="root" host="rpi4" cmd="apt full-upgrade" />
+
+## Read the current configuration
+
+Print the bootloader version, then the configuration the running bootloader uses:[^rpi-eeprom]
+
+<Prompt user="root" host="rpi4" cmd="vcgencmd bootloader_version" />
+
+<Prompt user="root" host="rpi4" cmd="rpi-eeprom-config" />
+
+Look for a `BOOT_ORDER` line. If there is none, the bootloader uses `0xf41`: SD card, then USB mass storage, then start again.[^rpi-order]
+
+## Choose the new order
+
+`BOOT_ORDER` is a hexadecimal number. Each digit is one boot mode, and the bootloader reads the digits from right to left.[^rpi-order]
+
+| Value   | Order                                  |
+| ------- | -------------------------------------- |
+| `0xf41` | SD, then USB mass storage, then repeat |
+| `0xf14` | USB mass storage, then SD, then repeat |
+| `0xf21` | SD, then network, then repeat          |
+
+The reference page in this module lists every boot mode digit. This guide uses `0xf14`.
+
+## Edit and apply the configuration
+
+1. Open the configuration in a text editor:
+
+   <Prompt user="root" host="rpi4" cmd="rpi-eeprom-config --edit" />
+
+2. Set the `BOOT_ORDER` line, or add it if it is missing:
+
+   ```ini
+   BOOT_ORDER=0xf14
+   ```
+
+3. Save the file and close the editor. `rpi-eeprom-config` schedules an EEPROM update for the next reboot. If the configuration is unchanged or empty, it changes nothing.[^rpi-eeprom]
+
+4. Reboot to write the update:
+
+   <Prompt user="root" host="rpi4" cmd="reboot" />
+
+## Check the result
+
+After the board is back, print the configuration again and check that `BOOT_ORDER` has the new value:
+
+<Prompt user="root" host="rpi4" cmd="rpi-eeprom-config" />
+
+If a monitor is connected, the bootloader's HDMI diagnostic screen also shows the boot order it detected.[^rpi-diag]
+
+## Cancel or undo the change
+
+- To cancel an update that is scheduled but not yet written, before you reboot:[^rpi-eeprom]
+
+  <Prompt user="root" host="rpi4" cmd="rpi-eeprom-update -r" />
+
+- To go back to the default order, edit the configuration again and set `BOOT_ORDER=0xf41`, then reboot.
+- If the board no longer boots, reflash the bootloader with Raspberry Pi Imager. Choose **Misc utility images**, then **Bootloader**, then **SD Card Boot**, and write it to a spare card. Boot the board from that card, wait for the green screen and the steady LED pattern, then power off.[^rpi-reset]
+
+<Deeper depth="practitioner" title="Apply a saved configuration instead of an editor">
+
+`rpi-eeprom-config --apply` takes the configuration from a file, which suits scripts and many boards. Save the current configuration, change `BOOT_ORDER` in `boot.conf`, then apply it and reboot:[^rpi-eeprom]
+
+<Prompt user="root" host="rpi4" cmd="rpi-eeprom-config > boot.conf" />
+
+<Prompt user="root" host="rpi4" cmd="rpi-eeprom-config --apply boot.conf" />
+
+To change a bootloader image file without touching the board's EEPROM, write a new image with your configuration:[^rpi-eeprom]
+
+<Prompt user="root" host="rpi4" cmd="rpi-eeprom-config --config boot.conf --out new.bin pieeprom.bin" />
+
+</Deeper>
+
+[^rpi-config]: Raspberry Pi documentation, [Raspberry Pi bootloader configuration](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#raspberry-pi-bootloader-configuration), Edit the configuration.
+
+[^rpi-eeprom]: Raspberry Pi documentation, [Raspberry Pi boot EEPROM](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#raspberry-pi-boot-eeprom), Update the bootloader configuration and `rpi-eeprom-update`.
+
+[^rpi-order]: Raspberry Pi documentation, [`BOOT_ORDER`](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#BOOT_ORDER).
+
+[^rpi-wp]: Raspberry Pi documentation, [Boot options](https://www.raspberrypi.com/documentation/computers/config_txt.html#boot-options), `eeprom_write_protect`.
+
+[^rpi-diag]: Raspberry Pi documentation, [Raspberry Pi boot EEPROM](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#raspberry-pi-boot-eeprom), Diagnose bootloader issues.
+
+[^rpi-reset]: Raspberry Pi documentation, [Raspberry Pi boot EEPROM](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#raspberry-pi-boot-eeprom), Reflash the bootloader.
