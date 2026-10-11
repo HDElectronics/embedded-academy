@@ -37,12 +37,12 @@ import CodeBlock from '@ea/ui/CodeBlock.astro';
 import Deeper from '@ea/ui/Deeper.astro';
 import BootChain from '@ea/anim/BootChain.astro';
 
-<p class="t-lead">
+<div class="t-lead">
   Full U-Boot, with its drivers and command line, is built to run from DRAM. To get there on boards whose boot ROM can
   only load into small on-chip SRAM, U-Boot's source tree can also build a second, much smaller program: the Secondary
   Program Loader, or SPL. Its job is the one the last page described: set up DRAM, load the full U-Boot into it, and
   jump.
-</p>
+</div>
 
 ## SPL is built from the same tree as U-Boot
 
