@@ -1,0 +1,112 @@
+---
+title: Build U-Boot SPL and u-boot.img for the BeagleBone Black
+description: Cross-compile MLO and u-boot.img for the BeagleBone Black from U-Boot v2026.07 with am335x_evm_defconfig in the lab container.
+course: linux-boot-arm
+module: m04
+order: 3
+type: how-to
+boards: [bbb]
+verification: unverified
+sources:
+  - title: 'U-Boot v2026.07 documentation: Building with GCC'
+    url: https://docs.u-boot.org/en/v2026.07/build/gcc.html
+  - title: 'U-Boot v2026.07 documentation: AM335x Generation'
+    url: https://docs.u-boot.org/en/v2026.07/board/ti/am335x_evm.html
+  - title: 'U-Boot v2026.07 source: configs/am335x_evm_defconfig'
+    url: https://github.com/u-boot/u-boot/blob/v2026.07/configs/am335x_evm_defconfig
+  - title: 'U-Boot v2026.07 source: scripts/Makefile.xpl and arch/arm/mach-omap2/config.mk'
+    url: https://github.com/u-boot/u-boot/blob/v2026.07/arch/arm/mach-omap2/config.mk
+  - title: 'U-Boot v2026.07 source: common/spl/Kconfig'
+    url: https://github.com/u-boot/u-boot/blob/v2026.07/common/spl/Kconfig
+  - title: TI AM335x and AMIC110 Sitara Processors Technical Reference Manual (SPRUH73Q)
+    url: https://www.ti.com/lit/ug/spruh73q/spruh73q.pdf
+    section: 26.1.8.5.7.3 FAT12/16/32 Root Directory
+---
+
+import Prompt from '@ea/ui/Prompt.astro';
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<p class="t-lead">
+  This recipe builds the two U-Boot files a BeagleBone Black boots from an SD card: `MLO`, the first stage, and
+  `u-boot.img`, the full U-Boot. You build both in one `make` run in the lab container.
+</p>
+
+<Callout level="warning">
+  Nobody has run these commands in the lab container yet, so the page is marked unverified. If a step fails for you,
+  report it with the inaccuracy issue form.
+</Callout>
+
+## Before you start
+
+You need the lab container running, with the course sources fetched. Start it from the repository root on your machine with `sh labs/lab.sh`. The commands that follow run inside it, as `learner` on host `lab`.
+
+If you have not fetched the sources yet, clone them at the pinned versions:
+
+<Prompt cmd="sh ~/course/fetch-sources.sh" />
+
+U-Boot lands in `~/work/src/u-boot`, at tag `v2026.07`. The container already has the `arm-linux-gnueabihf-` cross compiler the BeagleBone Black's 32-bit Cortex-A8 needs.
+
+## Configure U-Boot for the AM335x
+
+U-Boot has no defconfig named after the BeagleBone Black. The AM335x one, `am335x_evm_defconfig`, covers the TI AM335x evaluation boards and the BeagleBone family.[^am335x-doc] A `<board>_defconfig` name is a make target that writes the full configuration to `.config`.[^gcc]
+
+Build out of tree, so the source folder stays clean and other boards can share it. `O=` names the build folder; U-Boot creates it.[^gcc] `CROSS_COMPILE` gives the prefix of the cross compiler.[^gcc]
+
+<Prompt
+  dir="~/work/src/u-boot"
+  cmd="make CROSS_COMPILE=arm-linux-gnueabihf- O=$HOME/work/build/u-boot-bbb am335x_evm_defconfig"
+/>
+
+The defconfig sets `CONFIG_SPL=y`, so the next step builds SPL as well as U-Boot proper.[^defconfig]
+
+## Build MLO and u-boot.img
+
+Run the build with one job per CPU core:
+
+<Prompt
+  dir="~/work/src/u-boot"
+  cmd="make CROSS_COMPILE=arm-linux-gnueabihf- O=$HOME/work/build/u-boot-bbb -j$(nproc)"
+/>
+
+Keep the same `CROSS_COMPILE` and `O=` values on every `make` you run for this build. When it ends without an error, list the results:
+
+<Prompt dir="~/work/build/u-boot-bbb" cmd="ls -l MLO u-boot.img spl/u-boot-spl.bin" />
+
+You should see all three files. Each has a role:
+
+- `spl/u-boot-spl.bin` is the raw SPL, linked to run from on-chip SRAM.
+- `MLO` is that same SPL with the header the AM335x boot ROM needs. The SPL build creates it with `mkimage -T omapimage`.[^mlo]
+- `u-boot.img` is U-Boot proper, packed by `mkimage` with the Device Trees of the boards `am335x_evm_defconfig` supports.[^defconfig]
+
+If one is missing, scroll back through the build log for the first error.
+
+## Put the files where the boot chain looks for them
+
+When the board boots from the SD card, the boot ROM looks for `MLO` in the root directory of a FAT partition.[^rom-fat] SPL then reads `u-boot.img` by name from the same partition, the name set by `CONFIG_SPL_FS_LOAD_PAYLOAD_NAME`.[^defconfig] So both files go in the root of the card's FAT boot partition.
+
+Module 08 partitions and writes a full SD card image. Until then, keep the build folder: the module's lab measures these files.
+
+<Callout level="info">
+  The lab container cannot boot these files. QEMU does not emulate the AM335x, so nothing here runs the SPL you built.
+</Callout>
+
+<Deeper depth="practitioner" title="If the SPL link fails on size">
+
+The SPL linker script places code and data in a region as long as `CONFIG_SPL_MAX_SIZE`. For non-secure AM33xx parts its default is `0x1B000`.[^kconfig] When you enable more SPL features, for example another file system with a `CONFIG_SPL_...` option, the link can fail because the SPL no longer fits that region.
+
+Raising `CONFIG_SPL_MAX_SIZE` does not help: the limit comes from the SRAM area the boot ROM loads into. Remove an SPL feature you do not need instead, with `make CROSS_COMPILE=arm-linux-gnueabihf- O=$HOME/work/build/u-boot-bbb menuconfig`, then rebuild.
+
+</Deeper>
+
+[^gcc]: U-Boot v2026.07 documentation, "Building with GCC", sections "Configuration", "Building" and "Out-of-tree building".
+
+[^am335x-doc]: U-Boot v2026.07 documentation, "AM335x Generation", sections "Summary" and "Hardware".
+
+[^defconfig]: U-Boot v2026.07, `configs/am335x_evm_defconfig`: `CONFIG_SPL`, `CONFIG_SPL_LOAD_FIT`, `CONFIG_OF_LIST` and `CONFIG_SPL_FS_LOAD_PAYLOAD_NAME`.
+
+[^mlo]: U-Boot v2026.07, `arch/arm/mach-omap2/config.mk` adds `MLO` to the SPL build; `scripts/Makefile.xpl` defines `MKIMAGEFLAGS_MLO`.
+
+[^rom-fat]: TI SPRUH73Q, section 26.1.8.5.7.3 "FAT12/16/32 Root Directory".
+
+[^kconfig]: U-Boot v2026.07, `common/spl/Kconfig`, option `SPL_MAX_SIZE`.
