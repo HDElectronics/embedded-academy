@@ -27,11 +27,11 @@ import Callout from '@ea/ui/Callout.astro';
 import Deeper from '@ea/ui/Deeper.astro';
 import Prompt from '@ea/ui/Prompt.astro';
 
-<p class="t-lead">
+<div class="t-lead">
   On a Raspberry Pi 4, you don't recompile the Device Tree to add a HAT or a sensor. You list overlays in config.txt,
   and the firmware merges them into the base tree before Linux starts. This page enables an I2C real-time clock and
   gives the PL011 UART back to the GPIO header.
-</p>
+</div>
 
 <Callout level="warning">
   These steps have not been run on a board yet. They follow the Raspberry Pi documentation. If a step behaves
