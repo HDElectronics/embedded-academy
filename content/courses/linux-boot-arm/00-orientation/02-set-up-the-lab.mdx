@@ -1,0 +1,133 @@
+---
+title: Set up the lab container
+description: Start the course's lab container with Podman or Docker, fetch the pinned sources, and learn where your work is kept.
+course: linux-boot-arm
+module: m00
+order: 2
+type: tutorial
+boards: []
+verification: unverified
+sources:
+  - title: 'Embedded Academy source: labs/Containerfile, labs/lab.sh and labs/linux-boot-arm/'
+    url: https://github.com/HDElectronics/embedded-academy/tree/main/labs
+  - title: 'Podman documentation: Podman installation instructions'
+    url: https://podman.io/docs/installation
+  - title: 'Docker documentation: Get Docker'
+    url: https://docs.docker.com/get-started/get-docker/
+  - title: 'Debian packages: gcc-aarch64-linux-gnu in trixie'
+    url: https://packages.debian.org/trixie/gcc-aarch64-linux-gnu
+  - title: 'Debian packages: gcc-arm-linux-gnueabihf in trixie'
+    url: https://packages.debian.org/trixie/gcc-arm-linux-gnueabihf
+  - title: 'Debian packages: qemu-system-arm in trixie'
+    url: https://packages.debian.org/trixie/qemu-system-arm
+---
+
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+import Prompt from '@ea/ui/Prompt.astro';
+
+<div class="t-lead">
+  Every lab in this course runs in one container. It holds the cross compilers for 64-bit and 32-bit Arm, QEMU, and
+  everything U-Boot, TF-A, OP-TEE, Linux and Buildroot need to build. You set it up once, here.
+</div>
+
+<Callout level="warning">
+  Nobody has run these steps end to end yet, so they are marked unverified. If a step fails for you, please report it
+  with the [inaccuracy issue form](https://github.com/HDElectronics/embedded-academy/issues/new?template=inaccuracy.yml)
+  and paste the command and the error.
+</Callout>
+
+## You need Git and a container engine
+
+Install Git and one container engine, Podman or Docker, on your computer. Follow the official instructions for your system: the [Podman installation instructions](https://podman.io/docs/installation) or [Get Docker](https://docs.docker.com/get-started/get-docker/). The lab script is a POSIX `sh` script, so run it from a Unix-like shell.
+
+In this lesson, a prompt with the host `host` is your own computer. A prompt with the host `lab` is the container.
+
+## Clone the course repository
+
+The container definition and its scripts live in the course repository, under `labs/`. Clone it:
+
+<Prompt host="host" cmd="git clone https://github.com/HDElectronics/embedded-academy.git" />
+
+## Start the lab container
+
+The prompts assume you cloned into your home folder. Run the lab script from the repository root:
+
+<Prompt host="host" dir="~/embedded-academy" cmd="sh labs/lab.sh" />
+
+The script does three things[^lab]:
+
+1. It picks Podman if it is installed, and Docker otherwise.
+2. It builds an image named `embedded-academy-lab` from `labs/Containerfile`. The first build downloads a Debian 13 (trixie) base image and installs the toolchains, so it takes a while. Later runs build again, but the engine reuses its cached layers.
+3. It opens a `bash` shell in a new container, as the user `learner` on the host `lab`.
+
+If you have both engines installed and want Docker, set `ENGINE`:
+
+<Prompt host="host" dir="~/embedded-academy" cmd="ENGINE=docker sh labs/lab.sh" />
+
+To leave the container, type `exit`. The script starts the container with `--rm`, so the container is deleted when you leave. Run `sh labs/lab.sh` again to get a fresh one.
+
+## Keep your work in `~/work`
+
+Two folders of your computer are mounted into the container[^lab]:
+
+- **`~/work`** is `labs/work` in the repository, read-write. Sources and build output go here, and they survive `exit`.
+- **`~/course`** is `labs/linux-boot-arm` in the repository, read-only. It holds `versions.env` and `fetch-sources.sh`.
+
+Everything outside `~/work` disappears with the container. Clone, build and save inside `~/work`, and you find your files again the next time you start the lab, or on your computer under `labs/work`.
+
+## Fetch the pinned sources
+
+Inside the container, run the fetch script:
+
+<Prompt dir="~" cmd="sh ~/course/fetch-sources.sh" />
+
+It reads `~/course/versions.env` and clones each project at its pinned tag into `~/work/src`[^lab]. The clones are shallow (`git clone --depth 1`): you get the files at that tag, without the project's history. A project that is already cloned is skipped, so you can run the script again safely.
+
+List what you fetched:
+
+<Prompt dir="~" cmd="ls ~/work/src" />
+
+You should see five folders: `linux`, `u-boot`, `trusted-firmware-a`, `optee_os` and `buildroot`. Check that a clone sits on its pinned tag:
+
+<Prompt dir="~/work/src/u-boot" cmd="git describe --tags" />
+
+The command prints the tag name. Compare it with the list of pinned versions.
+
+## The course pins every version it teaches
+
+Each lesson is written against one version of each project. The versions come from `labs/linux-boot-arm/versions.env`, pinned on 2026-10-11 from each project's release tags[^lab]:
+
+- **Linux** `v6.18.55`, from the [stable kernel tree](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git), into `~/work/src/linux`.
+- **U-Boot** `v2026.07`, from the [U-Boot repository on source.denx.de](https://source.denx.de/u-boot/u-boot), into `~/work/src/u-boot`.
+- **TF-A** `lts-v2.14.10`, from [ARM-software/arm-trusted-firmware](https://github.com/ARM-software/arm-trusted-firmware), into `~/work/src/trusted-firmware-a`.
+- **OP-TEE** `4.10.0`, from [OP-TEE/optee_os](https://github.com/OP-TEE/optee_os), into `~/work/src/optee_os`.
+- **Buildroot** `2026.02.3`, from the [Buildroot repository on GitLab](https://gitlab.com/buildroot.org/buildroot), into `~/work/src/buildroot`.
+
+The tools come from Debian 13 packages, installed by `labs/Containerfile`[^lab]:
+
+- **GCC 14.2 for 64-bit Arm**, with its binutils: commands start with `aarch64-linux-gnu-`. Package `gcc-aarch64-linux-gnu`[^gcc64].
+- **GCC 14.2 for 32-bit Arm**, with its binutils: commands start with `arm-linux-gnueabihf-`. Package `gcc-arm-linux-gnueabihf`[^gcc32].
+- **QEMU 10.0**: `qemu-system-aarch64` and `qemu-system-arm`. Package `qemu-system-arm`[^qemu].
+
+The `Containerfile` names packages without versions. The exact package versions you get depend on what Debian publishes for trixie on the day you build the image.
+
+<Deeper depth="practitioner" title="What lab.sh passes to the container engine">
+
+`lab.sh` runs the container with `--hostname lab` and two bind mounts: `labs/work` on `/home/learner/work`, and `labs/linux-boot-arm` on `/home/learner/course` with `:ro`. With Podman it also adds `--userns=keep-id`, because rootless Podman otherwise maps your user to `root` in the container[^lab].
+
+`fetch-sources.sh` clones into `$HOME/work/src` unless you set `DEST`. If you set it, keep it inside `~/work`, or the clones disappear when you leave the container.
+
+</Deeper>
+
+## What comes next
+
+The next page introduces the three boards the course follows, and says which of them QEMU can emulate and which ones the labs simulate.
+
+[^lab]: Embedded Academy, `labs/lab.sh`, `labs/Containerfile`, `labs/linux-boot-arm/versions.env` and `labs/linux-boot-arm/fetch-sources.sh`.
+
+[^gcc64]: Debian package index, [`gcc-aarch64-linux-gnu` in trixie](https://packages.debian.org/trixie/gcc-aarch64-linux-gnu): version `4:14.2.0-1` on 2026-10-11.
+
+[^gcc32]: Debian package index, [`gcc-arm-linux-gnueabihf` in trixie](https://packages.debian.org/trixie/gcc-arm-linux-gnueabihf): version `4:14.2.0-1` on 2026-10-11.
+
+[^qemu]: Debian package index, [`qemu-system-arm` in trixie](https://packages.debian.org/trixie/qemu-system-arm): version `1:10.0.13+ds-0+deb13u1` on 2026-10-11. The package installs both `qemu-system-aarch64` and `qemu-system-arm`.
