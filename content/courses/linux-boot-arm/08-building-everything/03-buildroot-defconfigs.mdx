@@ -1,0 +1,130 @@
+---
+title: Buildroot defconfigs for the course boards
+description: The Buildroot 2026.02.3 defconfigs for Raspberry Pi 4, BeagleBone Black, STM32MP157C-DK2 and QEMU, and the images each one produces.
+course: linux-boot-arm
+module: m08
+order: 3
+type: reference
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'Buildroot 2026.02.3 source: configs'
+    url: https://gitlab.com/buildroot.org/buildroot/-/tree/2026.02.3/configs
+  - title: 'Buildroot 2026.02.3 source: board/raspberrypi/readme.txt'
+    url: https://gitlab.com/buildroot.org/buildroot/-/blob/2026.02.3/board/raspberrypi/readme.txt
+  - title: 'Buildroot 2026.02.3 source: board/beagleboard/beaglebone/readme.txt'
+    url: https://gitlab.com/buildroot.org/buildroot/-/blob/2026.02.3/board/beagleboard/beaglebone/readme.txt
+  - title: 'Buildroot 2026.02.3 source: board/stmicroelectronics/stm32mp157c-dk2/readme.txt'
+    url: https://gitlab.com/buildroot.org/buildroot/-/blob/2026.02.3/board/stmicroelectronics/stm32mp157c-dk2/readme.txt
+  - title: 'Buildroot 2026.02.3 source: board/stmicroelectronics/common/stm32mp1xx'
+    url: https://gitlab.com/buildroot.org/buildroot/-/tree/2026.02.3/board/stmicroelectronics/common/stm32mp1xx
+  - title: 'Buildroot 2026.02.3 source: board/qemu'
+    url: https://gitlab.com/buildroot.org/buildroot/-/tree/2026.02.3/board/qemu
+  - title: 'Buildroot 2026.02.3 source: fs/ext2/ext2.mk'
+    url: https://gitlab.com/buildroot.org/buildroot/-/blob/2026.02.3/fs/ext2/ext2.mk
+---
+
+import Callout from '@ea/ui/Callout.astro';
+
+<div class="t-lead">
+  Buildroot 2026.02.3 ships one defconfig per board. This page lists the ones for the course boards, what each builds,
+  and what it leaves in `output/images/`.
+</div>
+
+Load a defconfig with `make <name>` in the Buildroot tree, then run `make`. Every fact here comes from the files under `configs/` and `board/` at tag `2026.02.3`.
+
+## Defconfigs at 2026.02.3
+
+| Board                   | Defconfig                     | Also at this tag                                             |
+| ----------------------- | ----------------------------- | ------------------------------------------------------------ |
+| Raspberry Pi 4, 64-bit  | `raspberrypi4_64_defconfig`   | `raspberrypi4_defconfig`, 32-bit                             |
+| BeagleBone Black        | `beaglebone_defconfig`        | `beaglebone_qt5_defconfig`, with Qt5                         |
+| STM32MP157C-DK2         | `stm32mp157c_dk2_defconfig`   | `stm32mp157a_dk1_defconfig`, for the DK1                     |
+| QEMU `virt`, 64-bit Arm | `qemu_aarch64_virt_defconfig` | `qemu_aarch64_ebbr_defconfig`, `qemu_aarch64_sbsa_defconfig` |
+
+There is no `qemu_arm_virt_defconfig` at this tag. The 32-bit Arm QEMU defconfigs are `qemu_arm_versatile_defconfig`, `qemu_arm_vexpress_defconfig`, `qemu_arm_vexpress_tz_defconfig` and `qemu_arm_ebbr_defconfig`; of these, only the readme for `qemu_arm_ebbr_defconfig` runs the `virt` machine.[^configs][^ebbr]
+
+## What each defconfig builds
+
+| Defconfig                     | CPU option   | Toolchain                   | Kernel                                                                      | Bootloaders                                                           |
+| ----------------------------- | ------------ | --------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `raspberrypi4_64_defconfig`   | `cortex_a72` | external, Bootlin, glibc    | Raspberry Pi fork (`raspberrypi/linux`, pinned commit), `bcm2711` defconfig | none: Raspberry Pi firmware package, Pi 4 variant                     |
+| `beaglebone_defconfig`        | `cortex_a8`  | external, Bootlin, glibc    | `6.18.1`, `omap2plus` defconfig                                             | U-Boot `2026.01`, `am335x_evm`, SPL named `MLO`                       |
+| `stm32mp157c_dk2_defconfig`   | `cortex_a7`  | external, Bootlin, glibc    | `6.12.63`, configuration file in `board/`                                   | TF-A 2.10 LTS with SP_min, FIP; U-Boot `2026.01`, `stm32mp15_trusted` |
+| `qemu_aarch64_virt_defconfig` | not set      | internal, built from source | `6.18.7`, configuration file in `board/`                                    | none: QEMU loads the kernel                                           |
+
+All four build an ext4 root filesystem. `qemu_aarch64_virt_defconfig` also builds QEMU itself for your host.[^configs]
+
+<Callout level="warning">
+  These versions are Buildroot's, not the course's. The course pins Linux `v6.18.55`, U-Boot `v2026.07`, TF-A
+  `lts-v2.14.10` and OP-TEE `4.10.0`. The DK2 defconfig builds no OP-TEE: it uses TF-A's SP_min as BL32.[^configs]
+</Callout>
+
+## Images in `output/images/`
+
+Each board's `readme.txt` lists what a build leaves behind. Buildroot's ext4 option writes `rootfs.ext2` and links `rootfs.ext4` to it, so either name appears.[^ext2]
+
+### `raspberrypi4_64_defconfig`
+
+The readme covers every Raspberry Pi model; these are the entries it marks for the Pi 4:[^rpi]
+
+- `bcm2711-rpi-4-b.dtb`, and the other BCM2711 board files the defconfig names
+- `Image`: the kernel
+- `rpi-firmware/`: `start4.elf`, `fixup4.dat`, `config.txt`, `cmdline.txt` and `overlays/`
+- `boot.vfat`: the boot partition image
+- `rootfs.ext4`
+- `sdcard.img`: the card image
+
+`sdcard.img` has an MBR table with two partitions: `boot`, type `0xC`, marked bootable, 32 MB, holding `boot.vfat`; and `rootfs`, type `0x83`.[^rpigenimage]
+
+### `beaglebone_defconfig`
+
+The readme lists:[^bbb]
+
+- `am335x-boneblack.dtb` and the other AM335x board files
+- `MLO` and `u-boot.img`: SPL and U-Boot
+- `zImage` and `uEnv.txt`
+- `boot.vfat`
+- `rootfs.ext2` and `rootfs.tar`
+- `sdcard.img`
+
+The board's post-build script also writes `extlinux/extlinux.conf`, which the readme does not list. `sdcard.img` has an MBR table: partition `u-boot`, type `0xC`, marked bootable, 16 MB, with `MLO`, `u-boot.img`, `zImage`, `uEnv.txt`, the `dtb` files and `extlinux`; and `rootfs`, type `0x83`, 512 MB.[^bbbgenimage]
+
+### `stm32mp157c_dk2_defconfig`
+
+The readme names only `sdcard.img`.[^stm] The defconfig asks TF-A for `fip.bin` and its `.stm32` images, and the post-image script derives the BL2 file name, `tf-a-stm32mp157c-dk2.stm32`, from the Device Tree name.[^stmpost] `sdcard.img` has a GPT table:[^stmpost]
+
+| Partition | Content                        |
+| --------- | ------------------------------ |
+| `fsbl1`   | `tf-a-stm32mp157c-dk2.stm32`   |
+| `fsbl2`   | `tf-a-stm32mp157c-dk2.stm32`   |
+| `fip`     | `fip.bin`, 2 MB                |
+| `rootfs`  | `rootfs.ext4`, marked bootable |
+
+The kernel and Device Tree are not in a partition of their own. The defconfig installs them into `/boot` of the root filesystem, and its overlay adds `/boot/extlinux/extlinux.conf`.[^configs]
+
+### `qemu_aarch64_virt_defconfig`
+
+The readme's QEMU command uses `output/images/Image` and `output/images/rootfs.ext4`.[^qemu] The QEMU post-image script also writes `start-qemu.sh` to `output/images/`, built from that same command.[^qemupost]
+
+[^configs]: Buildroot 2026.02.3, `configs/`: the four defconfigs named on this page, and the file list of the folder.
+
+[^ebbr]: Buildroot 2026.02.3, `board/qemu/arm-ebbr/readme.txt`.
+
+[^ext2]: Buildroot 2026.02.3, `fs/ext2/ext2.mk`: the `ROOTFS_EXT2_SYMLINK` hook.
+
+[^rpi]: Buildroot 2026.02.3, `board/raspberrypi/readme.txt`: result of the build.
+
+[^rpigenimage]: Buildroot 2026.02.3, `board/raspberrypi/genimage.cfg.in` and `post-image.sh`.
+
+[^bbb]: Buildroot 2026.02.3, `board/beagleboard/beaglebone/readme.txt`: result of the build.
+
+[^bbbgenimage]: Buildroot 2026.02.3, `board/beagleboard/beaglebone/genimage.cfg` and `post-build.sh`.
+
+[^stm]: Buildroot 2026.02.3, `board/stmicroelectronics/stm32mp157c-dk2/readme.txt`.
+
+[^stmpost]: Buildroot 2026.02.3, `board/stmicroelectronics/common/stm32mp1xx/genimage.cfg.template` and `post-image.sh`.
+
+[^qemu]: Buildroot 2026.02.3, `board/qemu/aarch64-virt/readme.txt`.
+
+[^qemupost]: Buildroot 2026.02.3, `board/qemu/post-image.sh` and `start-qemu.sh.in`.
