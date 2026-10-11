@@ -14,6 +14,7 @@ commands
 commit-conventions
 course-file
 lesson-frontmatter
+lesson-components
 project-fields
 repository-layout
 licensing

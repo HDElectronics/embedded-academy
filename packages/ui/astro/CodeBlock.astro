@@ -1,0 +1,36 @@
+---
+// SPDX-FileCopyrightText: Embedded Academy contributors
+// SPDX-License-Identifier: MIT
+
+// A file, or part of one, from an upstream project. Wrap a fenced code block:
+//   <CodeBlock path="arch/arm64/boot/dts/broadcom/bcm2711-rpi-4-b.dts" project="Linux" simplified>
+//   ```dts
+//   ...
+//   ```
+//   </CodeBlock>
+
+interface Props {
+  /** The file's real path in its project. */
+  path: string;
+  /** Upstream project the path belongs to, such as Linux, U-Boot or TF-A. */
+  project?: string;
+  /** Language label shown in the header. */
+  lang?: string;
+  /** True when lines were cut: the header says "(simplified)". */
+  simplified?: boolean;
+  /** Link to the file upstream, at the pinned version. */
+  href?: string;
+}
+
+const { path, project, lang, simplified = false, href } = Astro.props;
+---
+
+<figure class="ea-code">
+  <figcaption class="ea-code__head">
+    {project && <span>{project}:</span>}
+    {href ? <a href={href}>{path}</a> : <span>{path}</span>}
+    {simplified && <span>(simplified)</span>}
+    {lang && <span class="ea-code__lang">{lang}</span>}
+  </figcaption>
+  <slot />
+</figure>

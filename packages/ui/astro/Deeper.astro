@@ -1,0 +1,25 @@
+---
+// SPDX-FileCopyrightText: Embedded Academy contributors
+// SPDX-License-Identifier: MIT
+
+// A deeper panel for practitioners or experts. The base path reads complete without it.
+
+interface Props {
+  /** Who the panel is for. */
+  depth: 'practitioner' | 'expert';
+  /** What the panel adds, as a short phrase. */
+  title: string;
+}
+
+const { depth, title } = Astro.props;
+---
+
+<details class="ea-deeper" data-depth={depth}>
+  <summary class="ea-deeper__summary">
+    <span class="ea-deeper__depth">{depth}</span>
+    <span class="ea-deeper__title">{title}</span>
+  </summary>
+  <div class="ea-deeper__body">
+    <slot />
+  </div>
+</details>

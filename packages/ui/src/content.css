@@ -1,0 +1,77 @@
+/*
+ * SPDX-FileCopyrightText: Embedded Academy contributors
+ * SPDX-License-Identifier: MIT
+ *
+ * Lesson content components: CodeBlock, Callout and Deeper panels.
+ * Colours, spacing and radii come from tokens.
+ */
+
+figure.ea-code {
+  margin: 0;
+}
+
+.ea-code pre.astro-code {
+  border: 0;
+}
+
+.ea-code__head a {
+  color: inherit;
+}
+
+.ea-callout__body {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.ea-deeper {
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.ea-deeper__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  font-family: var(--font-mono);
+  cursor: pointer;
+  list-style: none;
+}
+
+.ea-deeper__summary::-webkit-details-marker {
+  display: none;
+}
+
+.ea-deeper__summary::before {
+  content: "[+]" / "";
+  color: var(--ink-muted);
+}
+
+.ea-deeper[open] > .ea-deeper__summary::before {
+  content: "[-]" / "";
+}
+
+.ea-deeper__depth {
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.ea-deeper[data-depth="expert"] .ea-deeper__depth {
+  color: var(--world-firmware);
+}
+
+.ea-deeper__title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.ea-deeper__body {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4) var(--space-4);
+  border-top: 1px solid var(--line);
+}
