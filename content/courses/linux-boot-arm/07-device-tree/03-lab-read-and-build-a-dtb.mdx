@@ -36,8 +36,8 @@ sources:
     url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/scripts/dtc?h=v6.18.55
   - title: 'QEMU source v10.0.0: qemu-options.hx (-nic none)'
     url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/qemu-options.hx
-  - title: 'Debian trixie manual page: more(1)'
-    url: https://manpages.debian.org/trixie/util-linux/more.1.en.html
+  - title: 'Debian trixie manual page: less(1)'
+    url: https://manpages.debian.org/trixie/less/less.1.en.html
 ---
 
 import Callout from '@ea/ui/Callout.astro';
@@ -46,8 +46,9 @@ import Prompt from '@ea/ui/Prompt.astro';
 
 <Callout level="info">
   Every command on this page, including the two deeper sections, was run in the lab container on 2026-10-11, with QEMU
-  10.0.13, DTC 1.7.2 and Linux `v6.18.55`, so it is marked emulated. If a command fails or behaves differently from what
-  this page describes, open an issue with the inaccuracy form and paste what you saw.
+  10.0.13, DTC 1.7.2 and Linux `v6.18.55`, and the two `less` steps again on 2026-10-12, so it is marked emulated. If a
+  command fails or behaves differently from what this page describes, open an issue with the inaccuracy form and paste
+  what you saw.
 </Callout>
 
 <div class="t-lead">
@@ -88,7 +89,7 @@ In the list, look for two properties:
 
 QEMU builds the machine, writes `virt.dtb` and quits before any guest code runs.[^machine] It prints nothing when it succeeds.
 
-`-nic none` leaves out the network card QEMU adds by default.[^nic] Without it, QEMU in the lab container stops with `failed to find romfile "efi-virtio.rom"`: the card's boot ROM is not installed in the image.
+`-nic none` leaves out the network card QEMU adds by default.[^nic] This lab needs no network card, so the option keeps QEMU from adding one.
 
 ### Check the magic number
 
@@ -102,9 +103,9 @@ QEMU builds the machine, writes `virt.dtb` and quits before any guest code runs.
 
 `-I` and `-O` pick the input and output formats; `dtb` and `dts` are two of the formats `dtc` lists in its usage text.[^dtc] `dtc` may print warnings about the tree. Only errors stop it from writing the output file.[^dtc]
 
-<Prompt dir="~/work/m07" cmd="more virt.dts" />
+<Prompt dir="~/work/m07" cmd="less virt.dts" />
 
-Find these nodes. `more` shows one screen at a time: press Space for the next one, or type `/` and a pattern to search.[^more]
+Find these nodes. `less` shows one screen at a time: press Space for the next one, type `/` and a pattern to search, and `q` to quit.[^less]
 
 1. **The root node**, at the top. Its `compatible` and `model` are both `linux,dummy-virt`. `#address-cells` and `#size-cells` are both 2, so every `reg` in the root's children uses two cells for an address and two for a size.[^virt][^cells]
 2. **A node named `memory@40000000`.** Its `reg` has four cells: the first two give the address `0x4000_0000`, the last two the size, 1 GiB. The QEMU documentation says RAM on `virt` starts at that address.[^virtdoc][^boot]
@@ -190,7 +191,7 @@ All the cells are zero. In `bcm2711-rpi.dtsi` this node carries the comment that
 
 `dtc` prints seven warnings from its checks, for example `unit_address_vs_reg` for `/soc` and two for properties under `__symbols__`. They are warnings, not errors, so `rpi4.dts` is written.[^dtc]
 
-<Prompt dir="~/work/m07" cmd="more rpi4.dts" />
+<Prompt dir="~/work/m07" cmd="less rpi4.dts" />
 
 Compare it with `arch/arm/boot/dts/broadcom/bcm2711-rpi-4-b.dts` in the source tree. The `#include` lines are gone: the preprocessor and `dtc` merged every `.dtsi` into one tree. References such as `&uart1` have become numbers that match `phandle` properties. You may also find a `__symbols__` node: `arch/arm64/boot/dts/broadcom/Makefile` sets `DTC_FLAGS := -@`, with the comment that it enables overlay support, and `-@` records label names there.[^make]
 
@@ -267,4 +268,4 @@ You captured a generated Device Tree, read its root, memory, `/chosen` and CPU n
 
 [^nic]: `qemu-options.hx` at QEMU v10.0.0: `-nic none` configures no network devices and overrides the default network card.
 
-[^more]: Debian trixie manual page more(1), "Commands": Space and `/pattern`.
+[^less]: Debian trixie manual page less(1), "Commands": SPACE, `/pattern` and `q`.
