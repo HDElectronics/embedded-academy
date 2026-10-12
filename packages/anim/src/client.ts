@@ -13,6 +13,25 @@ defineCourseMap();
 definePrivilegeLadder();
 defineSerialConsole();
 
+// Interactive figures
+import { definePredictLine } from './predict-line.ts';
+
+definePredictLine();
+
+import { defineHandoffRelay } from './handoff-relay.ts';
+
+defineHandoffRelay();
+
+// Figure: ExceptionLevels
+import { defineExceptionLevels } from './exception-levels.ts';
+
+defineExceptionLevels();
+
+// Figure: SplFit
+import { defineSplFit } from './spl-fit.ts';
+
+defineSplFit();
+
 // Replay figures: pick a scenario, replay its capture.
 import { renderPlaceScene } from './place-dtb.ts';
 import { defineReplayFigure } from './replay-figure.ts';

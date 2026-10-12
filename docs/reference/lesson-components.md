@@ -54,6 +54,18 @@ From `@ea/anim`. Each figure reads its facts from `packages/boards` and its cons
 `PlaceDtb`
 : A DRAM strip with the kernel at its load address on QEMU `virt`, and four places to hand `booti` a Device Tree: inside the kernel, above it, an address with no tree, another board's tree. Each choice replays U-Boot's real answer from `logs/qemu/`. Props: `start` (`inside`, `above`, `nothing` or `foreign`, default `inside`), `pane`.
 
+`ExceptionLevels`
+: The exception level elevator: the learner runs `svc #0`, `hvc #0`, `smc #0` and `eret` and watches the core move between EL0 and EL3, with the pending `ELR_ELx` and `SPSR_ELx` returns. Instructions that are undefined or stay at the level say why. Also shows the reset levels captured in the m01 lab. Rules and sources live in `packages/boards/src/interactives/exception-levels.ts`. Props: `pane`.
+
+`PredictLine`
+: A quiz over the full-chain capture `logs/qemu/m10-chain-virt.log`: the console up to a point, real lines from the same capture to choose from, a score and a sourced reason for each answer. Data in `packages/boards/src/interactives/predict-line.ts`. Props: `pane`.
+
+`HandoffRelay`
+: The QEMU `virt` chain from BL1 to PID 1, one stage at a time: the stage's captured console lines, the images loaded so far with their addresses, and what it hands to the next stage (entry point and `SPSR`, or the kernel's `x0` to `x3`). Data in `packages/boards/src/interactives/handoff-relay.ts`. Props: `pane`.
+
+`SplFit`
+: The BeagleBone Black SPL against the SRAM the AM335x boot ROM loads it into: the ROM download area (limit A), `CONFIG_SPL_MAX_SIZE` (limit B) and the measured `spl/u-boot-spl.bin`, with controls that add bytes until the link would fail, and `u-boot.img` against the whole area. Every size comes from `logs/qemu/m04-spl-measure.log`; the data lives in `packages/boards/src/interactives/spl-fit.ts`. Props: `pane`.
+
 Figures sit in the text, at the full content width. Refer to a figure by name, never as "below" or "above".
 
 ## Example

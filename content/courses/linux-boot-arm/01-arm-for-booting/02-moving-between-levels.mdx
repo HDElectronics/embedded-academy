@@ -29,6 +29,7 @@ sources:
 
 import Callout from '@ea/ui/Callout.astro';
 import Deeper from '@ea/ui/Deeper.astro';
+import ExceptionLevels from '@ea/anim/ExceptionLevels.astro';
 
 <div class="t-lead">
   A boot starts at the top of the privilege ladder and works its way down to the level where the kernel starts. This
@@ -74,6 +75,10 @@ Software asks a more privileged level for help with an exception-generating inst
 - **`SMC`**, Secure Monitor Call: the Normal world asks the firmware at EL3. It exists only with the Security Extensions.
 
 EL0 cannot call EL2 or EL3 directly. A program asks the kernel with `SVC`, and the kernel makes the `HVC` or `SMC` call for it[^calls].
+
+Try it in the exception level elevator. Start at EL0, run `svc #0`, `hvc #0` and `smc #0` in turn, and watch which level each one reaches and which `ELR_ELx` and `SPSR_ELx` hold the way back. Then come down with `eret`, one level of the chain at a time. An instruction that is undefined, or that would keep the core at its level, says why instead of moving.
+
+<ExceptionLevels pane={1} />
 
 On Armv7-A the same instructions lead to modes[^v7-mon]:
 

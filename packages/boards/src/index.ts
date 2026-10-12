@@ -6,6 +6,9 @@ import { rpi4 } from './data/rpi4.ts';
 import { stm32mp157 } from './data/stm32mp157.ts';
 import type { Board } from './schema.ts';
 
+export * from './interactives/handoff-relay.ts';
+// Interactive figures
+export * from './interactives/predict-line.ts';
 export * from './log.ts';
 export * from './schema.ts';
 export * from './sources.ts';
@@ -24,6 +27,11 @@ export function formatAddress(value: number): string {
   return `0x${hex.slice(0, 4)}_${hex.slice(4)}`;
 }
 
+// Figure: ExceptionLevels (m01)
+export * from './interactives/exception-levels.ts';
 // Interactive figures: PlaceDtb
 export * from './interactives/place-dtb.ts';
 export * from './interactives/replay.ts';
+
+// Figure: SplFit (m04)
+export * from './interactives/spl-fit.ts';
