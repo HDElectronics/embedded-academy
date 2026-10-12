@@ -66,6 +66,9 @@ From `@ea/anim`. Each figure reads its facts from `packages/boards` and its cons
 `SplFit`
 : The BeagleBone Black SPL against the SRAM the AM335x boot ROM loads it into: the ROM download area (limit A), `CONFIG_SPL_MAX_SIZE` (limit B) and the measured `spl/u-boot-spl.bin`, with controls that add bytes until the link would fail, and `u-boot.img` against the whole area. Every size comes from `logs/qemu/m04-spl-measure.log`; the data lives in `packages/boards/src/interactives/spl-fit.ts`. Props: `pane`.
 
+`BreakBoot`
+: Real boots of the QEMU `virt` lab machine, each with one kernel argument changed (`console=`, `earlycon`, `root=`, `rootwait`). It shows each run's command line, compared with the reference run, its last console lines from `logs/qemu/`, the symptom as a bracketed word, and the cause with its sources. Props: `start` (`reference`, `console-ttys0`, `earlycon`, `root-vdb` or `rootwait`, default `reference`), `pane`.
+
 Figures sit in the text, at the full content width. Refer to a figure by name, never as "below" or "above".
 
 ## Example

@@ -16,7 +16,8 @@
     "./ExceptionLevels.astro": "./astro/ExceptionLevels.astro",
     "./PredictLine.astro": "./astro/PredictLine.astro",
     "./HandoffRelay.astro": "./astro/HandoffRelay.astro",
-    "./SplFit.astro": "./astro/SplFit.astro"
+    "./SplFit.astro": "./astro/SplFit.astro",
+    "./BreakBoot.astro": "./astro/BreakBoot.astro"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p ."

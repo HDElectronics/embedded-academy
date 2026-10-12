@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Embedded Academy contributors
 // SPDX-License-Identifier: MIT
 
+export * from './break-boot.ts';
 export * from './elevator.ts';
 export * from './fit.ts';
 export * from './ladder.ts';

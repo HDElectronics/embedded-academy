@@ -33,6 +33,7 @@ sources:
     url: https://gitlab.com/buildroot.org/buildroot/-/blob/2026.02.3/board/stmicroelectronics/stm32mp157c-dk2/overlay/boot/extlinux/extlinux.conf
 ---
 
+import BreakBoot from '@ea/anim/BreakBoot.astro';
 import Callout from '@ea/ui/Callout.astro';
 import CodeBlock from '@ea/ui/CodeBlock.astro';
 import Deeper from '@ea/ui/Deeper.astro';
@@ -141,6 +142,10 @@ When the real console registers, the kernel disables the boot consoles. It also 
 `console=` picks the device for the real console. The name comes from the driver: the PL011 driver registers its ports as `ttyAMA`, so the first one is `ttyAMA0`.[^pl011] Serial options follow a comma, for example `,115200n8`.[^params]
 
 Without `console=`, the kernel falls back to the UART that `/chosen/stdout-path` names.[^ofbase] The lab's first boot passes no command line at all, and its log still ends with `printk: console [ttyAMA0] enabled`.[^log1]
+
+The BreakBoot figure replays real boots of the module 10 lab machine, each with one kernel argument changed. Start with the wrong `console=`, then add `earlycon`, and compare how the two boots end.
+
+<BreakBoot start="console-ttys0" />
 
 On the boards, the boot files from module 08 show both styles. The BeagleBone Black's `extlinux.conf` from Buildroot passes `console=ttyS0,115200n8`. The STM32MP157 DK2's passes no `console=` and relies on `stdout-path`.[^br]
 

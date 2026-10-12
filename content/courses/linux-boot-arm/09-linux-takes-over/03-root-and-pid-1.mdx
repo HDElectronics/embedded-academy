@@ -35,6 +35,7 @@ sources:
     url: https://gitlab.com/buildroot.org/buildroot/-/blob/2026.02.3/board/beagleboard/beaglebone/extlinux.conf
 ---
 
+import BreakBoot from '@ea/anim/BreakBoot.astro';
 import Callout from '@ea/ui/Callout.astro';
 import CodeBlock from '@ea/ui/CodeBlock.astro';
 import Deeper from '@ea/ui/Deeper.astro';
@@ -78,6 +79,10 @@ If the kernel can't find that file, it prints a warning, forgets the initramfs p
 - `root=` names the device, for example a partition such as `/dev/mmcblk0p2`.[^params]
 - `rootwait` waits for that device to appear, for disks such as SD cards that are detected late.[^params]
 - After mounting, the kernel mounts `devtmpfs` on `/dev` if `CONFIG_DEVTMPFS_MOUNT` is set. That option does not apply to an initramfs: there, PID 1 mounts `/dev` itself.[^devtmpfs]
+
+The BreakBoot figure shows both parameters on the module 10 lab machine. Pick `root=` with a disk that is not there, then add `rootwait`, and compare how each boot ends.
+
+<BreakBoot start="root-vdb" />
 
 If no root can be mounted, the kernel panics. In the lab, `rdinit=/bin/sh` points at a file the archive does not have, and no `root=` is given. The log shows the warning, then the panic:[^log3]
 

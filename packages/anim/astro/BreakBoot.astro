@@ -1,0 +1,84 @@
+---
+// SPDX-FileCopyrightText: Embedded Academy contributors
+// SPDX-License-Identifier: MIT
+import { breakBoot } from '@ea/boards';
+import { captureSpan, readCapture } from '@ea/boards/node';
+import {
+  captureVerification,
+  renderChoices,
+  renderBreakScene,
+  renderOutcome,
+  renderReplayConsole,
+  toBreakBootFigure,
+} from '../src/index.ts';
+
+interface Props {
+  /** The run shown first: `reference`, `console-ttys0`, `earlycon`, `root-vdb` or `rootwait`. */
+  start?: string;
+  pane?: number;
+}
+
+const { start = 'reference', pane = 1 } = Astro.props;
+const fig = toBreakBootFigure(breakBoot, captureSpan);
+const index = fig.choices.findIndex((c) => c.id === start);
+if (index < 0) throw new Error(`BreakBoot: unknown start run "${start}"`);
+const choice = fig.choices[index];
+if (!choice) throw new Error('BreakBoot: no runs');
+const verified = captureVerification(
+  breakBoot.runs.flatMap((r) => r.console.map((ref) => ref.log)),
+  readCapture,
+);
+const json = JSON.stringify(fig).replace(/</g, '\\u003c');
+---
+
+<ea-break-boot class="ea-replay ea-break" data-figure="break-boot">
+  <script is:inline type="application/json" data-replay set:html={json} />
+  <section class="ea-pane" aria-label="Break the boot">
+    <div class="ea-pane__bar">
+      <span class="ea-pane__id">{pane}:</span>
+      <span class="ea-pane__title">break the boot</span>
+      <span class="ea-pane__meta">QEMU virt · {verified}</span>
+    </div>
+    <div class="ea-pane__body ea-replay__body">
+      <div class="ea-break__scene" data-part="scene" set:html={renderBreakScene(fig, index)} />
+      <div class="ea-replay__grid">
+        <div class="ea-replay__side">
+          <p class="ea-pane__label" aria-hidden="true">
+            Change one kernel argument
+          </p>
+          <div
+            class="ea-replay__choices"
+            role="radiogroup"
+            aria-label="Change one kernel argument"
+            data-part="choices"
+            set:html={renderChoices(fig.choices, index)}
+          />
+          <div class="ea-chain__controls">
+            <button type="button" class="ea-btn ea-btn--primary" data-part="play">
+              Replay console
+            </button>
+          </div>
+        </div>
+        <div class="ea-replay__main">
+          <div
+            class="ea-console ea-replay__console"
+            tabindex="0"
+            role="region"
+            aria-label="Serial console, last lines"
+            data-part="console"
+            set:html={renderReplayConsole(choice)}
+          />
+          <p class="ea-replay__where t-small" data-part="where">
+            {choice.where}
+          </p>
+          <div class="ea-replay__outcome-box" data-part="outcome" set:html={renderOutcome(choice)} />
+          <p class="visually-hidden" aria-live="polite" data-part="status"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+</ea-break-boot>
+
+<script>
+  import '@ea/anim/client';
+</script>

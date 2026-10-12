@@ -33,6 +33,7 @@ sources:
     url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/qemu/common/qemu_pm.c
 ---
 
+import BreakBoot from '@ea/anim/BreakBoot.astro';
 import PlaceDtb from '@ea/anim/PlaceDtb.astro';
 import Prompt from '@ea/ui/Prompt.astro';
 import Callout from '@ea/ui/Callout.astro';
@@ -58,6 +59,10 @@ You need the machine from [the full-chain lab](../01-lab-the-whole-chain-on-qemu
 />
 
 Stop the countdown and load the kernel at the `=>` prompt with `qfw load ${kernel_addr_r} ${ramdisk_addr_r}`. Each case changes one thing after that. To start again, quit with `Ctrl-A`, then `X`.
+
+The BreakBoot figure replays the cases on this page that change one kernel argument. Pick each run and read how its boot ends, then find the case that explains it.
+
+<BreakBoot />
 
 ## Silence after "Starting kernel"
 
@@ -87,7 +92,7 @@ Removing `console=` altogether is not a failure on this machine. The kernel then
 
 The PlaceDtb figure replays this run. Pick the other choices to compare U-Boot's answer when the address holds another board's tree, or a tree inside or above the kernel.
 
-<PlaceDtb start="nothing" />
+<PlaceDtb start="nothing" pane={2} />
 
 **Symptom 2: a reset loop.** Leave the dtb out: `booti ${kernel_addr_r}`. U-Boot prints `FDT and ATAGS support not compiled in`, then `resetting ...`. BL31 answers with `ERROR:   QEMU System Reset: with GPIO.` and the whole chain starts again from BL1.[^log-missing][^bootm-arm][^pm] If `bootcmd` repeats the mistake, the board resets forever.
 
@@ -137,7 +142,7 @@ U-Boot prints `ERROR: FDT image overlaps OS image (OS=40400000..42c30000)`. An i
 
 Replay the overlap in the PlaceDtb figure: start with the tree inside the kernel, then move it above the kernel's end and watch the boot go through.
 
-<PlaceDtb start="inside" pane={2} />
+<PlaceDtb start="inside" pane={3} />
 
 **Cause.** The kernel needs more memory than its file. The `Image` header holds `image_size`, which covers the kernel's BSS too.[^arm64] Here it is `0x283_0000`, so the kernel runs to `0x42C3_0000`, past the end of the file. U-Boot reads that size and refuses to start a kernel that would wipe the tree or the initrd.[^image]
 

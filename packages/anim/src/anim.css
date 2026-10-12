@@ -1769,3 +1769,48 @@
 .ea-place__note {
   color: var(--ink-muted);
 }
+
+/* BreakBoot: the kernel command line, compared with the reference run */
+.ea-break__scene {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.ea-break .ea-break__args {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: 400 16px/24px var(--font-mono);
+}
+
+.ea-break .ea-break__arg {
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--line-strong);
+  overflow-wrap: anywhere;
+}
+
+.ea-break__arg.is-changed,
+.ea-break__arg.is-added {
+  border-color: var(--warning);
+  background: var(--surface-raised);
+  color: var(--warning);
+  font-weight: 700;
+}
+
+.ea-break__arg.is-removed {
+  border-style: dashed;
+  color: var(--ink-muted);
+}
+
+.ea-break__mark {
+  margin-right: var(--space-1);
+}
+
+.ea-break__key {
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}
