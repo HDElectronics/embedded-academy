@@ -1,0 +1,206 @@
+---
+title: The kernel finds a root file system and starts PID 1
+description: How Linux unpacks an initramfs or mounts root=, the order in which kernel_init tries /init, init= and /sbin/init, and the panics when all fail.
+course: linux-boot-arm
+module: m09
+order: 3
+type: explanation
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'Linux source v6.18.55: init/main.c'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/init/main.c?h=v6.18.55
+    section: 'rest_init(), kernel_init(), kernel_init_freeable(), run_init_process()'
+  - title: 'Linux source v6.18.55: init/do_mounts.c and init/initramfs.c'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/init/do_mounts.c?h=v6.18.55
+  - title: 'Linux source v6.18.55: usr/default_cpio_list and usr/Makefile'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/usr/default_cpio_list?h=v6.18.55
+  - title: 'Linux source v6.18.55: kernel/exit.c'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/kernel/exit.c?h=v6.18.55
+  - title: 'Linux source v6.18.55: drivers/of/fdt.c and drivers/base/Kconfig'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/of/fdt.c?h=v6.18.55
+  - title: 'Linux kernel documentation: Ramfs, rootfs and initramfs (Documentation/filesystems/ramfs-rootfs-initramfs.rst, v6.18.55)'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/Documentation/filesystems/ramfs-rootfs-initramfs.rst?h=v6.18.55
+  - title: "Linux kernel documentation: The kernel's command-line parameters (Documentation/admin-guide/kernel-parameters.txt, v6.18.55)"
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/Documentation/admin-guide/kernel-parameters.txt?h=v6.18.55
+    section: 'init=, rdinit=, root=, rootwait'
+  - title: 'Linux kernel documentation: Explaining the "No working init found." boot hang message (Documentation/admin-guide/init.rst, v6.18.55)'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/Documentation/admin-guide/init.rst?h=v6.18.55
+  - title: 'Linux kernel documentation: Booting AArch64 Linux and Booting ARM Linux (v6.18.55)'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/Documentation/arch/arm64/booting.rst?h=v6.18.55
+    section: 'arm64 section 4 (initrd placement); arm section 5, Load initramfs'
+  - title: 'U-Boot source (v2026.07): boot/fdt_support.c'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/boot/fdt_support.c
+  - title: 'Buildroot 2026.02.3 source: board/beagleboard/beaglebone/extlinux.conf'
+    url: https://gitlab.com/buildroot.org/buildroot/-/blob/2026.02.3/board/beagleboard/beaglebone/extlinux.conf
+---
+
+import Callout from '@ea/ui/Callout.astro';
+import CodeBlock from '@ea/ui/CodeBlock.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<div class="t-lead">
+  The kernel can't do anything useful on its own. It needs a program from a file system to run as the first process, PID
+  1. This page shows where the kernel looks for that file system, which programs it tries, in which order, and what it
+  prints when none of them works.
+</div>
+
+## rest_init creates PID 1 and PID 2
+
+At the end of `start_kernel()`, `rest_init()` creates two tasks.[^main]
+
+- `kernel_init` is created first, so that it gets PID 1. It is still kernel code at this point. It becomes the user's PID 1 later, when it executes a program.
+- `kthreadd` gets PID 2. It creates every later kernel thread.
+
+The boot CPU then becomes the idle task. All further boot work happens in `kernel_init`.
+
+`kernel_init` first calls `kernel_init_freeable()`. That function brings up the other CPUs, then runs the initcalls in `do_basic_setup()`, where the drivers register and probe their devices.[^main] This is where the serial driver from the previous page registers the real console, and where storage controllers appear.
+
+## An initramfs is unpacked into rootfs
+
+The kernel's first root file system is `rootfs`, a RAM-based file system that is always present.[^ramfs] During the initcalls, the kernel unpacks cpio archives into it:[^ramfs][^initramfs]
+
+1. **The built-in archive.** Every kernel image carries one, and it is unpacked first. If you don't configure your own with `CONFIG_INITRAMFS_SOURCE`, the build uses `usr/default_cpio_list`, which only creates `/dev`, the device node `/dev/console`, and `/root`.[^cpio]
+2. **An external archive, if the bootloader passed one.** It is extracted on top of the built-in one, and its files replace any with the same name.[^ramfs]
+
+The bootloader passes the external archive the way it passes the command line: in `/chosen`. The properties `linux,initrd-start` and `linux,initrd-end` hold its physical start and end.[^fdt] U-Boot writes them when you give `booti` or `bootz` an initrd address.[^uboot] The boot documents also say where the archive may sit in RAM: on arm64, inside one 1 GB aligned window of at most 32 GB that also covers the kernel; on 32-bit Arm, where the decompressor will not overwrite it.[^boot]
+
+In the log of the lab's first boot, this step prints `Unpacking initramfs...` and, once the archive is unpacked, `Freeing initrd memory: 688K`.[^log1]
+
+Next, `kernel_init_freeable()` waits for the unpacking to finish and opens `/dev/console` as standard input, output and error for the first program. If that fails, it prints `Warning: unable to open an initial console.`[^main] That is why even the minimal default archive contains `/dev/console`.
+
+## /init in the initramfs comes first
+
+The kernel then looks for a program to run from the initramfs. By default it is `/init`; the `rdinit=` parameter names another one.[^main][^params]
+
+If the kernel can't find that file, it prints a warning, forgets the initramfs program, and calls `prepare_namespace()` to mount a real root file system instead:[^main][^mounts]
+
+- `root=` names the device, for example a partition such as `/dev/mmcblk0p2`.[^params]
+- `rootwait` waits for that device to appear, for disks such as SD cards that are detected late.[^params]
+- After mounting, the kernel mounts `devtmpfs` on `/dev` if `CONFIG_DEVTMPFS_MOUNT` is set. That option does not apply to an initramfs: there, PID 1 mounts `/dev` itself.[^devtmpfs]
+
+If no root can be mounted, the kernel panics. In the lab, `rdinit=/bin/sh` points at a file the archive does not have, and no `root=` is given. The log shows the warning, then the panic:[^log3]
+
+- `check access for rdinit=/bin/sh failed: -2, ignoring`. Error 2 is `ENOENT`, no such file.
+- `Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(0,0)`.
+
+On the boards in this course, Buildroot's boot files take the `root=` path. The BeagleBone Black's `extlinux.conf` passes `root=/dev/mmcblk0p2 rw rootfstype=ext4 rootwait`, with no initramfs.[^br]
+
+## kernel_init tries a fixed list of programs
+
+With a root file system in place, `kernel_init()` frees the kernel's init-only memory, which prints `Freeing unused kernel memory`, and starts PID 1. It prints `Run <file> as init process` before each attempt.[^main]
+
+{/* REUSE-IgnoreStart */}
+
+<CodeBlock path="init/main.c" project="Linux" lang="c" simplified>
+
+```c
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ *  linux/init/main.c
+ *
+ *  Copyright (C) 1991, 1992  Linus Torvalds
+ */
+
+/* ... */
+
+	if (ramdisk_execute_command) {
+		ret = run_init_process(ramdisk_execute_command);
+		if (!ret)
+			return 0;
+		pr_err("Failed to execute %s (error %d)\n",
+		       ramdisk_execute_command, ret);
+	}
+
+	if (execute_command) {
+		ret = run_init_process(execute_command);
+		if (!ret)
+			return 0;
+		panic("Requested init %s failed (error %d).",
+		      execute_command, ret);
+	}
+
+	if (CONFIG_DEFAULT_INIT[0] != '\0') {
+		/* ... */
+	}
+
+	if (!try_to_run_init_process("/sbin/init") ||
+	    !try_to_run_init_process("/etc/init") ||
+	    !try_to_run_init_process("/bin/init") ||
+	    !try_to_run_init_process("/bin/sh"))
+		return 0;
+
+	panic("No working init found.  Try passing init= option to kernel. "
+	      "See Linux Documentation/admin-guide/init.rst for guidance.");
+```
+
+</CodeBlock>
+
+{/* REUSE-IgnoreEnd */}
+
+The excerpt is from `kernel_init()` and keeps the license of `init/main.c`, GPL-2.0-only. In order, the kernel tries:
+
+1. **The initramfs program**, `/init` or the `rdinit=` file, if it passed the earlier check. If it fails to run, the kernel prints `Failed to execute` with the error and carries on.
+2. **The `init=` program**, if you passed one. If it fails, the kernel panics with `Requested init ... failed`: you asked for that program, so it does not guess.
+3. **`CONFIG_DEFAULT_INIT`**, if the kernel was built with one. The arm64 `defconfig` build from module 08 leaves it empty.
+4. **`/sbin/init`, `/etc/init`, `/bin/init` and `/bin/sh`**, in that order. A missing file is skipped silently; a file that exists but can't run prints `Starting init: ... exists but couldn't execute it`.[^main]
+
+If all of them fail, the kernel panics with `No working init found.` The document that message names lists the usual causes: no root file system, a missing init binary, a broken console, missing shared libraries, or a binary for the wrong architecture.[^initrst]
+
+`/init` is not in the fallback list. The lab shows it: the archive holds a working `/init` and a script, `hello.sh`, whose interpreter `/bin/sh` is missing. With `rdinit=/hello.sh`, the log reads `Failed to execute /hello.sh (error -2)`, then `Run /sbin/init as init process` and the other fallbacks, and ends in the `No working init found.` panic. The kernel never tries `/init`.[^log4]
+
+## PID 1 must never exit
+
+Once a program runs as PID 1, the kernel's boot is over. That program now owns the system: it mounts the file systems it needs and starts the services. If PID 1 exits, the kernel panics with `Attempted to kill init!` and the exit code.[^exit] That is why the lab's PID 1 powers the machine off instead of returning from `main()`.
+
+<Deeper depth="practitioner" title="init= and rdinit= for debugging">
+
+`init=` replaces `/sbin/init` as the program to run from a mounted root; `rdinit=` replaces `/init` in an initramfs.[^params] The kernel document on initramfs suggests `init=/bin/sh` to debug a normal root file system, and `rdinit=/bin/sh` as its initramfs equivalent.[^ramfs] Both give you a shell as PID 1, with nothing else running: no `/proc` or `/sys` mounted, no services.
+
+Command-line words the kernel does not recognise are not lost: the kernel prints `Unknown kernel command line parameters` and passes them to user space. Words after `--` go to init as arguments.[^main]
+
+</Deeper>
+
+<Deeper depth="expert" title="Leaving the initramfs for the real root">
+
+An initramfs `/init` that wants to continue from a disk can't use `pivot_root`, because rootfs can't be unmounted. Instead it deletes the initramfs contents, mounts the new root over `/`, attaches standard input and output to the new `/dev/console`, and executes the next init. klibc's `run_init` helper and BusyBox's `switch_root` do these steps for you.[^ramfs]
+
+</Deeper>
+
+<Callout level="info">
+  The facts on this page come from the Linux `v6.18.55` sources and documents listed under Sources. The quoted log lines
+  come from boots captured in the lab container on 2026-10-12, under QEMU's `virt` machine. The page is an explanation
+  and is marked unverified.
+</Callout>
+
+[^main]: `init/main.c` at v6.18.55: `rest_init()`, `kernel_init()`, `kernel_init_freeable()`, `console_on_rootfs()`, `run_init_process()`, `try_to_run_init_process()`, `init_setup()`, `rdinit_setup()`, `print_unknown_bootoptions()` and the `"Setting init args"` call in `start_kernel()`.
+
+[^ramfs]: Linux kernel documentation, "Ramfs, rootfs and initramfs": "What is rootfs?", "What is initramfs?", "External initramfs images" and the `rdinit=/bin/sh` note.
+
+[^initramfs]: `init/initramfs.c` at v6.18.55: `populate_rootfs()` is a `rootfs_initcall` and prints `Unpacking initramfs...`.
+
+[^cpio]: `usr/Makefile` and `usr/default_cpio_list` at v6.18.55.
+
+[^fdt]: `drivers/of/fdt.c` at v6.18.55: `early_init_dt_check_for_initrd()` reads `linux,initrd-start` and `linux,initrd-end` from `/chosen`.
+
+[^uboot]: U-Boot source v2026.07, `boot/fdt_support.c`: `fdt_initrd()` writes `linux,initrd-start` and `linux,initrd-end`.
+
+[^boot]: Booting AArch64 Linux, v6.18.55, section 4; Booting ARM Linux, v6.18.55, section 5, "Load initramfs".
+
+[^log1]: `logs/qemu/m09-initramfs-boot.log`.
+
+[^params]: `Documentation/admin-guide/kernel-parameters.txt` at v6.18.55: `init=`, `rdinit=`, `root=` and `rootwait`.
+
+[^mounts]: `init/do_mounts.c` at v6.18.55: `prepare_namespace()` and `mount_root_generic()`.
+
+[^devtmpfs]: `drivers/base/Kconfig` at v6.18.55: help text of `DEVTMPFS_MOUNT`.
+
+[^log3]: `logs/qemu/m09-rdinit-missing.log`, the boot with `rdinit=/bin/sh`.
+
+[^br]: Buildroot 2026.02.3, `board/beagleboard/beaglebone/extlinux.conf`.
+
+[^initrst]: Linux kernel documentation, "Explaining the No working init found. boot hang message", `Documentation/admin-guide/init.rst`.
+
+[^log4]: `logs/qemu/m09-script-init.log`, the boot with `rdinit=/hello.sh`.
+
+[^exit]: `kernel/exit.c` at v6.18.55: `do_exit()` panics with `Attempted to kill init! exitcode=0x%08x` when the last thread of the global init exits.

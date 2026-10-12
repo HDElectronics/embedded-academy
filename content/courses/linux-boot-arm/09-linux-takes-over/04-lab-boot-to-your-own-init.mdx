@@ -1,0 +1,289 @@
+---
+title: 'Lab: boot the kernel into your own PID 1'
+description: Write a static init in C, pack it in an initramfs, boot your arm64 kernel under QEMU with it, then break the boot on purpose and read the panics.
+course: linux-boot-arm
+module: m09
+order: 4
+type: tutorial
+boards: []
+verification: emulated
+sources:
+  - title: 'Linux kernel documentation: Ramfs, rootfs and initramfs (Documentation/filesystems/ramfs-rootfs-initramfs.rst, v6.18.55)'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/Documentation/filesystems/ramfs-rootfs-initramfs.rst?h=v6.18.55
+    section: 'External initramfs images; Contents of initramfs'
+  - title: 'Linux kernel documentation: Booting AArch64 Linux (Documentation/arch/arm64/booting.rst, v6.18.55)'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/Documentation/arch/arm64/booting.rst?h=v6.18.55
+    section: '4. Call the kernel image'
+  - title: "Linux kernel documentation: The kernel's command-line parameters (Documentation/admin-guide/kernel-parameters.txt, v6.18.55)"
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/Documentation/admin-guide/kernel-parameters.txt?h=v6.18.55
+    section: 'console=, earlycon=, rdinit='
+  - title: 'Linux source v6.18.55: init/main.c'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/init/main.c?h=v6.18.55
+  - title: 'Linux kernel documentation: Explaining the "No working init found." boot hang message (Documentation/admin-guide/init.rst, v6.18.55)'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/Documentation/admin-guide/init.rst?h=v6.18.55
+  - title: 'GNU cpio manual'
+    url: https://www.gnu.org/software/cpio/manual/cpio.html
+    section: 'Copy-out mode; Options (--format)'
+  - title: 'Debian trixie manual page: reboot(2)'
+    url: https://manpages.debian.org/trixie/manpages-dev/reboot.2.en.html
+  - title: 'QEMU source v10.0.0: qemu-options.hx (-kernel, -append, -initrd, -nic none)'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/qemu-options.hx
+  - title: 'QEMU source v10.0.0: hw/arm/boot.c (/chosen/bootargs and linux,initrd-start/end)'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/hw/arm/boot.c
+  - title: 'QEMU source v10.0.0: hw/core/machine.c (dumpdtb machine property)'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/hw/core/machine.c
+  - title: 'QEMU documentation: keys in the character backend multiplexer'
+    url: https://www.qemu.org/docs/master/system/mux-chardev.html
+---
+
+import Callout from '@ea/ui/Callout.astro';
+import CodeBlock from '@ea/ui/CodeBlock.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+import Prompt from '@ea/ui/Prompt.astro';
+
+<Callout level="info">
+  Every command on this page, including the deeper section, was run in the lab container on 2026-10-12, with QEMU
+  10.0.13, GCC 14.2.0 and the Linux `v6.18.55` kernel built in module 08, so it is marked emulated. If a step fails or
+  prints something this page does not describe, report it with the [inaccuracy issue
+  form](https://github.com/HDElectronics/embedded-academy/issues/new?template=inaccuracy.yml) and paste what you saw.
+</Callout>
+
+<div class="t-lead">
+  In this lab you write the first user program the kernel runs, pack it into an initramfs, and boot your own arm64
+  kernel straight into it under QEMU. Then you break the boot twice on purpose and read the panics from the previous
+  page.
+</div>
+
+## Before you start
+
+You need the lab container running, as `labs/README.md` in the repository describes, and the arm64 kernel you built in module 08, in [the SD card how-to](/courses/linux-boot-arm/08-building-everything/01-sd-card-by-hand/). The file must exist at `~/work/build/linux-arm64/arch/arm64/boot/Image`; if it doesn't, run that how-to's two arm64 `make` commands first.
+
+No board and no bootloader are involved. QEMU's `-kernel` option loads `Image` itself and starts it with the arm64 boot protocol, as in the module 08 lab.
+
+## Read the kernel's header
+
+Make a work folder and copy the kernel into it:
+
+<Prompt cmd="mkdir -p ~/work/m09" />
+
+<Prompt cmd="cd ~/work/m09" />
+
+<Prompt dir="~/work/m09" cmd="cp ~/work/build/linux-arm64/arch/arm64/boot/Image ." />
+
+<Prompt dir="~/work/m09" cmd="ls -l Image" />
+
+<Prompt dir="~/work/m09" cmd="od -A x -t x1z -N 64 Image" />
+
+`od` prints the first 64 bytes, the `Image` header, as hex with the ASCII next to it. Find the fields from the [image formats page](/courses/linux-boot-arm/09-linux-takes-over/01-kernel-image-formats/):[^a64]
+
+- the bytes `41 52 4d 64`, shown as `ARMd`, at offset `0x38`: the magic number;
+- eight zero bytes at offset `0x08`: `text_offset` is 0;
+- four bytes at offset `0x10`, `00 00 83 02` in the capture: `image_size` read little-endian, `0x2830000`. Compare it with the file size from `ls -l`; `image_size` is larger.[^hdr]
+
+Your bytes at `0x10` differ if your kernel configuration differs.
+
+<Deeper depth="practitioner" title="Read the 32-bit zImage header">
+
+If you also built the `multi_v7_defconfig` kernel in module 08, dump its first 64 bytes:
+
+<Prompt dir="~/work/m09" cmd="ls -l ~/work/build/linux-arm/arch/arm/boot/zImage" />
+
+<Prompt dir="~/work/m09" cmd="od -A x -t x1z -N 64 ~/work/build/linux-arm/arch/arm/boot/zImage" />
+
+At offset `0x24`, look for `18 28 6f 01`: the `zImage` magic, `0x016F2818`, stored little-endian. The next word is the start address, 0, and the one after it the end address. In the capture the end is `00 e2 b4 00`, `0xB4E200`, the file size in bytes.[^hdr]
+
+</Deeper>
+
+## Write PID 1
+
+Your first process only needs to prove it runs: print its name and process ID, then power the machine off. Create `init.c` with this content:
+
+<CodeBlock path="~/work/m09/init.c" lang="c">
+
+```c
+#include <stdio.h>
+#include <sys/reboot.h>
+#include <unistd.h>
+
+int main(int argc, char *argv[])
+{
+	printf("Hello from %s, PID %d\n", argv[0], getpid());
+	reboot(RB_POWER_OFF);
+	return 1;
+}
+```
+
+</CodeBlock>
+
+The lab image has no text editor, so let the shell write the file. Run `cat`, paste the program, then press `Ctrl+d` on an empty line to end the input:
+
+<Prompt dir="~/work/m09" cmd="cat > init.c" />
+
+PID 1 must never exit: the kernel would panic.[^exit] `reboot(RB_POWER_OFF)` asks the kernel to print `Power down.` and switch the machine off instead.[^reboot] The `return 1` only runs if that call fails.
+
+Compile it for arm64, statically linked:
+
+<Prompt dir="~/work/m09" cmd="aarch64-linux-gnu-gcc -static -o init init.c" />
+
+<Prompt dir="~/work/m09" cmd="file init" />
+
+`file` reports an `ELF 64-bit LSB executable, ARM aarch64`, `statically linked`.[^build] Static linking matters: your initramfs will contain no `/lib`, so a program that needs shared libraries would fail to start.[^initrst]
+
+## Pack the initramfs
+
+The kernel documentation packs initramfs archives with `cpio -o -H newc`.[^ramfs] In copy-out mode, `-o`, `cpio` reads file names from its standard input and writes an archive in the format `-H` names.[^gnucpio]
+
+<Prompt dir="~/work/m09" cmd="echo init | cpio -o -H newc > initramfs.cpio" />
+
+<Prompt dir="~/work/m09" cmd="cpio -t < initramfs.cpio" />
+
+The listing shows one file, `init`. The archive has no `/dev/console`: the kernel's built-in archive provides it.[^cpio]
+
+## Boot into your PID 1
+
+Start the kernel with the archive as its initial RAM disk:
+
+<Prompt
+  dir="~/work/m09"
+  cmd="qemu-system-aarch64 -machine virt -cpu cortex-a72 -m 1G -nographic -nic none -kernel Image -initrd initramfs.cpio"
+/>
+
+`-initrd` loads the file into RAM for the kernel, and `-nic none` leaves out the network card this lab doesn't need.[^qopts] The boot takes a second or two. In the output, find these lines:[^log1]
+
+1. `Booting Linux on physical CPU`, then the banner, `Linux version 6.18.55`.
+2. `Kernel command line:`, with nothing after it: you passed no `-append`.
+3. `printk: console [ttyAMA0] enabled`. Without `console=`, the kernel used the UART named in `/chosen/stdout-path`.
+4. `Unpacking initramfs...`, later `Run /init as init process`, and then your own line: `Hello from /init, PID 1`.
+5. `reboot: Power down`. QEMU exits and you are back at the prompt.
+
+You can ignore the two `Flash device refused suspend` lines before the power-down.
+
+<Deeper depth="practitioner" title="See where QEMU put the initramfs">
+
+QEMU tells the kernel where the archive is through the Device Tree. Dump the tree QEMU builds for this exact command line; `dumpdtb` writes it and exits before the kernel runs:[^dumpdtb]
+
+<Prompt
+  dir="~/work/m09"
+  cmd='qemu-system-aarch64 -machine virt,dumpdtb=chosen.dtb -cpu cortex-a72 -m 1G -nographic -nic none -kernel Image -initrd initramfs.cpio -append "console=ttyAMA0"'
+/>
+
+<Prompt dir="~/work/m09" cmd="fdtget chosen.dtb /chosen bootargs" />
+
+<Prompt dir="~/work/m09" cmd="fdtget -t x chosen.dtb /chosen linux,initrd-start" />
+
+<Prompt dir="~/work/m09" cmd="fdtget -t x chosen.dtb /chosen linux,initrd-end" />
+
+<Prompt dir="~/work/m09" cmd="ls -l initramfs.cpio" />
+
+`bootargs` is the `-append` text. The two `linux,initrd` values are 64-bit addresses in two cells each: the capture shows `0 48000000` and `0 480ac200`. Their difference, `0xAC200`, is 705 024 bytes, the size `ls -l` prints.[^qboot][^chosen]
+
+</Deeper>
+
+## Turn on earlycon
+
+Boot the same kernel and archive again, this time with a command line:
+
+<Prompt
+  dir="~/work/m09"
+  cmd='qemu-system-aarch64 -machine virt -cpu cortex-a72 -m 1G -nographic -nic none -kernel Image -initrd initramfs.cpio -append "earlycon console=ttyAMA0"'
+/>
+
+`earlycon` with no value starts a polled console on the UART that `stdout-path` names.[^params] Compare the output with the first boot:[^log2]
+
+- `Kernel command line: earlycon console=ttyAMA0`.
+- Near the top, `earlycon: pl11 at MMIO 0x0000000009000000 (options '')` and `printk: legacy bootconsole [pl11] enabled`.
+- Later, `printk: console [ttyAMA0] enabled` and `printk: legacy bootconsole [pl11] disabled`, each printed twice, once by each console.
+
+The rest of the boot is unchanged and ends in `Hello from /init, PID 1`.
+
+## Break it: point rdinit= at a missing file
+
+`rdinit=` tells the kernel which initramfs program to run instead of `/init`.[^params] Name one that is not in the archive:
+
+<Prompt
+  dir="~/work/m09"
+  cmd='qemu-system-aarch64 -machine virt -cpu cortex-a72 -m 1G -nographic -nic none -kernel Image -initrd initramfs.cpio -append "console=ttyAMA0 rdinit=/bin/sh"'
+/>
+
+This boot does not end on its own. Near the end, find:[^log3]
+
+1. `check access for rdinit=/bin/sh failed: -2, ignoring`. The kernel gives up on the initramfs program.
+2. `VFS: Cannot open root device "" or unknown-block(0,0): error -6`, and a list of the block devices it does know.
+3. `Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(0,0)`.
+
+Without a usable initramfs program, the kernel tried to mount `root=`, and you gave none.[^main] When the panic has printed, leave QEMU with `Ctrl+a` then `x`. QEMU prints `QEMU: Terminated`.[^mux]
+
+## Break it: an init that can't execute
+
+Now give the kernel a program that exists but can't run: a shell script whose interpreter, `/bin/sh`, is not in the archive.
+
+<Prompt dir="~/work/m09" cmd="printf '#!/bin/sh\necho Hello from a script\n' > hello.sh" />
+
+<Prompt dir="~/work/m09" cmd="chmod +x hello.sh" />
+
+<Prompt dir="~/work/m09" cmd="cat hello.sh" />
+
+`cat` shows the two lines: the `#!/bin/sh` line names the interpreter, and the second line is the script.
+
+<Prompt dir="~/work/m09" cmd="printf 'init\nhello.sh\n' | cpio -o -H newc > script.cpio" />
+
+<Prompt dir="~/work/m09" cmd="cpio -t < script.cpio" />
+
+The new archive holds your working `init` and `hello.sh`. Boot it with `rdinit=/hello.sh`:
+
+<Prompt
+  dir="~/work/m09"
+  cmd='qemu-system-aarch64 -machine virt -cpu cortex-a72 -m 1G -nographic -nic none -kernel Image -initrd script.cpio -append "console=ttyAMA0 rdinit=/hello.sh"'
+/>
+
+This time the file exists, so the kernel skips the root mount and tries to run it. Find:[^log4]
+
+1. `Run /hello.sh as init process`, then `Failed to execute /hello.sh (error -2)`: the interpreter is missing.
+2. `Run /sbin/init as init process`, then `/etc/init`, `/bin/init` and `/bin/sh`, each with its arguments and environment.
+3. `Kernel panic - not syncing: No working init found.  Try passing init= option to kernel.`
+
+The kernel never tried `/init`, although it is in the archive and works: the fallback list doesn't include it.[^main] Leave QEMU with `Ctrl+a` then `x`.
+
+## What you did
+
+You read the `Image` header, built a static PID 1, and booted your own kernel into it from an initramfs. You saw the console come from `stdout-path`, then from `earlycon` and `console=`. You also caused both boot panics from the previous page: no root file system, and no working init. Module 10 follows complete boots on each board, and what breaks them.
+
+[^a64]: Linux kernel documentation, "Booting AArch64 Linux", section 4: the 64-byte header.
+
+[^hdr]: `logs/qemu/m09-image-header.log`.
+
+[^exit]: `kernel/exit.c` at Linux v6.18.55: the `Attempted to kill init!` panic.
+
+[^reboot]: Debian trixie manual page reboot(2): `RB_POWER_OFF`.
+
+[^build]: `logs/qemu/m09-build-init.log`.
+
+[^initrst]: Linux kernel documentation, `Documentation/admin-guide/init.rst`, cause 4, "Binary exists but dependencies not available".
+
+[^ramfs]: Linux kernel documentation, "Ramfs, rootfs and initramfs": the `cpio -o -H newc` commands and the static "hello world" example under "Contents of initramfs".
+
+[^cpio]: `usr/default_cpio_list` at Linux v6.18.55; see the [root file system page](/courses/linux-boot-arm/09-linux-takes-over/03-root-and-pid-1/).
+
+[^gnucpio]: GNU cpio manual, "Copy-out mode" and the `--format` option.
+
+[^qopts]: `qemu-options.hx` at QEMU v10.0.0: `-kernel`, `-append`, `-initrd` and `-nic none`.
+
+[^log1]: `logs/qemu/m09-initramfs-boot.log`.
+
+[^dumpdtb]: `hw/core/machine.c` at QEMU v10.0.0: the `dumpdtb` property; the module 07 lab uses it too.
+
+[^qboot]: `hw/arm/boot.c` at QEMU v10.0.0: `arm_load_dtb()` sets `/chosen/bootargs` and `linux,initrd-start` and `linux,initrd-end`.
+
+[^chosen]: `logs/qemu/m09-chosen.log`.
+
+[^params]: `Documentation/admin-guide/kernel-parameters.txt` at Linux v6.18.55: `earlycon=` and `rdinit=`.
+
+[^log2]: `logs/qemu/m09-earlycon-boot.log`.
+
+[^log3]: `logs/qemu/m09-rdinit-missing.log`.
+
+[^main]: `init/main.c` at Linux v6.18.55: `kernel_init_freeable()` and `kernel_init()`.
+
+[^mux]: QEMU documentation, keys in the character backend multiplexer: the multiplexer is the default with `-nographic`.
+
+[^log4]: `logs/qemu/m09-script-init.log`, with the commands in `logs/qemu/m09-script-build.log`.

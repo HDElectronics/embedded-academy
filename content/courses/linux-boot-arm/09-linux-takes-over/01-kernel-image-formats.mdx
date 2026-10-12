@@ -1,0 +1,165 @@
+---
+title: The kernel arrives as an Image or a zImage
+description: What the arm64 Image header tells a bootloader, why a 32-bit zImage carries its own decompressor, and who decompresses an arm64 kernel.
+course: linux-boot-arm
+module: m09
+order: 1
+type: explanation
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'Linux kernel documentation: Booting AArch64 Linux (Documentation/arch/arm64/booting.rst, v6.18.55)'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/Documentation/arch/arm64/booting.rst?h=v6.18.55
+    section: '3. Decompress the kernel image; 4. Call the kernel image'
+  - title: 'Linux kernel documentation: Booting ARM Linux (Documentation/arch/arm/booting.rst, v6.18.55)'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/Documentation/arch/arm/booting.rst?h=v6.18.55
+    section: '6. Calling the kernel image'
+  - title: 'Linux source v6.18.55: arch/arm64/kernel/head.S and arch/arm64/kernel/image.h'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm64/kernel/head.S?h=v6.18.55
+  - title: 'Linux source v6.18.55: arch/arm64/Makefile and arch/arm64/boot/Makefile'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm64/boot/Makefile?h=v6.18.55
+  - title: 'Linux source v6.18.55: drivers/firmware/efi/Kconfig (EFI_ZBOOT)'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/firmware/efi/Kconfig?h=v6.18.55
+  - title: 'Linux source v6.18.55: arch/arm/boot/compressed/head.S, vmlinux.lds.S and misc.c'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm/boot/compressed?h=v6.18.55
+  - title: 'Linux source v6.18.55: arch/arm/Kconfig (AUTO_ZRELADDR) and arch/arm/Kconfig.debug (DEBUG_UNCOMPRESS)'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm/Kconfig.debug?h=v6.18.55
+  - title: 'Linux source v6.18.55: init/Kconfig (Kernel compression mode)'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/init/Kconfig?h=v6.18.55
+  - title: 'U-Boot documentation (v2026.07): booti command'
+    url: https://docs.u-boot.org/en/v2026.07/usage/cmd/booti.html
+  - title: 'U-Boot documentation (v2026.07): bootz command'
+    url: https://docs.u-boot.org/en/v2026.07/usage/cmd/bootz.html
+  - title: 'U-Boot source (v2026.07): arch/arm/lib/zimage.c'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/arch/arm/lib/zimage.c
+---
+
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<div class="t-lead">
+  The bootloader's last job is a jump into the kernel. What it jumps into depends on the architecture. A 64-bit kernel
+  is an `Image`: the kernel itself, uncompressed, with a small header in front. A 32-bit kernel is usually a `zImage`: a
+  small program that decompresses the real kernel first. This page shows what each format tells the bootloader.
+</div>
+
+The registers and CPU state the kernel expects at that jump are on the [kernel entry registers page](/courses/linux-boot-arm/01-arm-for-booting/03-kernel-entry-registers/) of module 01. This page covers the file the bootloader jumps into.
+
+## An arm64 Image starts with a 64-byte header
+
+The arm64 boot protocol defines a header at the very start of the decompressed kernel image.[^a64] All fields are little-endian:
+
+| Offset | Field            | What it tells the bootloader                                   |
+| ------ | ---------------- | -------------------------------------------------------------- |
+| `0x00` | `code0`, `code1` | Two instructions that branch to the kernel's start code        |
+| `0x08` | `text_offset`    | How far past a 2 MB aligned base to place the image            |
+| `0x10` | `image_size`     | How many bytes from the start of the image the kernel will use |
+| `0x18` | `flags`          | Endianness, page size and placement rules                      |
+| `0x38` | `magic`          | `0x644D5241`, the bytes `ARM\x64`                              |
+| `0x3C` | `res5`           | Reserved; used as the offset of a PE header for UEFI           |
+
+The bootloader places the `Image` at `text_offset` bytes from a 2 MB aligned base address anywhere in usable RAM, keeps at least `image_size` bytes free from the start of the image, and jumps to its first byte.[^a64]
+
+In the Linux `v6.18.55` source, `head.S` writes `text_offset` as 0, and `image_size` as the distance from the kernel's first symbol, `_text`, to its last, `_end`.[^head] That distance covers memory the file does not store, such as the zero-filled BSS, so `image_size` is larger than the file.
+
+The arm64 kernel you build in module 08 shows all of this. Its header carries `text_offset` 0, `image_size` `0x2830000` (42 139 648 bytes) for a file of 41 351 680 bytes, `flags` `0xA`, and the magic bytes `41 52 4d 64` at offset `0x38`.[^log] `0xA` is binary `1010`:
+
+- bit 0 is 0: a little-endian kernel;
+- bits 1 and 2 are `01`: 4 KB pages;
+- bit 3 is 1: the 2 MB aligned base may be anywhere in physical memory, as long as the whole image stays inside the 48-bit addressable range.[^a64]
+
+<Deeper depth="practitioner" title="Why the Image starts with MZ">
+
+The first two bytes of your `Image` are `4d 5a`, ASCII `MZ`. In `head.S`, `code0` is a special no-op instruction that also marks the file as a PE/COFF executable.[^head] UEFI firmware can then load the same file as an EFI application: it skips `code0` and `code1`, follows `res5` to the PE header, and enters the kernel's EFI stub. When the stub is done, it jumps to `code0` and the normal boot continues.[^a64] A bootloader that is not UEFI ignores all of this and jumps to offset 0.
+
+</Deeper>
+
+## arm64 leaves decompression to the bootloader
+
+The arm64 kernel has no decompressor of its own. The boot protocol says so plainly: if you use a compressed target such as `Image.gz`, the bootloader must decompress it; a bootloader that can't do that uses the uncompressed `Image`.[^a64]
+
+The kernel build offers both. `arch/arm64/boot/Makefile` builds `Image` from `vmlinux`, and `Image.gz`, `Image.lz4`, `Image.zst` and others by compressing `Image`.[^boot] A plain `make` builds `Image.gz` unless `CONFIG_EFI_ZBOOT` is set.[^a64mk] In module 08 you asked for `Image` by name.
+
+U-Boot can do the decompressing. Its `booti` command boots a flat or compressed `Image`. For a compressed one, you set two environment variables first: `kernel_comp_addr_r`, where U-Boot may decompress, and `kernel_comp_size`, at least the size of the compressed file. Which formats work depends on the U-Boot configuration: `CONFIG_GZIP`, `CONFIG_LZ4`, `CONFIG_ZSTD` and others.[^booti]
+
+<Deeper depth="expert" title="EFI_ZBOOT: a self-decompressing arm64 kernel">
+
+`CONFIG_EFI_ZBOOT` builds the kernel as an EFI application, `vmlinuz.efi`, that carries the `Image` compressed and decompresses it before running it. Loaders that are not EFI can still decompress and run the payload themselves, if they implement the compression named in the zboot header. The option depends on the generic EFI stub and is not available on 32-bit Arm.[^zboot] The arm64 `defconfig` build in module 08 leaves it unset.
+
+</Deeper>
+
+## A zImage carries its own decompressor
+
+A 32-bit `zImage` is two things in one file: a small, position-independent program, and the compressed kernel behind it. The bootloader jumps to the start of the file, and the program does the rest.[^zhead]
+
+The program's first words are instructions, followed by a small table that a loader can check.[^zhead] U-Boot's `bootz` reads it as nine instruction words, then three words: a magic number, a start address and an end address.[^zimage]
+
+| Offset | Word            | Value                                |
+| ------ | --------------- | ------------------------------------ |
+| `0x24` | magic           | `0x016F2818`                         |
+| `0x28` | start           | load and run address of the `zImage` |
+| `0x2C` | end             | end address of the `zImage`          |
+| `0x30` | endianness flag | `0x04030201`                         |
+
+`bootz` refuses an image without the magic, with `zimage: Bad magic!`.[^zimage] In the `multi_v7_defconfig` `zImage` from module 08, offset `0x24` holds the bytes `18 28 6f 01`, the magic stored little-endian. The start word is 0 and the end word is `0xB4E200`, which equals the file size, 11 854 336 bytes.[^log]
+
+Once running, the decompressor works in this order, according to the comments and code of `arch/arm/boot/compressed/head.S`:[^zhead]
+
+1. It works out where the decompressed kernel must go. With `CONFIG_AUTO_ZRELADDR`, which multi-platform kernels use, it masks its own address with `0xF8000000`, or falls back to the Device Tree passed in `r2`.[^zreladdr] The mask is why a `zImage` must sit in the first 128 MiB of RAM.
+2. If the kernel would overwrite the decompressor, the decompressor first copies itself past the end of the decompressed kernel. The boot document recommends loading the `zImage` above 32 MiB to avoid this copy.[^a32]
+3. It turns the caches on, with page tables of its own, and calls `decompress_kernel()`.
+4. It cleans and turns off the caches, then jumps to the decompressed kernel with `r0` set to 0 and `r1` and `r2` restored to what the bootloader passed.
+
+The compression is a build choice. The kernel's default is gzip.[^comp]
+
+<Deeper depth="practitioner" title="A multi-platform decompressor prints nothing">
+
+`misc.c` calls `putstr("Uncompressing Linux...")` before it decompresses. That text only reaches a UART when `CONFIG_DEBUG_UNCOMPRESS` is set; otherwise the character output function is empty. `DEBUG_UNCOMPRESS` depends on `!ARCH_MULTIPLATFORM`, so a `multi_v7_defconfig` kernel, the one module 08 builds for the BeagleBone Black and the STM32MP157, can't enable it.[^silent] After U-Boot's `Starting kernel ...`, the next line you see comes from the decompressed kernel.
+
+</Deeper>
+
+## Each board gets one format
+
+| Board            | Kernel              | Format   | Loader command in U-Boot |
+| ---------------- | ------------------- | -------- | ------------------------ |
+| Raspberry Pi 4   | 64-bit, `defconfig` | `Image`  | `booti`                  |
+| BeagleBone Black | 32-bit, `multi_v7`  | `zImage` | `bootz`                  |
+| STM32MP157 DK2   | 32-bit, `multi_v7`  | `zImage` | `bootz`                  |
+
+`booti` boots the `Image` format, and `bootz` the `zImage` format.[^booti][^bootz] On the Raspberry Pi 4 without U-Boot, the GPU firmware loads the kernel named in `config.txt` instead, as module 08 sets up.
+
+Both formats end the same way: the CPU runs the kernel's own start code with the MMU off and the Device Tree address in a register. The next page follows that code to the first message on the console.
+
+<Callout level="info">
+  The facts on this page come from the Linux `v6.18.55` and U-Boot `v2026.07` documents and sources listed under
+  Sources. The header bytes were read with `od` from the kernels built in the lab container on 2026-10-12; the page
+  itself is an explanation and is marked unverified.
+</Callout>
+
+[^a64]: Booting AArch64 Linux, v6.18.55, section 3, "Decompress the kernel image", and section 4, "Call the kernel image": the header layout, header notes and placement rules.
+
+[^head]: `arch/arm64/kernel/head.S` at v6.18.55: the image header after `__HEAD`; `arch/arm64/kernel/image.h`: `_kernel_size_le` is `_end - _text`.
+
+[^log]: `logs/qemu/m09-image-header.log`: `od -A x -t x1z -N 64` of the `Image` and the `zImage` built in module 08. The file sizes come from the `ls -l` lines of the same log.
+
+[^boot]: `arch/arm64/boot/Makefile` at v6.18.55: the `Image` and `Image.*` targets.
+
+[^a64mk]: `arch/arm64/Makefile` at v6.18.55: `KBUILD_IMAGE` is `Image.gz`, or `vmlinuz.efi` with `CONFIG_EFI_ZBOOT`.
+
+[^booti]: U-Boot documentation v2026.07, booti command: Description and Configuration.
+
+[^bootz]: U-Boot documentation v2026.07, bootz command.
+
+[^zboot]: `drivers/firmware/efi/Kconfig` at v6.18.55: `config EFI_ZBOOT`, its dependencies and help text.
+
+[^zhead]: `arch/arm/boot/compressed/head.S` at v6.18.55: the table after `start:`, the relocation code under "Relocate ourselves past the end of the decompressed kernel", the call to `decompress_kernel` and `__enter_kernel`; `vmlinux.lds.S` sets `_magic_sig` to `0x016f2818`.
+
+[^zimage]: U-Boot source v2026.07, `arch/arm/lib/zimage.c`: `struct arm_z_header` and `bootz_setup()`.
+
+[^zreladdr]: `arch/arm/Kconfig` at v6.18.55: help text of `AUTO_ZRELADDR`.
+
+[^a32]: Booting ARM Linux, v6.18.55, section 6, "Calling the kernel image".
+
+[^comp]: `init/Kconfig` at v6.18.55: the "Kernel compression mode" choice defaults to `KERNEL_GZIP`.
+
+[^silent]: `arch/arm/boot/compressed/misc.c` (`decompress_kernel()`), `arch/arm/include/debug/uncompress.h` (an empty `putc()` without `CONFIG_DEBUG_UNCOMPRESS`) and `arch/arm/Kconfig.debug` (`config DEBUG_UNCOMPRESS`) at v6.18.55.

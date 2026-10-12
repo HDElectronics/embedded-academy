@@ -1,0 +1,26 @@
+# board: none; reads the kernel image files only
+# software: Linux v6.18.55: arm64 defconfig Image (~/work/build/linux-arm64) and arm multi_v7_defconfig zImage (~/work/build/linux-arm), both built as in module 08; od from GNU coreutils 9.7
+# command: the header commands of 09-linux-takes-over/04-lab-boot-to-your-own-init.mdx, in order
+# captured: 2026-10-12 (UTC), embedded-academy-lab container (Debian 13.7, QEMU 10.0.13)
+# note: the container clock matched the Date header of www.google.com at capture, so dates in the output are real UTC
+# note: each line starting with "# --- run: " was printed by the capture loop before its command
+# verification: emulated
+# --- run: mkdir -p ~/work/m09
+# --- run: cd ~/work/m09
+# --- run: cp ~/work/build/linux-arm64/arch/arm64/boot/Image .
+# --- run: ls -l Image
+-rw-r--r-- 1 learner learner 41351680 Oct 12 19:36 Image
+# --- run: od -A x -t x1z -N 64 Image
+000000 4d 5a 40 fa 3b 84 7b 14 00 00 00 00 00 00 00 00  >MZ@.;.{.........<
+000010 00 00 83 02 00 00 00 00 0a 00 00 00 00 00 00 00  >................<
+000020 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  >................<
+000030 00 00 00 00 00 00 00 00 41 52 4d 64 40 00 00 00  >........ARMd@...<
+000040
+# --- run: ls -l ~/work/build/linux-arm/arch/arm/boot/zImage
+-rwxr-xr-x 1 learner learner 11854336 Oct 11 21:32 /home/learner/work/build/linux-arm/arch/arm/boot/zImage
+# --- run: od -A x -t x1z -N 64 ~/work/build/linux-arm/arch/arm/boot/zImage
+000000 4d 5a 25 e2 4d 5a 25 e2 00 00 a0 e1 00 00 a0 e1  >MZ%.MZ%.........<
+000010 00 00 a0 e1 00 00 a0 e1 00 00 a0 e1 00 00 a0 e1  >................<
+000020 f6 03 00 ea 18 28 6f 01 00 00 00 00 00 e2 b4 00  >.....(o.........<
+000030 01 02 03 04 45 45 45 45 dc d6 00 00 40 00 00 00  >....EEEE....@...<
+000040

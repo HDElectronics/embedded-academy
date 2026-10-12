@@ -1,0 +1,63 @@
+# board: none; TF-A BL2 and FIP cross build for STM32MP157C-DK2 (PLAT=stm32mp1) in the lab container
+# software: TF-A lts-v2.14.10, arm-linux-gnueabihf-gcc 14.2.0 (Debian 14.2.0-19), GNU ld 2.44; BL32 OP-TEE 4.10.0 (PLATFORM=stm32mp1-157C_DK2); BL33 U-Boot v2026.07 (stm32mp15_defconfig, DEVICE_TREE=st/stm32mp157c-dk2)
+# command 1: make CROSS_COMPILE=arm-linux-gnueabihf- PLAT=stm32mp1 ARCH=aarch32 ARM_ARCH_MAJOR=7 DTB_FILE_NAME=stm32mp157c-dk2.dtb STM32MP_SDMMC=1
+# command 2: make CROSS_COMPILE=arm-linux-gnueabihf- PLAT=stm32mp1 ARCH=aarch32 ARM_ARCH_MAJOR=7 AARCH32_SP=optee DTB_FILE_NAME=stm32mp157c-dk2.dtb BL33=$HOME/work/build/u-boot-dk2/u-boot-nodtb.bin BL33_CFG=$HOME/work/build/u-boot-dk2/u-boot.dtb BL32=$HOME/work/src/optee_os/out/arm-plat-stm32mp1/core/tee-header_v2.bin BL32_EXTRA1=$HOME/work/src/optee_os/out/arm-plat-stm32mp1/core/tee-pager_v2.bin BL32_EXTRA2=$HOME/work/src/optee_os/out/arm-plat-stm32mp1/core/tee-pageable_v2.bin fip
+# captured: 2026-10-12, embedded-academy-lab container (Debian 13.7, QEMU 10.0.13)
+# note: run in ~/work/src/trusted-firmware-a after make CROSS_COMPILE=arm-linux-gnueabihf- PLAT=stm32mp1 ARCH=aarch32 ARM_ARCH_MAJOR=7 realclean; both make exit statuses were 0
+# verification: emulated
+# --- command 1
+  MD      /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release
+  MD      /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/libfdt
+# ... (147 lines cut)
+  CC      lib/libc/strtol.c
+  CC      lib/libc/memset.c
+  AR      /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/lib/libc.a
+  LD      /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/bl2/bl2.elf
+  BIN     /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/bl2.bin
+
+Built /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/bl2.bin successfully
+
+  OD      /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/bl2/bl2.dump
+  CPP     plat/st/stm32mp1/stm32mp1.ld.S
+  AS      stm32mp1.S
+  LDS     /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/stm32mp1-stm32mp157c-dk2.o
+
+Built /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/tf-a-stm32mp157c-dk2.bin successfully
+
+
+Generate /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/tf-a-stm32mp157c-dk2.stm32
+Image Type   : ST Microelectronics STM32 V1.0
+Image Size   : 209060 bytes
+Image Load   : 0x2ffc2500
+Entry Point  : 0x2ffe9000
+Checksum     : 0x00554893
+Option     : 0x00000001
+Version	     : 0x00000000
+
+Building stm32mp1
+rm /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/tf-a-stm32mp157c-dk2.elf /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/stm32mp1-stm32mp157c-dk2.o /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/tf-a-stm32mp157c-dk2.bin
+# --- command 2
+Including bl32/optee/optee.mk
+Trusted Firmware-A built for OP-TEE payload support
+  CPP     /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/fdts/stm32mp157c-dk2-bl2.dts
+  DTC     /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/fdts/stm32mp157c-dk2-bl2.pre.dts
+  CPP     fdts/stm32mp157c-dk2-fw-config.dts
+  DTC     /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/fdts/stm32mp157c-dk2-fw-config.pre.dts
+  MD      /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/tools/fiptool
+  HOSTCC      fiptool.c
+  HOSTCC      tbbr_config.c
+  MD      /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/tools/fiptool/plat_fiptool/st
+  HOSTCC      plat_fiptool/st/plat_def_uuid_config.c
+  HOSTLD  /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/tools/fiptool/fiptool
+
+Built /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/tools/fiptool/fiptool successfully
+
+Secure Payload BL32 (Trusted OS): offset=0x128, size=0x2C, cmdline="--tos-fw"
+Secure Payload BL32 Extra1 (Trusted OS Extra1): offset=0x154, size=0x15100, cmdline="--tos-fw-extra1"
+Secure Payload BL32 Extra2 (Trusted OS Extra2): offset=0x15254, size=0x5C000, cmdline="--tos-fw-extra2"
+Non-Trusted Firmware BL33: offset=0x71254, size=0x10C3C8, cmdline="--nt-fw"
+FW_CONFIG: offset=0x17D61C, size=0x1EA, cmdline="--fw-config"
+HW_CONFIG: offset=0x17D806, size=0x1B6A0, cmdline="--hw-config"
+
+Built /home/learner/work/src/trusted-firmware-a/build/stm32mp1/release/fip.bin successfully
+
