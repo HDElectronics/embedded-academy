@@ -75,3 +75,18 @@ figure.ea-code {
   padding: var(--space-2) var(--space-4) var(--space-4);
   border-top: 1px solid var(--line);
 }
+
+/* Narrow screens: code scrolls inside its box and nothing here widens the page */
+.ea-callout > *,
+.ea-callout__body > *,
+.ea-deeper__body > * {
+  min-width: 0;
+}
+
+.ea-code__head {
+  flex-wrap: wrap;
+}
+
+.ea-code pre {
+  max-width: 100%;
+}

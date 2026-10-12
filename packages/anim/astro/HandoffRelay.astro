@@ -1,0 +1,61 @@
+---
+// SPDX-FileCopyrightText: Embedded Academy contributors
+// SPDX-License-Identifier: MIT
+import { handoffRelay } from '@ea/boards';
+import { captureSpan } from '@ea/boards/node';
+import { relayState, renderRelayConsole, renderRelayDetail, renderRelayStages, resolveRelay } from '../src/index.ts';
+
+interface Props {
+  pane?: number;
+}
+
+const { pane = 1 } = Astro.props;
+const view = resolveRelay(handoffRelay, (ref) => captureSpan(ref));
+const json = JSON.stringify(view).replace(/</g, '\\u003c');
+---
+
+<ea-handoff-relay class="ea-relay" data-figure="handoff-relay">
+  <script is:inline type="application/json" data-relay set:html={json} />
+  <section class="ea-pane" aria-label="Hand-off relay, QEMU virt">
+    <div class="ea-pane__bar">
+      <span class="ea-pane__id">{pane}:</span>
+      <span class="ea-pane__title">hand-off relay</span>
+      <span class="ea-pane__meta">qemu virt · captured logs</span>
+    </div>
+    <div class="ea-pane__body ea-relay__body">
+      <ol
+        class="ea-relay__stages"
+        aria-label="Boot stages"
+        data-part="stages"
+        set:html={renderRelayStages(relayState(view, 0))}
+      />
+      <div class="ea-relay__grid">
+        <div class="ea-relay__detail" data-part="detail" set:html={renderRelayDetail(view, 0)} />
+        <div class="ea-relay__serial">
+          <p class="ea-pane__label">Serial console, every stage so far</p>
+          <div
+            class="ea-console ea-relay__out"
+            role="region"
+            tabindex="0"
+            aria-label="Serial console, every stage so far"
+            data-part="console"
+            set:html={renderRelayConsole(view, 0)}
+          />
+        </div>
+      </div>
+      <div class="ea-chain__controls">
+        <button type="button" class="ea-btn" data-part="prev">
+          Previous
+        </button>
+        <button type="button" class="ea-btn ea-btn--primary" data-part="next">
+          Next stage
+        </button>
+        <p class="visually-hidden" aria-live="polite" data-part="status"></p>
+      </div>
+    </div>
+  </section>
+</ea-handoff-relay>
+
+<script>
+  import '@ea/anim/client';
+</script>

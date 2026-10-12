@@ -13,6 +13,8 @@
     "./CourseMap.astro": "./astro/CourseMap.astro",
     "./PrivilegeLadder.astro": "./astro/PrivilegeLadder.astro",
     "./ExceptionLevels.astro": "./astro/ExceptionLevels.astro",
+    "./PredictLine.astro": "./astro/PredictLine.astro",
+    "./HandoffRelay.astro": "./astro/HandoffRelay.astro",
     "./SplFit.astro": "./astro/SplFit.astro"
   },
   "scripts": {
