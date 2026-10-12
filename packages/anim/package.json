@@ -11,7 +11,8 @@
     "./SerialConsole.astro": "./astro/SerialConsole.astro",
     "./MemoryMap.astro": "./astro/MemoryMap.astro",
     "./CourseMap.astro": "./astro/CourseMap.astro",
-    "./PrivilegeLadder.astro": "./astro/PrivilegeLadder.astro"
+    "./PrivilegeLadder.astro": "./astro/PrivilegeLadder.astro",
+    "./PlaceDtb.astro": "./astro/PlaceDtb.astro"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p ."

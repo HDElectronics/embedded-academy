@@ -23,3 +23,7 @@ export function formatAddress(value: number): string {
   const hex = value.toString(16).toUpperCase().padStart(8, '0');
   return `0x${hex.slice(0, 4)}_${hex.slice(4)}`;
 }
+
+// Interactive figures: PlaceDtb
+export * from './interactives/place-dtb.ts';
+export * from './interactives/replay.ts';

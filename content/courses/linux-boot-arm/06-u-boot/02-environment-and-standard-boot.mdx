@@ -38,6 +38,7 @@ sources:
     url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/include/configs/stm32mp15_st_common.h
 ---
 
+import PlaceDtb from '@ea/anim/PlaceDtb.astro';
 import SerialConsole from '@ea/anim/SerialConsole.astro';
 import CodeBlock from '@ea/ui/CodeBlock.astro';
 import Callout from '@ea/ui/Callout.astro';
@@ -81,6 +82,10 @@ boot_targets=qfw usb scsi virtio nvme dhcp
 {/* REUSE-IgnoreEnd */}
 
 Names ending in `_addr_r` are RAM addresses where boot commands load images: `kernel_addr_r` for the kernel, `fdt_addr_r` for the Device Tree, `ramdisk_addr_r` for the initial RAM disk. They are a naming convention, not something U-Boot's code requires, and some boards use other names.[^env]
+
+The PlaceDtb figure shows two of these addresses at work on QEMU's `virt` machine: the kernel loaded at `kernel_addr_r`, and the Device Tree address you hand to `booti`. Pick each choice and read U-Boot's real answer.
+
+<PlaceDtb start="above" />
 
 ## bootcmd runs when the countdown ends
 

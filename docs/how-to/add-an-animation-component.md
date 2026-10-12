@@ -39,6 +39,16 @@ A figure that shows console lines reads them from a capture in `logs/qemu/`. Des
 Any address, size or number the figure states outside the console lines must also come from a capture or from board data. Test it: assert that `captureSpan(ref).join('
 ')` contains the value, so a re-captured log that changes the number fails the test instead of the lesson.
 
+## Reuse the replay pattern for "pick a scenario" figures
+
+When the learner picks one of several real runs and reads its console, build on the shared replay pattern instead of a new element:
+
+1. In `packages/boards/src/interactives/`, describe each run as a `ReplayScenario` from `replay.ts`: its console spans, an outcome tag (`OK`, `FAILED`, `SILENT`, `WARN` or `WAIT`) with a few words, an explanation and its sources. Hold any number the figure states as a `CapturedNumber`, a value with the captured line that prints it.
+2. In `packages/anim/src/`, write one pure function that draws the figure's own scene for a choice, and convert the data with `toReplayChoice()` from `replay.ts`.
+3. In `client.ts`, register the element with `defineReplayFigure('<tag>', <scene>)`. The shared element runs the radio group and its keyboard, types the console again, moves anything marked `data-token` and handles reduced motion.
+
+`PlaceDtb` is the reference for this pattern.
+
 ## Mark it as a figure
 
 Give the component's root element a `data-figure` attribute with a short lowercase name, such as `data-figure="memory-map"`. Lessons keep prose at 72 characters wide and let elements with `data-figure` use the full content width, so the figure stays readable next to the text that introduces it.

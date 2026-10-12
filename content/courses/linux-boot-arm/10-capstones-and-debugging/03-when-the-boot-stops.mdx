@@ -33,6 +33,7 @@ sources:
     url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/qemu/common/qemu_pm.c
 ---
 
+import PlaceDtb from '@ea/anim/PlaceDtb.astro';
 import Prompt from '@ea/ui/Prompt.astro';
 import Callout from '@ea/ui/Callout.astro';
 
@@ -84,6 +85,10 @@ Removing `console=` altogether is not a failure on this machine. The kernel then
 
 **Symptom 1: U-Boot refuses.** Point `booti` at an address that holds no dtb: `booti ${kernel_addr_r} - 0x48000000`. U-Boot prints `ERROR: Did not find a cmdline Flattened Device Tree`, then `Could not find a valid device tree`, and returns to the prompt.[^log-missing]
 
+The PlaceDtb figure replays this run. Pick the other choices to compare U-Boot's answer when the address holds another board's tree, or a tree inside or above the kernel.
+
+<PlaceDtb start="nothing" />
+
 **Symptom 2: a reset loop.** Leave the dtb out: `booti ${kernel_addr_r}`. U-Boot prints `FDT and ATAGS support not compiled in`, then `resetting ...`. BL31 answers with `ERROR:   QEMU System Reset: with GPIO.` and the whole chain starts again from BL1.[^log-missing][^bootm-arm][^pm] If `bootcmd` repeats the mistake, the board resets forever.
 
 **Fix.** Load the dtb for your board to `fdt_addr_r` and pass that address as the third argument to `booti` or `bootz`.[^booti] Module 07 shows how each board's U-Boot picks the file.
@@ -129,6 +134,10 @@ U-Boot loads the tree and prints `Starting kernel ...`. Then silence.[^log-wrong
 3. `booti ${kernel_addr_r} - ${fdt_addr_r}`
 
 U-Boot prints `ERROR: FDT image overlaps OS image (OS=40400000..42c30000)`. An initrd placed inside the kernel fails the same check: `booti ${kernel_addr_r} 0x42000000:0x1000000 ${fdtcontroladdr}` prints `ERROR: RD image overlaps OS image (OS=40400000..42c30000)`.[^log-overlap][^overlap]
+
+Replay the overlap in the PlaceDtb figure: start with the tree inside the kernel, then move it above the kernel's end and watch the boot go through.
+
+<PlaceDtb start="inside" pane={2} />
 
 **Cause.** The kernel needs more memory than its file. The `Image` header holds `image_size`, which covers the kernel's BSS too.[^arm64] Here it is `0x283_0000`, so the kernel runs to `0x42C3_0000`, past the end of the file. U-Boot reads that size and refuses to start a kernel that would wipe the tree or the initrd.[^image]
 

@@ -51,6 +51,9 @@ From `@ea/anim`. Each figure reads its facts from `packages/boards` and its cons
 `SerialConsole`
 : A log replay with a stage timeline. Props: `board`, `pane`.
 
+`PlaceDtb`
+: A DRAM strip with the kernel at its load address on QEMU `virt`, and four places to hand `booti` a Device Tree: inside the kernel, above it, an address with no tree, another board's tree. Each choice replays U-Boot's real answer from `logs/qemu/`. Props: `start` (`inside`, `above`, `nothing` or `foreign`, default `inside`), `pane`.
+
 Figures sit in the text, at the full content width. Refer to a figure by name, never as "below" or "above".
 
 ## Example

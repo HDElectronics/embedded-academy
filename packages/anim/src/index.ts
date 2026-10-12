@@ -3,6 +3,8 @@
 
 export * from './ladder.ts';
 export * from './model.ts';
+export * from './place-dtb.ts';
 export * from './render.ts';
+export * from './replay.ts';
 export * from './serial.ts';
 export * from './types.ts';
