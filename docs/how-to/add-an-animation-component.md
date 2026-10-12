@@ -32,9 +32,9 @@ Read every address, stage, file name and size from `packages/boards`. Never hard
 - Make every control work from the keyboard, with the 2px focus ring.
 - Write buttons as bracketed text, such as `[ Play boot ]`, with one primary button per pane.
 
-## Make it work as a session window
+## Mark it as a figure
 
-Give the component's root element a `data-window` attribute with a short lowercase name, such as `data-window="memory-map"`. On wide screens the lesson layout moves every element with `data-window` out of the text into a window with that name, and moves the first `data-window="serial"` into the serial pane. The component must survive the move: custom elements are disconnected and connected again, so set up and tear down listeners in `connectedCallback` and `disconnectedCallback`, and render from the server markup.
+Give the component's root element a `data-figure` attribute with a short lowercase name, such as `data-figure="memory-map"`. Lessons keep prose at 72 characters wide and let elements with `data-figure` use the full content width, so the figure stays readable next to the text that introduces it.
 
 ## Respect reduced motion
 

@@ -18,7 +18,7 @@ const all = log.lines.length;
 const json = JSON.stringify(log).replace(/</g, '<');
 ---
 
-<ea-serial-console class="ea-serial" data-window="serial">
+<ea-serial-console class="ea-serial" data-figure="serial">
   <script is:inline type="application/json" data-log set:html={json} />
   <section class="ea-pane" aria-label={`Serial console, ${board.name}`}>
     <div class="ea-pane__bar">

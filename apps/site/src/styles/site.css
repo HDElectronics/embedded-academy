@@ -263,182 +263,21 @@ a.site-prompt__seg:hover {
   --astro-code-token-link: var(--link);
 }
 
-/* Lesson session: a tmux-style split on wide screens, a plain page below that */
-.ea-session__windows,
-.ea-session__serial,
-.ea-session__ref,
-.ea-status__zoom {
-  display: none;
+/* Lesson body: prose at reading width, figures across the content width */
+.lesson-body {
+  display: grid;
+  gap: var(--space-4);
 }
 
-.ea-session__bar {
-  min-height: 33px;
+.lesson-body > * {
+  max-width: 72ch;
 }
 
-.ea-session__tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 var(--space-4);
-  text-transform: none;
-  letter-spacing: 0;
+.lesson-body > [data-figure] {
+  max-width: none;
+  margin-block: var(--space-2);
 }
 
-.ea-session__tabs .ea-tab {
-  padding: 0;
-  font-size: 13px;
-}
-
-.ea-status__zoom button {
-  padding: 0 var(--space-1);
-  border: 0;
-  background: none;
-  color: var(--ink-muted);
-  font: inherit;
-  cursor: pointer;
-}
-
-.ea-status__zoom button[aria-pressed="true"] {
-  color: var(--accent);
-  font-weight: 700;
-}
-
-.ea-status__zoom button[aria-pressed="true"]::after {
-  content: "*" / "";
-}
-
-@media (width < 1100px) {
-  .ea-session > .ea-pane {
-    border: 0;
-    background: none;
-  }
-
-  .ea-session .ea-session__bar {
-    display: none;
-  }
-}
-
-@media (width >= 1100px) {
-  body.is-session {
-    height: 100dvh;
-    grid-template-rows: auto minmax(0, 1fr) auto;
-  }
-
-  body.is-session .site-footer {
-    display: none;
-  }
-
-  body.is-session .site-main {
-    max-width: none;
-    min-height: 0;
-    padding: var(--space-1);
-  }
-
-  body.is-session .status-bar {
-    position: static;
-  }
-
-  .ea-session {
-    display: grid;
-    grid-template:
-      "read windows" minmax(0, 3fr)
-      "read serial" minmax(0, 2fr) / minmax(0, 5fr) minmax(0, 7fr);
-    gap: var(--space-1);
-    height: 100%;
-    min-height: 0;
-  }
-
-  .ea-session > * {
-    min-width: 0;
-    min-height: 0;
-  }
-
-  .ea-session__read,
-  .ea-session__windows {
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-  }
-
-  .ea-session__read {
-    grid-area: read;
-  }
-
-  .ea-session__windows {
-    grid-area: windows;
-  }
-
-  .ea-session__serial {
-    display: block;
-    grid-area: serial;
-    overflow: auto;
-  }
-
-  .ea-session__scroll {
-    overflow: auto;
-    padding: var(--space-4) var(--space-6);
-  }
-
-  .ea-session__ref {
-    display: block;
-  }
-
-  .ea-status__zoom {
-    display: flex;
-    gap: var(--space-2);
-  }
-
-  /* No serial console in the lesson: figures take the whole right column */
-  .ea-session[data-serial="no"] .ea-session__windows {
-    grid-row: 1 / 3;
-  }
-
-  .ea-session[data-serial="no"] .ea-session__serial,
-  .ea-session[data-windows="no"] .ea-session__windows {
-    display: none;
-  }
-
-  .ea-session[data-windows="no"] .ea-session__serial {
-    grid-row: 1 / 3;
-  }
-
-  /* Figures and the serial console fill their pane; their own pane bars stay as titles */
-  .ea-session__serial > [data-window],
-  .ea-session__serial > [data-window] > .ea-pane {
-    height: 100%;
-  }
-
-  .ea-session__serial .ea-serial__out {
-    height: auto;
-    min-height: 160px;
-  }
-
-  .ea-session__windows .ea-session__scroll {
-    padding: 0;
-  }
-
-  .ea-session__windows [data-window] .ea-pane {
-    border: 0;
-  }
-
-  .ea-session__windows [data-window] .ea-pane > .ea-pane__bar {
-    display: none;
-  }
-
-  /* Zoom: one pane fills the session */
-  .ea-session[data-zoom="read"],
-  .ea-session[data-zoom="windows"],
-  .ea-session[data-zoom="serial"] {
-    grid-template: "zoomed" minmax(0, 1fr) / minmax(0, 1fr);
-  }
-
-  .ea-session[data-zoom="read"] > :not(.ea-session__read),
-  .ea-session[data-zoom="windows"] > :not(.ea-session__windows),
-  .ea-session[data-zoom="serial"] > :not(.ea-session__serial) {
-    display: none;
-  }
-
-  .ea-session[data-zoom="read"] .ea-session__read,
-  .ea-session[data-zoom="windows"] .ea-session__windows,
-  .ea-session[data-zoom="serial"] .ea-session__serial {
-    grid-area: zoomed;
-  }
+.lesson-body > :is(h2, h3) {
+  margin-top: var(--space-6);
 }
