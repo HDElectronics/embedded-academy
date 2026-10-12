@@ -60,6 +60,9 @@ From `@ea/anim`. Each figure reads its facts from `packages/boards` and its cons
 `HandoffRelay`
 : The QEMU `virt` chain from BL1 to PID 1, one stage at a time: the stage's captured console lines, the images loaded so far with their addresses, and what it hands to the next stage (entry point and `SPSR`, or the kernel's `x0` to `x3`). Data in `packages/boards/src/interactives/handoff-relay.ts`. Props: `pane`.
 
+`SplFit`
+: The BeagleBone Black SPL against the SRAM the AM335x boot ROM loads it into: the ROM download area (limit A), `CONFIG_SPL_MAX_SIZE` (limit B) and the measured `spl/u-boot-spl.bin`, with controls that add bytes until the link would fail, and `u-boot.img` against the whole area. Every size comes from `logs/qemu/m04-spl-measure.log`; the data lives in `packages/boards/src/interactives/spl-fit.ts`. Props: `pane`.
+
 Figures sit in the text, at the full content width. Refer to a figure by name, never as "below" or "above".
 
 ## Example

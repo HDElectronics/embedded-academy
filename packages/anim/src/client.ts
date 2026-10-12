@@ -26,3 +26,8 @@ defineHandoffRelay();
 import { defineExceptionLevels } from './exception-levels.ts';
 
 defineExceptionLevels();
+
+// Figure: SplFit
+import { defineSplFit } from './spl-fit.ts';
+
+defineSplFit();

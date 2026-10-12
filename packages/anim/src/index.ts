@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 export * from './elevator.ts';
+export * from './fit.ts';
 export * from './ladder.ts';
 export * from './model.ts';
 export * from './predict.ts';

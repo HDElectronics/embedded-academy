@@ -14,7 +14,8 @@
     "./PrivilegeLadder.astro": "./astro/PrivilegeLadder.astro",
     "./ExceptionLevels.astro": "./astro/ExceptionLevels.astro",
     "./PredictLine.astro": "./astro/PredictLine.astro",
-    "./HandoffRelay.astro": "./astro/HandoffRelay.astro"
+    "./HandoffRelay.astro": "./astro/HandoffRelay.astro",
+    "./SplFit.astro": "./astro/SplFit.astro"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p ."
