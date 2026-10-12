@@ -872,3 +872,133 @@
     height: 320px;
   }
 }
+
+/* Predict the next line */
+.ea-predict__body {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.ea-predict__ask {
+  margin: 0;
+  max-width: 72ch;
+}
+
+.ea-predict__console {
+  height: auto;
+  max-height: 320px;
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.ea-predict__next {
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--accent);
+}
+
+.ea-predict__choices {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.ea-predict__choice {
+  display: grid;
+  grid-template-columns: 9ch minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-0);
+  background: var(--surface);
+  color: var(--ink);
+  font: 400 14px/22px var(--font-mono);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease-out;
+}
+
+.ea-predict__choice:hover {
+  border-color: var(--line-strong);
+}
+
+.ea-predict__choice[aria-disabled="true"] {
+  cursor: default;
+}
+
+.ea-predict__choice.is-right {
+  border-color: var(--success);
+  background: var(--surface-raised);
+}
+
+.ea-predict__choice.is-wrong {
+  border-color: var(--danger);
+}
+
+.ea-predict__tag {
+  font-weight: 700;
+  white-space: pre;
+  color: var(--ink-muted);
+}
+
+.ea-predict__choice.is-right .ea-predict__tag {
+  color: var(--success);
+}
+
+.ea-predict__choice.is-wrong .ea-predict__tag {
+  color: var(--danger);
+}
+
+.ea-predict__text {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.ea-predict__text .ts {
+  color: var(--ink-muted);
+}
+
+.ea-predict__result {
+  display: grid;
+  gap: var(--space-2);
+  min-height: 48px;
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.ea-predict__result p {
+  margin: 0;
+  max-width: 72ch;
+}
+
+.ea-predict__hint {
+  color: var(--ink-muted);
+}
+
+.ea-predict__verdict {
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+
+.ea-predict__controls {
+  flex-wrap: nowrap;
+  align-items: start;
+}
+
+.ea-predict__log {
+  margin: 0;
+  color: var(--ink-muted);
+  overflow-wrap: anywhere;
+}
+
+@media (width <= 640px) {
+  .ea-predict__controls {
+    flex-wrap: wrap;
+  }
+
+  .ea-predict__choice {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+}

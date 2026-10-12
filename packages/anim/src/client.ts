@@ -14,6 +14,10 @@ definePrivilegeLadder();
 defineSerialConsole();
 
 // Interactive figures
+import { definePredictLine } from './predict-line.ts';
+
+definePredictLine();
+
 import { defineHandoffRelay } from './handoff-relay.ts';
 
 defineHandoffRelay();

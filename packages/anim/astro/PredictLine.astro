@@ -1,0 +1,72 @@
+---
+// SPDX-FileCopyrightText: Embedded Academy contributors
+// SPDX-License-Identifier: MIT
+import { predictLine } from '@ea/boards';
+import { captureSpan, readCapture } from '@ea/boards/node';
+import {
+  advanceLabel,
+  PREDICT_START,
+  renderPredictChoices,
+  renderPredictConsole,
+  renderPredictMeta,
+  renderPredictResult,
+  resolvePredict,
+} from '../src/index.ts';
+
+interface Props {
+  pane?: number;
+}
+
+const { pane = 1 } = Astro.props;
+const view = resolvePredict(predictLine, (ref) => captureSpan(ref));
+const header = readCapture(predictLine.log).header;
+const json = JSON.stringify(view).replace(/</g, '\\u003c');
+const s = PREDICT_START;
+---
+
+<ea-predict-line class="ea-predict" data-figure="predict-line">
+  <script is:inline type="application/json" data-predict set:html={json} />
+  <section class="ea-pane" aria-label="Predict the next line, QEMU virt">
+    <div class="ea-pane__bar">
+      <span class="ea-pane__id">{pane}:</span>
+      <span class="ea-pane__title">next line?</span>
+      <span class="ea-pane__meta" data-part="meta">
+        {renderPredictMeta(view, s)}
+      </span>
+    </div>
+    <div class="ea-pane__body ea-predict__body">
+      <p class="ea-predict__ask">
+        What does the console print next? Every choice is a real line from the same boot; only one comes next.
+      </p>
+      <div
+        class="ea-console ea-predict__console"
+        role="region"
+        tabindex="0"
+        aria-label="Console so far"
+        data-part="console"
+        set:html={renderPredictConsole(view, s)}
+      />
+      <div
+        class="ea-predict__choices"
+        role="group"
+        aria-label="Choices"
+        data-part="choices"
+        set:html={renderPredictChoices(view, s)}
+      />
+      <div class="ea-predict__result" aria-live="polite" data-part="result" set:html={renderPredictResult(view, s)} />
+      <div class="ea-chain__controls ea-predict__controls">
+        <button type="button" class="ea-btn ea-btn--primary" data-part="advance">
+          {advanceLabel(view, s)}
+        </button>
+        <p class="ea-predict__log t-small">
+          Lines from <code>logs/{predictLine.log}</code>, verification: {header.verification?.[0] ?? 'unverified'}.{' '}
+          {header.software?.[0]}
+        </p>
+      </div>
+    </div>
+  </section>
+</ea-predict-line>
+
+<script>
+  import '@ea/anim/client';
+</script>
