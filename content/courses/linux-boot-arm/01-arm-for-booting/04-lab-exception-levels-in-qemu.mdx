@@ -100,7 +100,7 @@ Start QEMU's `virt` machine with a Cortex-A72, the Raspberry Pi 4's core. The op
   cmd="qemu-system-aarch64 -machine virt -cpu cortex-a72 -nic none -display none -serial none -monitor stdio -S"
 />
 
-Leave `-nic none` in. Without a network option, QEMU gives the machine its default network card[^qemu-opts], whose boot ROM is not in the lab image, and QEMU exits with `failed to find romfile "efi-virtio.rom"`.
+Leave `-nic none` in. Without a network option, QEMU gives the machine its default network card[^qemu-opts]. This lab needs no network card, so `-nic none` keeps QEMU from adding one.
 
 QEMU shows its monitor prompt, `(qemu)`. Type `info registers` and press Enter[^hmp]. Find the `PSTATE` line: after the flags, QEMU writes the current exception level, `EL` and a number[^dump]. Note the level, then type `quit`.
 

@@ -68,7 +68,7 @@ This lab differs from both guides in five ways. Each is on purpose:
 3. **No transfer list.** U-Boot's guide also passes `TRANSFER_LIST=1` to TF-A. This lab keeps TF-A's default, `0`.[^opts]
 4. **No Linux yet.** TF-A's QEMU command passes a kernel, a command line and an initramfs with `-kernel`, `-append` and `-initrd`. This lab drops those three options and stops at U-Boot's prompt.[^tfa-qemu]
 5. **No network card.** The lab adds `-nic none` to the QEMU command, so the board has no network device.[^qemu-src]
-   The section on booting explains why.
+   The lab needs no network.
 
 If one of these changes breaks the boot for you, say so in your report: it tells us which upstream step is required.
 
@@ -151,9 +151,8 @@ What each option does:
 - `-bios flash.bin` loads your flash image where the CPU starts after reset.[^tfa-qemu]
 - `-d unimp` asks QEMU to log accesses to functionality it does not implement.[^qemu-src]
 - `-nographic` sends the serial console to your terminal.[^qemu-src]
-- `-nic none` gives the board no network device. Without it, QEMU adds a default network card.[^qemu-src] In the lab
-  container that card's boot ROM file is missing, and QEMU stops before the CPU runs with
-  `qemu-system-aarch64: failed to find romfile "efi-virtio.rom"`. U-Boot needs no network in this lab.
+- `-nic none` gives the board no network device. Without it, QEMU adds a default network card.[^qemu-src] This lab
+  needs no network card, so `-nic none` keeps QEMU from adding one.
 
 ## Read the boot on the console
 
