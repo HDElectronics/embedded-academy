@@ -51,6 +51,9 @@ From `@ea/anim`. Each figure reads its facts from `packages/boards` and its cons
 `SerialConsole`
 : A log replay with a stage timeline. Props: `board`, `pane`.
 
+`PredictLine`
+: A quiz over the full-chain capture `logs/qemu/m10-chain-virt.log`: the console up to a point, real lines from the same capture to choose from, a score and a sourced reason for each answer. Data in `packages/boards/src/interactives/predict-line.ts`. Props: `pane`.
+
 Figures sit in the text, at the full content width. Refer to a figure by name, never as "below" or "above".
 
 ## Example

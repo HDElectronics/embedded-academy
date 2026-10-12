@@ -35,6 +35,7 @@ sources:
 
 import Callout from '@ea/ui/Callout.astro';
 import SerialConsole from '@ea/anim/SerialConsole.astro';
+import PredictLine from '@ea/anim/PredictLine.astro';
 
 <div class="t-lead">
   A serial console log is the boot chain written down. Each program prints in its own style, so you can tell from one
@@ -62,9 +63,13 @@ Some stages print nothing. A boot ROM is usually silent, and so is the kernel's 
 
 In the lab you captured one complete trace, in `logs/qemu/m10-chain-virt.log`. It runs `NOTICE:  BL1: Booting BL2`, then the U-Boot banner, then `Starting kernel ...`, then the kernel's log up to `Run /sbin/init as init process`. Keep it open next to the board logs: each board replaces some of its stages and keeps others.
 
+Check your reading of that trace with the next-line quiz. It shows the boot up to a point and offers real lines from the same capture. Pick the one that comes next, from the voice and the order of the stages, then read why.
+
+<PredictLine pane={1} />
+
 ## Raspberry Pi 4: the GPU boots first
 
-<SerialConsole board="rpi4" pane={1} />
+<SerialConsole board="rpi4" pane={2} />
 
 Step through the Raspberry Pi 4 log on the serial console:
 
@@ -78,7 +83,7 @@ Compared with QEMU, the GPU firmware does the jobs of TF-A's BL1 and BL2: it loa
 
 ## BeagleBone Black: no secure firmware in the log
 
-<SerialConsole board="bbb" pane={2} />
+<SerialConsole board="bbb" pane={3} />
 
 1. **ROM code.** It is silent unless it waits for a UART boot. Module 02 covers how it picks a boot device.
 2. **SPL.** `U-Boot SPL` and `Trying to boot from MMC1` come from the first stage that runs from internal SRAM and sets up DDR.[^am335x] Module 04 builds it.
@@ -90,7 +95,7 @@ No line comes from a secure monitor. The chain on this board has no TF-A and no 
 
 ## STM32MP157: TF-A and OP-TEE before U-Boot
 
-<SerialConsole board="stm32mp157" pane={3} />
+<SerialConsole board="stm32mp157" pane={4} />
 
 1. **ROM code.** Silent. Module 02 covers its boot modes.
 2. **TF-A BL2.** The `NOTICE:` lines, the board model and `BL2: Booting BL32`.[^tfa-st] Modules 04 and 05 cover it. There is no BL1 and no BL31: the ROM loads BL2, and this 32-bit chip uses OP-TEE as its monitor.

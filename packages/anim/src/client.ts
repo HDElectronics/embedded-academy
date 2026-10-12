@@ -12,3 +12,8 @@ defineBootChain();
 defineCourseMap();
 definePrivilegeLadder();
 defineSerialConsole();
+
+// Interactive figures
+import { definePredictLine } from './predict-line.ts';
+
+definePredictLine();
