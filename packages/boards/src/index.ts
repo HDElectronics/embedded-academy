@@ -6,6 +6,8 @@ import { rpi4 } from './data/rpi4.ts';
 import { stm32mp157 } from './data/stm32mp157.ts';
 import type { Board } from './schema.ts';
 
+// Interactive figures
+export * from './interactives/handoff-relay.ts';
 export * from './log.ts';
 export * from './schema.ts';
 export * from './sources.ts';

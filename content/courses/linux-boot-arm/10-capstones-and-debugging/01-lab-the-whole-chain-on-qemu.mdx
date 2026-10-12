@@ -52,6 +52,7 @@ sources:
 import Prompt from '@ea/ui/Prompt.astro';
 import Callout from '@ea/ui/Callout.astro';
 import Deeper from '@ea/ui/Deeper.astro';
+import HandoffRelay from '@ea/anim/HandoffRelay.astro';
 
 <Callout level="info">
   Every command on this page was run in the lab container under QEMU on 2026-10-12, at the versions this course pins.
@@ -165,6 +166,10 @@ Open `logs/qemu/m10-chain-virt.log` and find each stage:
 | `VFS: Mounted root (ext4 filesystem) readonly`, `Run /sbin/init as init process` | Root and PID 1        | 09     |
 
 The kernel also prints `KASLR enabled`. QEMU puts a random `kaslr-seed` in `/chosen` by default, so the kernel places itself at a random virtual address.[^virt] Debugging with GDB, later in this module, has to turn that off.
+
+The hand-off relay follows the same stages, one hop at a time, with their captured lines. Step through it and check what each stage loads, and what it hands over: an entry point, a level in `SPSR`, or the Device Tree address in `x0`. The TF-A stages come from the `DEBUG=1` build of module 05, which prints load addresses, and the kernel's registers from a separate run under GDB.
+
+<HandoffRelay pane={1} />
 
 <Deeper depth="practitioner" title="What autoboot does instead">
 

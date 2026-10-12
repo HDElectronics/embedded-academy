@@ -12,3 +12,8 @@ defineBootChain();
 defineCourseMap();
 definePrivilegeLadder();
 defineSerialConsole();
+
+// Interactive figures
+import { defineHandoffRelay } from './handoff-relay.ts';
+
+defineHandoffRelay();
