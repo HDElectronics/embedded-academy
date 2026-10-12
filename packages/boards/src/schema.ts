@@ -10,6 +10,19 @@ export const Source = z.object({
   section: z.string().min(1).optional(),
 });
 
+/**
+ * A span of a captured console log: a file under `logs/` and a 1-based,
+ * inclusive range of its raw line numbers, as an editor shows them. Figures
+ * read their console output through these, never from typed-in strings.
+ */
+export const CaptureRef = z
+  .object({
+    log: z.string().regex(/^qemu\/[a-z0-9][a-z0-9-]*\.log$/),
+    from: z.number().int().positive(),
+    to: z.number().int().positive(),
+  })
+  .refine((r) => r.to >= r.from, { message: '`to` must not be before `from`' });
+
 /** How a fact, command or log was checked. Only a person with the board may set `hardware`. */
 export const Verification = z.enum(['unverified', 'emulated', 'hardware']);
 
@@ -95,6 +108,7 @@ export const Board = z.object({
 export type Source = z.infer<typeof Source>;
 export type Verification = z.infer<typeof Verification>;
 export type World = z.infer<typeof World>;
+export type CaptureRef = z.infer<typeof CaptureRef>;
 export type Load = z.infer<typeof Load>;
 export type Privilege = z.infer<typeof Privilege>;
 export type Region = z.infer<typeof Region>;
