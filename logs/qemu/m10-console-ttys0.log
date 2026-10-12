@@ -1,0 +1,51 @@
+# board: QEMU virt, secure=on (cortex-a57, 2 CPUs, 1 GiB)
+# software: TF-A lts-v2.14.10 (PLAT=qemu, release, BL33 = U-Boot), U-Boot v2026.07 (qemu_arm64_defconfig), Linux v6.18.55 (arm64 defconfig), Buildroot 2026.02.3 rootfs.ext4 (qemu_aarch64_virt_defconfig), GCC 14.2.0 (aarch64-linux-gnu)
+# command: qemu-system-aarch64 -nographic -machine virt,secure=on -cpu cortex-a57 -smp 2 -m 1024 -bios flash.bin -kernel $HOME/work/build/linux-arm64/arch/arm64/boot/Image -append "console=ttyAMA0 root=/dev/vda rootwait" -drive file=rootfs.ext4,if=none,format=raw,id=hd0 -device virtio-blk-device,drive=hd0 -netdev user,id=eth0 -device virtio-net-device,netdev=eth0
+# captured: 2026-10-12 (UTC), embedded-academy-lab container (Debian 13, QEMU 10.0.13), run in ~/work/m10
+# input: spaces sent during the countdown to stop autoboot, then Enter; 'qfw load ${kernel_addr_r} ${ramdisk_addr_r}'; 'setenv bootargs console=ttyS0 root=/dev/vda rootwait'; 'booti ${kernel_addr_r} - ${fdtcontroladdr}'; then at the shell 'root', 'cat /proc/cmdline', 'poweroff' (no echo); QEMU stopped by timeout 100
+# verification: emulated
+
+NOTICE:  Booting Trusted Firmware
+NOTICE:  BL1: v2.14.10(release):lts-v2.14.10
+NOTICE:  BL1: Built : 19:18:38, Oct 12 2026
+NOTICE:  BL1: Booting BL2
+NOTICE:  BL2: v2.14.10(release):lts-v2.14.10
+NOTICE:  BL2: Built : 19:18:40, Oct 12 2026
+NOTICE:  BL1: Booting BL31
+NOTICE:  BL31: v2.14.10(release):lts-v2.14.10
+NOTICE:  BL31: Built : 19:18:41, Oct 12 2026
+Bloblist at 0 not found (err=-2)
+alloc space exhausted ptr 400 limit 0
+Bloblist at 0 not found (err=-2)
+
+
+U-Boot 2026.07 (Oct 12 2026 - 19:18:28 +0000)
+
+DRAM:  1 GiB
+using memory 0x7e64f000-0x7f68f000 for malloc()
+Core:  51 devices, 14 uclasses, devicetree: board
+Flash: 32 MiB
+Loading Environment from Flash... *** Warning - bad CRC, using default environment
+
+In:    serial,usbkbd
+Out:   serial,vidconsole
+Err:   serial,vidconsole
+No USB controllers found
+Net:   eth0: virtio-net#30
+
+Hit any key to stop autoboot: 2Hit any key to stop autoboot: 0
+=>
+=> qfw load ${kernel_addr_r} ${ramdisk_addr_r}
+warning: no initrd available
+loading kernel to address 40400000 size 276fa00
+=> setenv bootargs console=ttyS0 root=/dev/vda rootwait
+=> booti ${kernel_addr_r} - ${fdtcontroladdr}
+## Flattened Device Tree blob at 7e64cc20
+   Booting using the fdt blob at 0x7e64cc20
+Working FDT set to 7e64cc20
+   Loading Device Tree to 000000007d622000, end 000000007d627154 ... OK
+Working FDT set to 7d622000
+
+Starting kernel ...
+
+qemu-system-aarch64: terminating on signal 15 from pid 7 (timeout)

@@ -1,0 +1,187 @@
+---
+title: Find out why the boot stops after U-Boot
+description: Reproduce four common failures between U-Boot and PID 1 on QEMU, read the real messages, and fix the console, Device Tree, load addresses and root device.
+course: linux-boot-arm
+module: m10
+order: 3
+type: how-to
+boards: []
+verification: emulated
+sources:
+  - title: 'Linux kernel documentation (v6.18): The kernel’s command-line parameters'
+    url: https://www.kernel.org/doc/html/v6.18/admin-guide/kernel-parameters.html
+    section: console=, earlycon=, root=, rootwait
+  - title: 'Linux source (v6.18.55): drivers/of/base.c'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/of/base.c?h=v6.18.55
+    section: of_console_check()
+  - title: 'Linux source (v6.18.55): init/main.c and init/do_mounts.c'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/init/do_mounts.c?h=v6.18.55
+  - title: 'Linux source (v6.18.55): arch/arm/boot/dts/broadcom/bcm2711-rpi-4-b.dts'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm/boot/dts/broadcom/bcm2711-rpi-4-b.dts?h=v6.18.55
+  - title: 'Linux kernel documentation (v6.18): Booting AArch64 Linux'
+    url: https://www.kernel.org/doc/html/v6.18/arch/arm64/booting.html
+    section: Call the kernel image (image_size)
+  - title: 'U-Boot documentation (v2026.07): booti command'
+    url: https://docs.u-boot.org/en/v2026.07/usage/cmd/booti.html
+  - title: 'U-Boot documentation (v2026.07): fdt command'
+    url: https://docs.u-boot.org/en/v2026.07/usage/cmd/fdt.html
+  - title: 'U-Boot source (v2026.07): boot/bootm.c, boot/image-fdt.c and arch/arm/lib/bootm.c'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/boot/bootm.c
+  - title: 'U-Boot source (v2026.07): arch/arm/lib/bootm-fdt.c and arch/arm/lib/image.c'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/arch/arm/lib/bootm-fdt.c
+  - title: 'Trusted Firmware-A source (lts-v2.14.10): plat/qemu/common/qemu_pm.c'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/qemu/common/qemu_pm.c
+---
+
+import Prompt from '@ea/ui/Prompt.astro';
+import Callout from '@ea/ui/Callout.astro';
+
+<Callout level="info">
+  Every failure on this page was reproduced in the lab container under QEMU on 2026-10-12, at the versions this course
+  pins. Each message quoted here comes from a capture in `logs/qemu/`, named in the footnotes. If you see something
+  else, report it with the `inaccuracy` issue form.
+</Callout>
+
+<div class="t-lead">
+  Use this page when U-Boot runs but Linux never reaches a login prompt. For each failure you get the symptom, a way to
+  reproduce it on QEMU, the real message, the cause and the fix.
+</div>
+
+## Set up the test machine
+
+You need the machine from [the full-chain lab](../01-lab-the-whole-chain-on-qemu/): `flash.bin`, `rootfs.ext4` and the kernel `Image`. Start it with the same command:
+
+<Prompt
+  dir="~/work/m10"
+  cmd='qemu-system-aarch64 -nographic -machine virt,secure=on -cpu cortex-a57 -smp 2 -m 1024 -bios flash.bin -kernel $HOME/work/build/linux-arm64/arch/arm64/boot/Image -append "console=ttyAMA0 root=/dev/vda rootwait" -drive file=rootfs.ext4,if=none,format=raw,id=hd0 -device virtio-blk-device,drive=hd0 -netdev user,id=eth0 -device virtio-net-device,netdev=eth0'
+/>
+
+Stop the countdown and load the kernel at the `=>` prompt with `qfw load ${kernel_addr_r} ${ramdisk_addr_r}`. Each case changes one thing after that. To start again, quit with `Ctrl-A`, then `X`.
+
+## Silence after "Starting kernel"
+
+**Symptom.** U-Boot prints `Starting kernel ...` and nothing follows.
+
+**Reproduce.** Name a console that does not exist, then boot:
+
+1. `setenv bootargs console=ttyS0 root=/dev/vda rootwait`
+2. `booti ${kernel_addr_r} - ${fdtcontroladdr}`
+
+The console stays blank, and no login prompt appears.[^log-ttys0]
+
+**Diagnose.** Quit, repeat with `earlycon` added: `setenv bootargs console=ttyS0 earlycon root=/dev/vda rootwait`. With no options, `earlycon` finds the UART through `stdout-path` in the Device Tree.[^params] Now the kernel prints its whole log through that early console, starting with `earlycon: pl11 at MMIO 0x0000000009000000 (options '')`. Two lines in it point at the cause:
+
+- `9000000.pl011: ttyAMA0 at MMIO 0x9000000 (irq = 13, base_baud = 0) is a PL011 rev1` names the real console: the PL011 UART is `ttyAMA0`, not `ttyS0`.
+- `Warning: unable to open an initial console.` says that init started without a console.[^log-earlycon][^main]
+
+**Cause.** `console=` names a device that no driver registered. Once `console=` is on the command line, the kernel no longer falls back to the UART that `stdout-path` names.[^ofbase]
+
+**Fix.** Use the device name that the UART driver registers, here `console=ttyAMA0`. When you don't know it, boot once with `earlycon` and look for the driver's line.
+
+Removing `console=` altogether is not a failure on this machine. The kernel then uses `stdout-path`, and the log reaches `ttyAMA0` anyway.[^log-none][^ofbase]
+
+## No Device Tree, or the wrong one
+
+**Symptom 1: U-Boot refuses.** Point `booti` at an address that holds no dtb: `booti ${kernel_addr_r} - 0x48000000`. U-Boot prints `ERROR: Did not find a cmdline Flattened Device Tree`, then `Could not find a valid device tree`, and returns to the prompt.[^log-missing]
+
+**Symptom 2: a reset loop.** Leave the dtb out: `booti ${kernel_addr_r}`. U-Boot prints `FDT and ATAGS support not compiled in`, then `resetting ...`. BL31 answers with `ERROR:   QEMU System Reset: with GPIO.` and the whole chain starts again from BL1.[^log-missing][^bootm-arm][^pm] If `bootcmd` repeats the mistake, the board resets forever.
+
+**Fix.** Load the dtb for your board to `fdt_addr_r` and pass that address as the third argument to `booti` or `bootz`.[^booti] Module 07 shows how each board's U-Boot picks the file.
+
+**Symptom 3: a dtb for another board.** U-Boot accepts any valid dtb. To see what happens, give this machine the Raspberry Pi 4 tree. Quit QEMU, then put the dtb on a small FAT disk:
+
+<Prompt dir="~/work/m10" cmd="mkfs.vfat -C dtbs.img 8192" />
+
+<Prompt
+  dir="~/work/m10"
+  cmd="mcopy -i dtbs.img $HOME/work/build/linux-arm64/arch/arm64/boot/dts/broadcom/bcm2711-rpi-4-b.dtb ::"
+/>
+
+Start QEMU with that disk added:
+
+<Prompt
+  dir="~/work/m10"
+  cmd='qemu-system-aarch64 -nographic -machine virt,secure=on -cpu cortex-a57 -smp 2 -m 1024 -bios flash.bin -kernel $HOME/work/build/linux-arm64/arch/arm64/boot/Image -append "console=ttyAMA0 root=/dev/vda rootwait" -drive file=rootfs.ext4,if=none,format=raw,id=hd0 -device virtio-blk-device,drive=hd0 -netdev user,id=eth0 -device virtio-net-device,netdev=eth0 -drive file=dtbs.img,if=none,format=raw,id=hd1 -device virtio-blk-device,drive=hd1'
+/>
+
+At the prompt, run `virtio scan`, then `ls virtio 0`. In the lab run, U-Boot numbered the disk added last as `virtio 0`, and `ls` lists `bcm2711-rpi-4-b.dtb`. Then:
+
+1. `load virtio 0 0x48000000 bcm2711-rpi-4-b.dtb`
+2. `qfw load ${kernel_addr_r} ${ramdisk_addr_r}`
+3. `booti ${kernel_addr_r} - 0x48000000`
+
+U-Boot loads the tree and prints `Starting kernel ...`. Then silence.[^log-wrong]
+
+**Diagnose.** Plain `earlycon` takes its UART from the tree's `stdout-path`, and this tree names `serial1:115200n8`, a Raspberry Pi UART.[^rpi-dts] Give the address of this machine's PL011 instead. Quit, start QEMU again with the same command, run `virtio scan` and the three steps, but before `booti` run `setenv bootargs ${bootargs} earlycon=pl011,0x9000000`.[^params] The kernel now prints `Machine model: Raspberry Pi 4 Model B`, then crashes in `gic_init_bases` with `Internal error: synchronous external abort` and ends with `Kernel panic - not syncing: Attempted to kill the idle task!`.[^log-wrong-early]
+
+**Cause.** The tree describes another SoC. The kernel sets up the interrupt controller at the address the Raspberry Pi tree gives, this machine has no device there, and the access ends in the abort. It got that far only because U-Boot rewrote the tree's memory node with this machine's RAM before the jump.[^fixup]
+
+**Fix.** Load the dtb built for your board and revision. A `Machine model:` line that names the wrong board settles it.
+
+## The kernel overlaps the dtb or the initrd
+
+**Symptom.** `booti` stops with `ERROR: FDT image overlaps OS image` or `ERROR: RD image overlaps OS image`.
+
+**Reproduce.** `qfw load` reported `size 276fa00`, so the kernel file ends at `0x42B6_FA00`. Put the dtb at `0x42B8_0000`, after the end of the file:
+
+1. `setenv fdt_addr_r 0x42b80000`
+2. `fdt move ${fdtcontroladdr} ${fdt_addr_r} 0x10000`
+3. `booti ${kernel_addr_r} - ${fdt_addr_r}`
+
+U-Boot prints `ERROR: FDT image overlaps OS image (OS=40400000..42c30000)`. An initrd placed inside the kernel fails the same check: `booti ${kernel_addr_r} 0x42000000:0x1000000 ${fdtcontroladdr}` prints `ERROR: RD image overlaps OS image (OS=40400000..42c30000)`.[^log-overlap][^overlap]
+
+**Cause.** The kernel needs more memory than its file. The `Image` header holds `image_size`, which covers the kernel's BSS too.[^arm64] Here it is `0x283_0000`, so the kernel runs to `0x42C3_0000`, past the end of the file. U-Boot reads that size and refuses to start a kernel that would wipe the tree or the initrd.[^image]
+
+**Fix.** Load the dtb and the initrd above the kernel's end. With `setenv fdt_addr_r 0x48000000` and the same `fdt move` and `booti`, the boot reaches the login prompt.[^log-overlap] When your kernel grows, check the gap between `kernel_addr_r` and the next load address against `image_size`, not against the file size.
+
+## A panic about the root filesystem
+
+**Symptom.** The kernel log ends in `Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(0,0)`.
+
+**Reproduce.** `setenv bootargs console=ttyAMA0 root=/dev/vdb`, then `booti ${kernel_addr_r} - ${fdtcontroladdr}`. Before the panic the kernel prints `VFS: Cannot open root device "/dev/vdb" or unknown-block(0,0): error -6`, then a list headed `Please append a correct "root=" boot option; here are the available partitions:`. The list holds `vda`, followed by `driver: virtio_blk`.[^log-root][^mounts]
+
+**With `rootwait`.** Add `rootwait` to the same wrong `root=` and the kernel never panics. It prints `Waiting for root device /dev/vdb...` and waits for good.[^log-rootwait] `rootwait` waits with no time limit. It is meant for devices that are detected late, such as USB and MMC devices, but it also hides a typo. `rootwait=` takes a limit in seconds.[^params]
+
+**Fix.** Use a device from the kernel's list, here `root=/dev/vda`.
+
+[^log-ttys0]: `logs/qemu/m10-console-ttys0.log`.
+
+[^log-earlycon]: `logs/qemu/m10-console-earlycon.log`.
+
+[^log-none]: `logs/qemu/m10-console-none.log`: no `console=`, and the log reaches `printk: console [ttyAMA0] enabled` and the login prompt.
+
+[^params]: Linux kernel documentation, The kernel's command-line parameters: `console=`, `earlycon=` (including `pl011,<addr>`), `root=`, `rootwait` and `rootwait=`.
+
+[^main]: Linux source at `v6.18.55`, `init/main.c`: `Warning: unable to open an initial console.`
+
+[^ofbase]: Linux source at `v6.18.55`, `drivers/of/base.c`, `of_console_check()`: the `stdout-path` UART becomes the preferred console only when the command line set none.
+
+[^log-missing]: `logs/qemu/m10-dtb-missing.log`.
+
+[^bootm-arm]: U-Boot source at `v2026.07`, `arch/arm/lib/bootm.c`: `panic("FDT and ATAGS support not compiled in\n")`.
+
+[^pm]: Trusted Firmware-A source at `lts-v2.14.10`, `plat/qemu/common/qemu_pm.c`: the reset handler prints `QEMU System Reset: with GPIO.`
+
+[^booti]: U-Boot documentation, booti command: `booti [<addr> [<initrd>[:<size>]] [<fdt>]]`.
+
+[^log-wrong]: `logs/qemu/m10-dtb-wrong.log`.
+
+[^rpi-dts]: Linux source at `v6.18.55`, `arch/arm/boot/dts/broadcom/bcm2711-rpi-4-b.dts`: `stdout-path = "serial1:115200n8"`. The arm64 file includes it.
+
+[^log-wrong-early]: `logs/qemu/m10-dtb-wrong-earlycon.log`.
+
+[^fixup]: U-Boot source at `v2026.07`, `arch/arm/lib/bootm-fdt.c`, `arch_fixup_fdt()`: `fdt_fixup_memory_banks()` with the board's DRAM banks. The log shows the kernel's memory at `0x0000000040000000-0x000000007fffffff`.
+
+[^log-overlap]: `logs/qemu/m10-overlap.log`.
+
+[^overlap]: U-Boot source at `v2026.07`, `boot/bootm.c`, `check_overlap()` called from `bootm_find_images()`.
+
+[^arm64]: Linux kernel documentation, Booting AArch64 Linux: the image header and `image_size`.
+
+[^image]: U-Boot source at `v2026.07`, `arch/arm/lib/image.c`, `booti_setup()` reads `image_size`; `cmd/booti.c` passes it to `bootm_find_images()`.
+
+[^log-root]: `logs/qemu/m10-root-panic.log`.
+
+[^mounts]: Linux source at `v6.18.55`, `init/do_mounts.c`.
+
+[^log-rootwait]: `logs/qemu/m10-root-wait.log`.
