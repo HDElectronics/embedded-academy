@@ -51,6 +51,9 @@ From `@ea/anim`. Each figure reads its facts from `packages/boards` and its cons
 `SerialConsole`
 : A log replay with a stage timeline. Props: `board`, `pane`.
 
+`HandoffRelay`
+: The QEMU `virt` chain from BL1 to PID 1, one stage at a time: the stage's captured console lines, the images loaded so far with their addresses, and what it hands to the next stage (entry point and `SPSR`, or the kernel's `x0` to `x3`). Data in `packages/boards/src/interactives/handoff-relay.ts`. Props: `pane`.
+
 Figures sit in the text, at the full content width. Refer to a figure by name, never as "below" or "above".
 
 ## Example
