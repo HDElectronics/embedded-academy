@@ -1,0 +1,219 @@
+---
+title: 'Lab: boot the whole chain, from BL1 to a login prompt'
+description: Chain TF-A, U-Boot, Linux and a Buildroot root filesystem on QEMU virt with TrustZone on, then follow the Device Tree from QEMU to the kernel.
+course: linux-boot-arm
+module: m10
+order: 1
+type: tutorial
+boards: []
+verification: emulated
+sources:
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): QEMU virt Armv8-A'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/qemu.html
+    section: Booting via flash based firmware
+  - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Build Options'
+    url: https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/getting_started/build-options.html
+    section: BUILD_BASE, BL33
+  - title: 'Trusted Firmware-A source (lts-v2.14.10): plat/qemu/common/qemu_bl2_setup.c'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/qemu/common/qemu_bl2_setup.c
+  - title: 'Trusted Firmware-A source (lts-v2.14.10): common/fdt_fixup.c'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/common/fdt_fixup.c
+  - title: 'Trusted Firmware-A source (lts-v2.14.10): plat/qemu/common/qemu_pm.c'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/qemu/common/qemu_pm.c
+  - title: 'U-Boot documentation (v2026.07): QEMU ARM'
+    url: https://docs.u-boot.org/en/v2026.07/board/emulation/qemu-arm.html
+  - title: 'U-Boot documentation (v2026.07): qfw command'
+    url: https://docs.u-boot.org/en/v2026.07/usage/cmd/qfw.html
+  - title: 'U-Boot source (v2026.07): arch/arm/lib/image.c'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/arch/arm/lib/image.c
+  - title: 'U-Boot documentation (v2026.07): booti command'
+    url: https://docs.u-boot.org/en/v2026.07/usage/cmd/booti.html
+  - title: 'U-Boot documentation (v2026.07): Environment Variables'
+    url: https://docs.u-boot.org/en/v2026.07/usage/environment.html
+    section: fdtcontroladdr
+  - title: 'U-Boot documentation (v2026.07): Devicetree Control in U-Boot'
+    url: https://docs.u-boot.org/en/v2026.07/develop/devicetree/control.html
+  - title: 'U-Boot source (v2026.07): board/emulation/qemu-arm/qemu-arm.c and qemu-arm.env'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/board/emulation/qemu-arm/qemu-arm.c
+  - title: 'U-Boot source (v2026.07): common/qfw.c and boot/bootmeth_qfw.c'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/boot/bootmeth_qfw.c
+  - title: 'U-Boot source (v2026.07): boot/image-fdt.c and boot/fdt_support.c'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/boot/image-fdt.c
+  - title: 'QEMU documentation (v10.0.0): Arm virt board'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/docs/system/arm/virt.rst
+  - title: 'QEMU source (v10.0.0): hw/arm/boot.c'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/hw/arm/boot.c
+  - title: 'Linux kernel documentation (v6.18): Booting AArch64 Linux'
+    url: https://www.kernel.org/doc/html/v6.18/arch/arm64/booting.html
+  - title: 'Linux source (v6.18.55): arch/arm64/kernel/psci.c'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm64/kernel/psci.c?h=v6.18.55
+---
+
+import Prompt from '@ea/ui/Prompt.astro';
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<Callout level="info">
+  Every command on this page was run in the lab container under QEMU on 2026-10-12, at the versions this course pins.
+  The console output quoted here comes from that run, saved in `logs/qemu/m10-chain-virt.log`. The autoboot run in the
+  practitioner panel is in `logs/qemu/m10-chain-virt-autoboot.log`. If a step behaves differently for you, report it
+  with the `inaccuracy` issue form.
+</Callout>
+
+<div class="t-lead">
+  In this lab you put every stage of the course on one machine. TF-A's BL1, BL2 and BL31 start U-Boot, U-Boot loads
+  Linux, and Linux mounts the Buildroot root filesystem and starts its init as PID 1. Then you follow the one file that
+  travels the whole way: the Device Tree.
+</div>
+
+## You reuse three labs
+
+Nothing on this page is new on its own. You build U-Boot as in the [U-Boot lab](../../06-u-boot/03-lab-u-boot-on-qemu/) and TF-A as in the [TF-A lab](../../05-trusted-firmware-a/04-lab-tf-a-on-qemu/), but into a folder of their own. You also reuse two outputs of module 08:
+
+- the arm64 kernel `Image` that you built with `defconfig` in `~/work/build/linux-arm64` on the [SD card page](../../08-building-everything/01-sd-card-by-hand/);
+- the `rootfs.ext4` that the [Buildroot lab](../../08-building-everything/04-lab-buildroot-qemu/) left in `~/work/src/buildroot/output/images`.
+
+Start the lab container with `sh labs/lab.sh` and make a folder for this lab:
+
+<Prompt cmd="mkdir -p ~/work/m10" />
+
+## Build U-Boot and TF-A
+
+Build U-Boot for QEMU into `~/work/m10/u-boot`:
+
+<Prompt dir="~/work/src/u-boot" cmd="export CROSS_COMPILE=aarch64-linux-gnu-" />
+
+<Prompt dir="~/work/src/u-boot" cmd="make O=$HOME/work/m10/u-boot qemu_arm64_defconfig" />
+
+<Callout level="warning">
+  If you built U-Boot inside the source tree in the TF-A lab, this step stops with `The source tree is not clean, please
+  run 'make mrproper'`. An `O=` build needs a clean tree. Run `make mrproper` in `~/work/src/u-boot`, then repeat the
+  step. It deletes the in-tree build, including the `u-boot.bin` that the TF-A lab used.
+</Callout>
+
+<Prompt dir="~/work/src/u-boot" cmd="make O=$HOME/work/m10/u-boot -j$(nproc)" />
+
+Build TF-A with that `u-boot.bin` as BL33. `BUILD_BASE` moves TF-A's output folder, which defaults to `./build`, so the source tree stays clean:[^tfa-opts]
+
+<Prompt
+  dir="~/work/src/trusted-firmware-a"
+  cmd="make CROSS_COMPILE=aarch64-linux-gnu- PLAT=qemu BL33=$HOME/work/m10/u-boot/u-boot.bin BUILD_BASE=$HOME/work/m10/tf-a all fip"
+/>
+
+The build ends by listing the FIP: BL2, BL31 and BL33, as in module 05.
+
+## Assemble the flash and the disk
+
+Pack BL1 and the FIP into one flash image, with the FIP at offset `0x0004_0000`, exactly as in the TF-A lab:[^tfa-qemu]
+
+<Prompt dir="~/work/m10" cmd="dd if=tf-a/qemu/release/bl1.bin of=flash.bin bs=4096 conv=notrunc" />
+
+<Prompt dir="~/work/m10" cmd="dd if=tf-a/qemu/release/fip.bin of=flash.bin seek=64 bs=4096 conv=notrunc" />
+
+Copy the root filesystem. The running system writes to its disk, so work on a copy and keep module 08's image clean:
+
+<Prompt dir="~/work/m10" cmd="cp ~/work/src/buildroot/output/images/rootfs.ext4 rootfs.ext4" />
+
+## Boot the chain
+
+<Prompt
+  dir="~/work/m10"
+  cmd='qemu-system-aarch64 -nographic -machine virt,secure=on -cpu cortex-a57 -smp 2 -m 1024 -bios flash.bin -kernel $HOME/work/build/linux-arm64/arch/arm64/boot/Image -append "console=ttyAMA0 root=/dev/vda rootwait" -drive file=rootfs.ext4,if=none,format=raw,id=hd0 -device virtio-blk-device,drive=hd0 -netdev user,id=eth0 -device virtio-net-device,netdev=eth0'
+/>
+
+The first part is the TF-A lab's command. The rest is new:
+
+- `-kernel` and `-append` name the kernel and its command line. Because `-bios` loads firmware, QEMU does not start the kernel itself. It offers the kernel to the firmware through its `fw_cfg` interface, and writes the command line into `/chosen/bootargs` of the Device Tree it generates.[^qemu-boot]
+- `-drive` and `-device virtio-blk-device` attach `rootfs.ext4` as a virtio disk, `/dev/vda` to Linux.
+- `-netdev` and `-device virtio-net-device` add the network card from the Buildroot board's `readme.txt`, so Buildroot's init can bring up `eth0`.
+
+Press a key during U-Boot's countdown to get the `=>` prompt.
+
+## Load and start Linux by hand
+
+Type these at the `=>` prompt.
+
+1. `qfw load ${kernel_addr_r} ${ramdisk_addr_r}` copies the `-kernel` file to `kernel_addr_r`, which is `0x4040_0000` on this board.[^qfw][^env] U-Boot prints `loading kernel to address 40400000 size 276fa00`, and a warning that there is no initrd: you gave QEMU none. It also copies the `-append` text into the `bootargs` variable.[^qfw-src]
+2. `printenv bootargs fdtcontroladdr` shows `bootargs=console=ttyAMA0 root=/dev/vda rootwait` and `fdtcontroladdr=7e64cc20`, the address of U-Boot's own Device Tree.[^envdoc]
+3. `fdt addr ${fdtcontroladdr}`, then `fdt print /psci`. The node holds `method = "smc"` and the PSCI function IDs. QEMU did not write it: TF-A did, as the next section shows.
+4. `booti ${kernel_addr_r} - ${fdtcontroladdr}` starts the kernel. The `-` means no initrd; the last argument is the Device Tree.[^booti]
+
+U-Boot prints `Loading Device Tree to 000000007d622000`, then `Starting kernel ...`, and the kernel's log follows. Log in as `root`. Run `cat /proc/cmdline`: it prints the `-append` text. Then run `poweroff`.
+
+The last line of the session is `ERROR:   QEMU System Power off: with GPIO.` That line comes from BL31, not Linux. The kernel asked the secure monitor to switch the machine off, and TF-A's QEMU port prints its power-off message at `ERROR` level before it drives the power-off GPIO.[^qemu-pm]
+
+## The Device Tree travels through four programs
+
+1. **QEMU** generates a dtb for `virt`. When firmware boots, it writes it at the start of RAM, `0x4000_0000`, with `bootargs` already in `/chosen`.[^virt][^qemu-boot]
+2. **TF-A BL2** opens that blob in place and adds a `/psci` node, sets `enable-method = "psci"` in every CPU node, then packs it again.[^bl2] This is why the kernel can use PSCI calls to BL31.
+3. **U-Boot** takes the blob at the start of RAM as its control Device Tree.[^qemu-arm] It relocates with it and records the new address in `fdtcontroladdr`.[^envdoc]
+4. **`booti`** copies the tree to a fresh place, `0x7D62_2000` in this run, writes `/chosen/bootargs` from the `bootargs` variable, and starts the kernel with that address in `x0`.[^fdt-src][^arm64]
+
+The kernel confirms each step. It prints `Machine model: linux,dummy-virt` from QEMU's tree, `psci: PSCIv1.1 detected in firmware.` from the node TF-A added, and `Kernel command line: console=ttyAMA0 root=/dev/vda rootwait` from `/chosen`. The second core comes up with `CPU1: Booted secondary processor`: the kernel starts it with a PSCI `CPU_ON` call, which BL31 handles.[^psci]
+
+## Read the trace stage by stage
+
+Open `logs/qemu/m10-chain-virt.log` and find each stage:
+
+| Lines in the log                                                                 | Stage                 | Module |
+| -------------------------------------------------------------------------------- | --------------------- | ------ |
+| `NOTICE:  BL1: Booting BL2`, `NOTICE:  BL1: Booting BL31`                        | TF-A in secure world  | 05     |
+| `Bloblist at 0 not found (err=-2)`, then the `U-Boot 2026.07` banner             | U-Boot starts as BL33 | 05, 06 |
+| `DRAM:  1 GiB`, `using memory 0x7e64f000-0x7f68f000 for malloc()`                | U-Boot relocated      | 06     |
+| `fdt print /psci`, `Loading Device Tree to 000000007d622000`                     | Device Tree handover  | 07     |
+| `Booting Linux on physical CPU 0x0000000000`, `Linux version 6.18.55`            | Kernel entry          | 01, 08 |
+| `VFS: Mounted root (ext4 filesystem) readonly`, `Run /sbin/init as init process` | Root and PID 1        | 09     |
+
+The kernel also prints `KASLR enabled`. QEMU puts a random `kaslr-seed` in `/chosen` by default, so the kernel places itself at a random virtual address.[^virt] Debugging with GDB, later in this module, has to turn that off.
+
+<Deeper depth="practitioner" title="What autoboot does instead">
+
+If you let the countdown run out, `bootflow scan` boots the same kernel. The capture in `logs/qemu/m10-chain-virt-autoboot.log` shows two detours.
+
+First, the EFI boot manager runs. It tries `Boot0000 'virtio 0'` and fails with `EFI boot manager: Cannot load any image`, because the disk has no EFI system partition. Then the `qfw` boot method loads the kernel and runs `booti ${kernel_addr_r} ${ramdisk_addr_r}:${filesize} ${fdtcontroladdr}`.[^bootmeth] With no `-initrd`, `filesize` still holds the kernel's size, so U-Boot hands over a kernel-sized block from `ramdisk_addr_r` as an initrd (`Loading Ramdisk to 7ac90000`).[^qfw-src] The kernel rejects it with `Initramfs unpacking failed: invalid magic at start of compressed archive`, frees it, and mounts `/dev/vda` as usual.
+
+Neither line stops the boot. Reading a trace means telling these apart from the errors that do.
+
+</Deeper>
+
+<Deeper depth="expert" title="Why the kernel stays at 0x4040_0000">
+
+`booti` reads the `Image` header. If bit 3 of its flags is set, the kernel may run from any 2 MiB aligned address, so `booti` leaves it where it is; otherwise it moves it to the base of RAM and prints `Moving Image from ...`.[^booti] This run prints no such line. The header also gives `image_size`, the memory the kernel needs including its BSS, which is larger than the file. The page on boot failures uses that difference.
+
+</Deeper>
+
+## What you built
+
+You ran the whole course on one emulated machine: a boot ROM stand-in, a trusted boot chain, a resident secure monitor, a bootloader, a kernel and an init. Module 09 explains the kernel's own part, from the jump to PID 1. The next page reads the same stages in the logs of the three course boards.
+
+[^tfa-qemu]: Trusted Firmware-A documentation, QEMU virt Armv8-A: "Booting via flash based firmware".
+
+[^tfa-opts]: Trusted Firmware-A documentation, Build Options: `BUILD_BASE` and `BL33`.
+
+[^qemu-boot]: QEMU source at `v10.0.0`, `hw/arm/boot.c`: with firmware loaded, `arm_setup_firmware_boot()` places the dtb at the base of RAM and passes the kernel and command line through `fw_cfg`; `arm_load_dtb()` sets `/chosen/bootargs` from the command line.
+
+[^qfw]: U-Boot documentation, qfw command: `qfw load`.
+
+[^qfw-src]: U-Boot source at `v2026.07`, `common/qfw.c`, `qemu_fwcfg_setup_kernel()`: copies the kernel and initrd, sets `filesize`, and sets `bootargs` from the QEMU command line.
+
+[^env]: U-Boot source at `v2026.07`, `board/emulation/qemu-arm/qemu-arm.env`: `kernel_addr_r=0x40400000`, `ramdisk_addr_r=0x44000000`.
+
+[^envdoc]: U-Boot documentation, Environment Variables: `fdtcontroladdr`; Devicetree Control: after relocation the variable holds the address of the relocated blob.
+
+[^booti]: U-Boot documentation, booti command; U-Boot source at `v2026.07`, `arch/arm/lib/image.c`, `booti_setup()`.
+
+[^qemu-pm]: Trusted Firmware-A source at `lts-v2.14.10`, `plat/qemu/common/qemu_pm.c`, `qemu_system_off()`.
+
+[^virt]: QEMU documentation at `v10.0.0`, Arm virt board: "Hardware configuration information for bare-metal programming" and the `dtb-randomness` option.
+
+[^bl2]: Trusted Firmware-A source at `lts-v2.14.10`: `plat/qemu/common/qemu_bl2_setup.c`, `update_dt()`, calls `dt_add_psci_node()` and `dt_add_psci_cpu_enable_methods()` from `common/fdt_fixup.c` on the tree at `ARM_PRELOADED_DTB_BASE`, which `plat/qemu/qemu/platform.mk` sets to `PLAT_QEMU_DT_BASE`, the start of normal RAM.
+
+[^qemu-arm]: U-Boot source at `v2026.07`, `board/emulation/qemu-arm/qemu-arm.c`, `board_fdt_blob_setup()`: "QEMU loads a generated DTB for us at the start of RAM."
+
+[^fdt-src]: U-Boot source at `v2026.07`: `boot/image-fdt.c`, `boot_relocate_fdt()` prints `Loading Device Tree to`; `image_setup_libfdt()` calls `fdt_chosen()` in `boot/fdt_support.c`, which writes `bootargs`.
+
+[^arm64]: Linux kernel documentation, Booting AArch64 Linux: "Call the kernel image", `x0` holds the physical address of the dtb.
+
+[^psci]: Linux source at `v6.18.55`, `arch/arm64/kernel/psci.c`: `cpu_psci_cpu_boot()` calls `psci_ops.cpu_on`.
+
+[^bootmeth]: U-Boot source at `v2026.07`, `boot/bootmeth_qfw.c`, `qfw_boot()`.
