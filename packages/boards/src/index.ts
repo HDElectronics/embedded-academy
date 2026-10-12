@@ -24,6 +24,7 @@ export function formatAddress(value: number): string {
   return `0x${hex.slice(0, 4)}_${hex.slice(4)}`;
 }
 
-// Interactive figures: PlaceDtb
+// Interactive figures: PlaceDtb, BreakBoot
+export * from './interactives/break-boot.ts';
 export * from './interactives/place-dtb.ts';
 export * from './interactives/replay.ts';

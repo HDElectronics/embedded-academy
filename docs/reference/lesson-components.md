@@ -54,6 +54,9 @@ From `@ea/anim`. Each figure reads its facts from `packages/boards` and its cons
 `PlaceDtb`
 : A DRAM strip with the kernel at its load address on QEMU `virt`, and four places to hand `booti` a Device Tree: inside the kernel, above it, an address with no tree, another board's tree. Each choice replays U-Boot's real answer from `logs/qemu/`. Props: `start` (`inside`, `above`, `nothing` or `foreign`, default `inside`), `pane`.
 
+`BreakBoot`
+: Real boots of the QEMU `virt` lab machine, each with one kernel argument changed (`console=`, `earlycon`, `root=`, `rootwait`). It shows each run's command line, compared with the reference run, its last console lines from `logs/qemu/`, the symptom as a bracketed word, and the cause with its sources. Props: `start` (`reference`, `console-ttys0`, `earlycon`, `root-vdb` or `rootwait`, default `reference`), `pane`.
+
 Figures sit in the text, at the full content width. Refer to a figure by name, never as "below" or "above".
 
 ## Example
