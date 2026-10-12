@@ -51,6 +51,9 @@ From `@ea/anim`. Each figure reads its facts from `packages/boards` and its cons
 `SerialConsole`
 : A log replay with a stage timeline. Props: `board`, `pane`.
 
+`ExceptionLevels`
+: The exception level elevator: the learner runs `svc #0`, `hvc #0`, `smc #0` and `eret` and watches the core move between EL0 and EL3, with the pending `ELR_ELx` and `SPSR_ELx` returns. Instructions that are undefined or stay at the level say why. Also shows the reset levels captured in the m01 lab. Rules and sources live in `packages/boards/src/interactives/exception-levels.ts`. Props: `pane`.
+
 Figures sit in the text, at the full content width. Refer to a figure by name, never as "below" or "above".
 
 ## Example

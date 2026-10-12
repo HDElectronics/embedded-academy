@@ -12,3 +12,8 @@ defineBootChain();
 defineCourseMap();
 definePrivilegeLadder();
 defineSerialConsole();
+
+// Figure: ExceptionLevels
+import { defineExceptionLevels } from './exception-levels.ts';
+
+defineExceptionLevels();

@@ -23,3 +23,6 @@ export function formatAddress(value: number): string {
   const hex = value.toString(16).toUpperCase().padStart(8, '0');
   return `0x${hex.slice(0, 4)}_${hex.slice(4)}`;
 }
+
+// Figure: ExceptionLevels (m01)
+export * from './interactives/exception-levels.ts';

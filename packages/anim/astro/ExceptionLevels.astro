@@ -1,0 +1,93 @@
+---
+// SPDX-FileCopyrightText: Embedded Academy contributors
+// SPDX-License-Identifier: MIT
+import { exceptionLevels as fig } from '@ea/boards';
+import { captureSpan } from '@ea/boards/node';
+import {
+  elevatorSources,
+  renderConsole,
+  renderOps,
+  renderPending,
+  renderPosition,
+  renderResult,
+  renderSourceList,
+  startState,
+} from '../src/index.ts';
+
+interface Props {
+  pane?: number;
+}
+
+const { pane = 1 } = Astro.props;
+const state = startState(fig);
+const runs = fig.reset.runs.map((r) => ({ ...r, lines: captureSpan(r.line) }));
+const json = JSON.stringify(fig).replace(/</g, '\\u003c');
+---
+
+<ea-exception-levels class="ea-elevator" data-figure="exception-levels">
+  <script is:inline type="application/json" data-elevator set:html={json} />
+  <section class="ea-pane" aria-label="Exception level elevator">
+    <div class="ea-pane__bar">
+      <span class="ea-pane__id">{pane}:</span>
+      <span class="ea-pane__title">exception levels</span>
+      <span class="ea-pane__meta">AArch64 · svc, hvc, smc, eret</span>
+    </div>
+    <div class="ea-pane__body ea-elevator__body">
+      <div class="ea-elevator__position" data-part="position" set:html={renderPosition(fig, state)} />
+      <div class="ea-elevator__side">
+        <div
+          class="ea-elevator__ops"
+          role="group"
+          aria-label="Instructions"
+          data-part="ops"
+          set:html={renderOps(fig, state)}
+        />
+        <section class="ea-elevator__box" aria-labelledby="ea-el-result">
+          <p class="ea-elevator__title" id="ea-el-result">
+            What just happened
+          </p>
+          <div class="ea-elevator__result" aria-live="polite" data-part="result" set:html={renderResult(fig)} />
+        </section>
+        <section class="ea-elevator__box" aria-labelledby="ea-el-pending">
+          <p class="ea-elevator__title" id="ea-el-pending">
+            Pending returns
+          </p>
+          <ul class="ea-elevator__pending" data-part="pending" set:html={renderPending(state)} />
+        </section>
+        <div class="ea-chain__controls">
+          <button type="button" class="ea-btn" data-part="reset">
+            Back to {fig.start}
+          </button>
+        </div>
+      </div>
+      <section class="ea-elevator__reset" aria-labelledby="ea-el-reset">
+        <p class="ea-elevator__title" id="ea-el-reset">
+          Where reset puts the core
+        </p>
+        <p class="ea-elevator__note">{fig.reset.text}</p>
+        <dl class="ea-elevator__runs">
+          {runs.map((r) => (
+            <div class="ea-elevator__run">
+              <dt>
+                <code>-machine {r.option}</code>: {r.level}
+              </dt>
+              <dd class="ea-console" set:html={renderConsole(r.lines)} />
+            </div>
+          ))}
+        </dl>
+        <p class="ea-chain__sources t-small">
+          Captured in <code>logs/{fig.reset.runs[0]?.line.log}</code>, lines{' '}
+          {fig.reset.runs.map((r) => r.line.from).join(', ')}. Sources:{' '}
+          <Fragment set:html={renderSourceList(fig.reset.sources)} />
+        </p>
+      </section>
+      <p class="ea-chain__sources t-small ea-elevator__sources">
+        {fig.assumptions.text} Sources: <Fragment set:html={renderSourceList(elevatorSources(fig))} />
+      </p>
+    </div>
+  </section>
+</ea-exception-levels>
+
+<script>
+  import '@ea/anim/client';
+</script>

@@ -31,6 +31,8 @@ Read every address, stage, file name and size from `packages/boards`. Never hard
 - Provide a stepped mode with Play, Pause, Previous and Next.
 - Make every control work from the keyboard, with the 2px focus ring.
 - Write buttons as bracketed text, such as `[ Play boot ]`, with one primary button per pane.
+- For a group of buttons, call `moveFocus` from `packages/anim/src/toolbar.ts` in a `keydown` handler, so the arrow keys, Home and End move between them.
+- When a control can't act in the current state, set `aria-disabled="true"` instead of `disabled`. It stays focusable, and pressing it can say why in the figure's `aria-live` result.
 
 ## Show captured output, never typed output
 
