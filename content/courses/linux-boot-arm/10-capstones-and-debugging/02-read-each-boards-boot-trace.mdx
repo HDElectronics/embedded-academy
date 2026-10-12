@@ -1,0 +1,135 @@
+---
+title: Each line of a boot trace names the stage that printed it
+description: Read the Raspberry Pi 4, BeagleBone Black and STM32MP157 boot logs stage by stage, and tie each stage back to the module that explains it.
+course: linux-boot-arm
+module: m10
+order: 2
+type: explanation
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'Trusted Firmware-A source (lts-v2.14.10): plat/common/plat_log_common.c and include/common/debug.h'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/common/plat_log_common.c
+  - title: 'OP-TEE source (4.10.0): lib/libutils/ext/trace.c and core/kernel/trace_ext.c'
+    url: https://github.com/OP-TEE/optee_os/blob/4.10.0/lib/libutils/ext/trace.c
+  - title: 'U-Boot source (v2026.07): common/spl/Kconfig'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/common/spl/Kconfig
+    section: SPL_BANNER_PRINT
+  - title: 'U-Boot source (v2026.07): boot/bootm.c'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/boot/bootm.c
+  - title: 'Linux source (v6.18.55): lib/Kconfig.debug'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/lib/Kconfig.debug?h=v6.18.55
+    section: PRINTK_TIME
+  - title: 'Linux source (v6.18.55): arch/arm/Kconfig.debug and arch/arm/include/debug/uncompress.h'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm/Kconfig.debug?h=v6.18.55
+    section: DEBUG_UNCOMPRESS
+  - title: 'Raspberry Pi documentation: Raspberry Pi hardware, boot sequence and boot EEPROM'
+    url: https://www.raspberrypi.com/documentation/computers/raspberry-pi.html
+  - title: 'U-Boot documentation: AM335x generic boards'
+    url: https://docs.u-boot.org/en/latest/board/ti/am335x_evm.html
+  - title: 'U-Boot documentation: STM32MP1 boards'
+    url: https://docs.u-boot.org/en/latest/board/st/stm32mp1.html
+  - title: 'Trusted Firmware-A documentation: STMicroelectronics STM32MP1'
+    url: https://trustedfirmware-a.readthedocs.io/en/latest/plat/st/stm32mp1.html
+---
+
+import Callout from '@ea/ui/Callout.astro';
+import SerialConsole from '@ea/anim/SerialConsole.astro';
+
+<div class="t-lead">
+  A serial console log is the boot chain written down. Each program prints in its own style, so you can tell from one
+  line which stage was running and which module explains it. When a boot stops, the last stage that printed tells you
+  where to look.
+</div>
+
+<Callout level="warning">
+  The three board logs on this page are illustrative. They are modelled on typical output and are not captures from real
+  boards. Only the QEMU trace from the lab on this module's first page is a real capture.
+</Callout>
+
+## Every stage has its own voice
+
+Four styles cover almost every line you will meet:
+
+- **TF-A** starts each line with its log level: `NOTICE:  `, `WARNING: `, `ERROR:   `, `INFO:    `. A release build prints only notices and errors.[^tfa-log]
+- **OP-TEE** starts each line with a level letter and the place that printed it: `I/TC:` is an information message from the TEE core, `E/TC:` an error.[^optee-log]
+- **U-Boot** announces itself with a banner, `U-Boot SPL` and the version for SPL, `U-Boot` and the version for U-Boot proper.[^spl] Its last line before Linux is `Starting kernel ...`.[^bootm]
+- **Linux** prefixes each message with the time since the kernel started, `[    0.000000]`, when the kernel is built with `CONFIG_PRINTK_TIME`.[^printk]
+
+Some stages print nothing. A boot ROM is usually silent, and so is the kernel's earliest code, before its console is set up. The silence is normal; it only matters when nothing follows it.
+
+## The QEMU trace is the reference
+
+In the lab you captured one complete trace, in `logs/qemu/m10-chain-virt.log`. It runs `NOTICE:  BL1: Booting BL2`, then the U-Boot banner, then `Starting kernel ...`, then the kernel's log up to `Run /sbin/init as init process`. Keep it open next to the board logs: each board replaces some of its stages and keeps others.
+
+## Raspberry Pi 4: the GPU boots first
+
+<SerialConsole board="rpi4" pane={1} />
+
+Step through the Raspberry Pi 4 log on the serial console:
+
+1. **Boot ROM and EEPROM bootloader.** The ROM runs on the VideoCore GPU, not on an Arm core, and loads the bootloader from the SPI EEPROM. The bootloader reads the boot order and loads the firmware from the SD card.[^rpi] Module 02 covers both.
+2. **VideoCore firmware.** `start4.elf` reads `config.txt` and loads the dtb, then releases the Arm cores.[^rpi] Module 02 explains the firmware, module 07 the dtb it prepares.
+3. **Arm stub.** The first Arm code runs at EL3 and prints nothing. Module 03 explains what it sets up before it drops to the normal world.
+4. **U-Boot** is optional here: without it, the firmware starts `kernel8.img` directly.[^rpi] Module 06 builds it.
+5. **Linux** starts with `Booting Linux on physical CPU`, as in your QEMU trace.
+
+Compared with QEMU, the GPU firmware does the jobs of TF-A's BL1 and BL2: it loads every image before an Arm core runs.
+
+## BeagleBone Black: no secure firmware in the log
+
+<SerialConsole board="bbb" pane={2} />
+
+1. **ROM code.** It is silent unless it waits for a UART boot. Module 02 covers how it picks a boot device.
+2. **SPL.** `U-Boot SPL` and `Trying to boot from MMC1` come from the first stage that runs from internal SRAM and sets up DDR.[^am335x] Module 04 builds it.
+3. **U-Boot** prints the board model and `DRAM:  512 MiB`, then loads the kernel and the dtb. Modules 06 and 07 cover this.
+4. **`Starting kernel ...`** is U-Boot's last line. What follows on this 32-bit board is a `zImage`: a decompressor runs before the kernel. It prints nothing in a multi-platform kernel such as `multi_v7_defconfig`, because its debug output depends on `DEBUG_UNCOMPRESS`, which is not available when `ARCH_MULTIPLATFORM` is set.[^uncompress]
+5. **Linux** prints `Booting Linux on physical CPU 0x0` and the machine model from the dtb.
+
+No line comes from a secure monitor. The chain on this board has no TF-A and no OP-TEE.
+
+## STM32MP157: TF-A and OP-TEE before U-Boot
+
+<SerialConsole board="stm32mp157" pane={3} />
+
+1. **ROM code.** Silent. Module 02 covers its boot modes.
+2. **TF-A BL2.** The `NOTICE:` lines, the board model and `BL2: Booting BL32`.[^tfa-st] Modules 04 and 05 cover it. There is no BL1 and no BL31: the ROM loads BL2, and this 32-bit chip uses OP-TEE as its monitor.
+3. **OP-TEE.** The `I/TC:` lines, ending with `Primary CPU switching to normal world boot`. Module 03 explains the switch.
+4. **U-Boot** prints the model and `Retrieving file: /extlinux/extlinux.conf`, the distro boot file of module 07.[^ub-st]
+5. **Linux** prints the same first lines as on the other boards.
+
+Set it next to the QEMU trace. The same TF-A prefixes appear, but BL2 hands over to BL32 instead of BL31, and the next voice is OP-TEE.
+
+## A stopped trace points at the next stage
+
+When a boot stops, find the last line and name its stage. The fault is usually in that stage, or in what it hands to the next:
+
+| Last thing you see                         | Stage that failed to finish or to start | Where to look     |
+| ------------------------------------------ | --------------------------------------- | ----------------- |
+| Nothing at all                             | Boot ROM, or the first loader           | Modules 02 and 04 |
+| TF-A `NOTICE:` lines, no U-Boot banner     | BL2 loading, or BL31 starting BL33      | Module 05         |
+| U-Boot prompt, or a failed `bootflow scan` | Finding the kernel and the dtb          | Modules 06 and 07 |
+| `Starting kernel ...` and then silence     | Kernel entry, console, or Device Tree   | This module, next |
+| Kernel log ending in a panic               | Kernel start-up or root filesystem      | Module 09         |
+
+The next pages of this module reproduce the most common of these failures in QEMU and show the real messages.
+
+[^tfa-log]: Trusted Firmware-A source at `lts-v2.14.10`: `plat/common/plat_log_common.c` holds the prefixes; `include/common/debug.h` sets `LOG_LEVEL_NOTICE` to 20. Module 05 explains the release log level.
+
+[^optee-log]: OP-TEE source at `4.10.0`: `trace_vprintf()` in `lib/libutils/ext/trace.c` prints the level letter, `/`, and the prefix; `core/kernel/trace_ext.c` sets the core's prefix to `TC`.
+
+[^spl]: U-Boot source at `v2026.07`, `common/spl/Kconfig`: `SPL_BANNER_PRINT`, "Enable output of the SPL banner 'U-Boot SPL ...'", default `y`.
+
+[^bootm]: U-Boot source at `v2026.07`, `boot/bootm.c`: the `Starting kernel ...` message, printed before the jump to the kernel.
+
+[^printk]: Linux source at `v6.18.55`, `lib/Kconfig.debug`: `PRINTK_TIME`.
+
+[^rpi]: Raspberry Pi documentation, boot sequence and boot EEPROM.
+
+[^am335x]: U-Boot documentation, AM335x generic boards.
+
+[^uncompress]: Linux source at `v6.18.55`: `arch/arm/Kconfig.debug`, `DEBUG_UNCOMPRESS` "depends on !ARCH_MULTIPLATFORM"; `arch/arm/include/debug/uncompress.h` makes `putc()` empty without it.
+
+[^tfa-st]: Trusted Firmware-A documentation, STMicroelectronics STM32MP1.
+
+[^ub-st]: U-Boot documentation, STM32MP1 boards.
