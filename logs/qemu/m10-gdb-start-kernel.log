@@ -1,0 +1,33 @@
+# board: QEMU virt, secure=on (cortex-a57, 2 CPUs, 1 GiB)
+# software: TF-A lts-v2.14.10 (PLAT=qemu, release, BL33 = U-Boot), U-Boot v2026.07 (qemu_arm64_defconfig), Linux v6.18.55 (arm64 defconfig), Buildroot 2026.02.3 rootfs.ext4 (qemu_aarch64_virt_defconfig), GCC 14.2.0 (aarch64-linux-gnu)
+# command: qemu-system-aarch64 -machine virt,secure=on -cpu cortex-a57 -smp 2 -m 1024 -bios flash.bin -kernel $HOME/work/build/linux-arm64/arch/arm64/boot/Image -append "console=ttyAMA0 root=/dev/vda rootwait nokaslr" -drive file=rootfs.ext4,if=none,format=raw,id=hd0 -device virtio-blk-device,drive=hd0 -nic none -display none -monitor none -serial file:gdb-boot.log -s -S & ; gdb-multiarch -batch -ex "target remote :1234" -ex "info registers pc" -ex "hbreak *0x40400000" -ex "continue" -ex "info registers x0 x1 x2 x3" -ex "hbreak start_kernel" -ex "continue" -ex "bt" -ex "p/x __fdt_pointer" -ex "kill" $HOME/work/build/linux-arm64/vmlinux ; tail -n 4 gdb-boot.log
+# captured: 2026-10-12 (UTC), embedded-academy-lab container (Debian 13, QEMU 10.0.13), run in ~/work/m10
+# input: none; U-Boot autoboots through the qfw bootmeth
+# note: lines starting with === are separators added by the capture script; gdb output and QEMU stderr interleave as captured
+# verification: emulated
+
+=== gdb
+0x0000000000000000 in ?? ()
+pc             0x0                 0x0
+Hardware assisted breakpoint 1 at 0x40400000
+
+Thread 1 hit Breakpoint 1, 0x0000000040400000 in ?? ()
+x0             0x7d5fb000          2103422976
+x1             0x0                 0
+x2             0x0                 0
+x3             0x0                 0
+Hardware assisted breakpoint 2 at 0xffff800081ef07dc: file /home/learner/work/src/linux/init/main.c, line 872.
+
+Thread 1 hit Breakpoint 2, start_kernel () at /home/learner/work/src/linux/init/main.c:872
+872		char *command_line;
+#0  start_kernel () at /home/learner/work/src/linux/init/main.c:872
+#1  0xffff800081ef94ec in __primary_switched () at /home/learner/work/src/linux/arch/arm64/kernel/head.S:246
+qemu-system-aarch64: QEMU: Terminated via GDBstub
+Backtrace stopped: previous frame identical to this frame (corrupt stack?)
+$1 = 0x7d5fb000
+Kill the program being debugged? (y or n) [answered Y; input not from terminal]
+[Inferior 1 (process 1) killed]
+=== tail -n 4 gdb-boot.log
+Working FDT set to 7d5fb000
+
+Starting kernel ...

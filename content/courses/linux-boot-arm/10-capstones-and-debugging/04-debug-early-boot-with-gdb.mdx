@@ -1,0 +1,119 @@
+---
+title: Stop the kernel at start_kernel with GDB
+description: Attach gdb-multiarch to QEMU's GDB stub, stop at the kernel's first instruction and at start_kernel, and check the registers the bootloader passed.
+course: linux-boot-arm
+module: m10
+order: 4
+type: how-to
+boards: []
+verification: emulated
+sources:
+  - title: 'QEMU documentation (v10.0.0): GDB usage'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/docs/system/gdb.rst
+  - title: 'QEMU documentation (v10.0.0): Arm virt board'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/docs/system/arm/virt.rst
+  - title: 'Linux kernel documentation (v6.18): Debugging kernel and modules via gdb'
+    url: https://www.kernel.org/doc/html/v6.18/process/debugging/gdb-kernel-debugging.html
+  - title: 'Linux kernel documentation (v6.18): The kernel’s command-line parameters'
+    url: https://www.kernel.org/doc/html/v6.18/admin-guide/kernel-parameters.html
+    section: nokaslr
+  - title: 'Linux kernel documentation (v6.18): Booting AArch64 Linux'
+    url: https://www.kernel.org/doc/html/v6.18/arch/arm64/booting.html
+    section: Call the kernel image
+  - title: 'Linux source (v6.18.55): arch/arm64/kernel/head.S and arch/arm64/kernel/setup.c'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm64/kernel/head.S?h=v6.18.55
+  - title: 'U-Boot source (v2026.07): board/emulation/qemu-arm/qemu-arm.env'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/board/emulation/qemu-arm/qemu-arm.env
+  - title: 'U-Boot source (v2026.07): arch/arm/lib/image.c'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/arch/arm/lib/image.c
+  - title: 'Trusted Firmware-A source (lts-v2.14.10): plat/qemu/qemu/include/platform_def.h'
+    url: https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/qemu/qemu/include/platform_def.h
+---
+
+import Prompt from '@ea/ui/Prompt.astro';
+import Callout from '@ea/ui/Callout.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<Callout level="info">
+  Every command on this page was run in the lab container under QEMU on 2026-10-12, at the versions this course pins.
+  The output quoted here is saved in `logs/qemu/m10-gdb-start-kernel.log`. If a step behaves differently for you, report
+  it with the `inaccuracy` issue form.
+</Callout>
+
+<div class="t-lead">
+  When the kernel prints nothing, a debugger shows where it is. QEMU has a GDB stub built in: you stop the machine
+  before its first instruction, then let it run to the kernel's entry and to `start_kernel`, and read the registers on
+  the way.
+</div>
+
+## Before you start
+
+You need the machine from [the full-chain lab](../01-lab-the-whole-chain-on-qemu/) in `~/work/m10`, and the kernel build folder from module 08, `~/work/build/linux-arm64`. GDB reads symbols from `vmlinux` in that folder, the ELF file the `Image` was made from.
+
+The `defconfig` kernel sets `CONFIG_DEBUG_INFO` and `CONFIG_DEBUG_INFO_REDUCED`. That is enough for breakpoints on functions and for backtraces with file and line. The kernel's own GDB helper scripts need `CONFIG_GDB_SCRIPTS` and full debug info, so they are not used here.[^kgdb]
+
+## Start QEMU halted
+
+<Prompt
+  dir="~/work/m10"
+  cmd='qemu-system-aarch64 -machine virt,secure=on -cpu cortex-a57 -smp 2 -m 1024 -bios flash.bin -kernel $HOME/work/build/linux-arm64/arch/arm64/boot/Image -append "console=ttyAMA0 root=/dev/vda rootwait nokaslr" -drive file=rootfs.ext4,if=none,format=raw,id=hd0 -device virtio-blk-device,drive=hd0 -nic none -display none -monitor none -serial file:gdb-boot.log -s -S &'
+/>
+
+It is the lab's machine with five changes:
+
+- `-s` makes QEMU wait for GDB on TCP port 1234. `-S` keeps the CPUs stopped until GDB tells them to run.[^qemu-gdb]
+- `nokaslr` on the kernel command line turns off kernel address randomisation.[^params] In the lab trace the kernel printed `KASLR enabled`: it runs at a random address, and the addresses in `vmlinux` no longer match. The kernel's GDB guide asks for `nokaslr` for that reason.[^kgdb]
+- `-serial file:gdb-boot.log` writes the console to a file, and `-display none -monitor none` keep QEMU off your terminal, so it can run in the background with `&`.
+- `-nic none` drops the network card; this run needs no network.
+
+U-Boot autoboots in this run: no one presses a key, so it boots the kernel through its `qfw` boot method.
+
+## Run GDB to start_kernel
+
+<Prompt
+  dir="~/work/m10"
+  cmd='gdb-multiarch -batch -ex "target remote :1234" -ex "info registers pc" -ex "hbreak *0x40400000" -ex "continue" -ex "info registers x0 x1 x2 x3" -ex "hbreak start_kernel" -ex "continue" -ex "bt" -ex "p/x __fdt_pointer" -ex "kill" $HOME/work/build/linux-arm64/vmlinux'
+/>
+
+`-batch` runs the `-ex` commands in order and exits, so you get the whole session as one output. You can type the same commands at the `(gdb)` prompt instead if you start `gdb-multiarch` with only the `vmlinux` path.
+
+Read the output step by step:
+
+1. `target remote :1234` connects to QEMU. `info registers pc` prints `0x0`: the CPU has not run a single instruction, and its first one is BL1's, at the start of flash.[^virt]
+2. `hbreak *0x40400000` sets a breakpoint at `kernel_addr_r`, where U-Boot loads the kernel.[^env] `booti` leaves the kernel there because its header allows any 2 MiB aligned address.[^image] With TCG, QEMU offers as many hardware breakpoints as you need.[^qemu-gdb]
+3. `continue` runs BL1, BL2, BL31 and U-Boot, and stops with `Thread 1 hit Breakpoint 1, 0x0000000040400000 in ?? ()`. GDB shows each CPU as a thread.[^qemu-gdb] There is no symbol: `vmlinux` is linked for virtual addresses, and the kernel starts with its MMU off.[^arm64]
+4. `info registers x0 x1 x2 x3` prints `x0` as `0x7d5fb000` and the three others as `0x0`. That is the arm64 boot protocol: the dtb's physical address in `x0`, and zeros in `x1` to `x3`.[^arm64] The serial log says where the address comes from: U-Boot printed `Loading Device Tree to 000000007d5fb000`.
+5. `hbreak start_kernel`, then `continue`, stops at `start_kernel () at /home/learner/work/src/linux/init/main.c:872`, the kernel's generic C entry point.
+6. `bt` shows who called it: `__primary_switched` in `arch/arm64/kernel/head.S`, line 246.
+7. `p/x __fdt_pointer` prints `0x7d5fb000`. The entry code saved `x0` in this variable, and `setup_arch()` reads the Device Tree from it later.[^head]
+8. `kill` stops QEMU.
+
+## Compare with the console
+
+Look at the end of the console file:
+
+<Prompt dir="~/work/m10" cmd="tail -n 4 gdb-boot.log" />
+
+The last line is U-Boot's `Starting kernel ...`. The kernel was already at `start_kernel` but had printed nothing, because its console comes up later. A silent kernel is not necessarily a dead one; the debugger tells you which.
+
+<Deeper depth="expert" title="Firmware stages under the same stub">
+
+The stub stopped at BL1's first instruction, so it reaches the firmware too, and you can stop in TF-A or U-Boot. Load their ELF files with `add-symbol-file`, for example BL31's `bl31.elf` from the TF-A build folder, and break in it. U-Boot moves itself after start-up, so its symbols match only after you reload them at `relocaddr`; module 06 shows how. This course has not run these steps in the lab container yet.
+
+</Deeper>
+
+[^kgdb]: Linux kernel documentation, Debugging kernel and modules via gdb: "Setup".
+
+[^qemu-gdb]: QEMU documentation at `v10.0.0`, GDB usage: `-s` and `-S`, one thread per CPU, and unlimited hardware-assisted breakpoints under TCG.
+
+[^params]: Linux kernel documentation, The kernel's command-line parameters: `nokaslr`.
+
+[^virt]: QEMU documentation at `v10.0.0`, Arm virt board: flash starts at address 0. Trusted Firmware-A source at `lts-v2.14.10`, `plat/qemu/qemu/include/platform_def.h`: `BL1_RO_BASE` is `SEC_ROM_BASE`, `0x00000000`.
+
+[^env]: U-Boot source at `v2026.07`, `board/emulation/qemu-arm/qemu-arm.env`: `kernel_addr_r=0x40400000`.
+
+[^image]: U-Boot source at `v2026.07`, `arch/arm/lib/image.c`, `booti_setup()`.
+
+[^arm64]: Linux kernel documentation, Booting AArch64 Linux: "Call the kernel image", including "The MMU must be off."
+
+[^head]: Linux source at `v6.18.55`: `arch/arm64/kernel/head.S` stores `x21`, the saved `x0`, in `__fdt_pointer`; `arch/arm64/kernel/setup.c` passes it to `setup_machine_fdt()`.
