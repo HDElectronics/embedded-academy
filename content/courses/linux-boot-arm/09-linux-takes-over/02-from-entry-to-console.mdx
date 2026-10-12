@@ -1,0 +1,197 @@
+---
+title: The kernel maps itself, reads the Device Tree, then finds its console
+description: Follow a 64-bit kernel from its first instruction through head.S and setup_arch to start_kernel, earlycon and the real console.
+course: linux-boot-arm
+module: m09
+order: 2
+type: explanation
+boards: [rpi4, bbb, stm32mp157]
+verification: unverified
+sources:
+  - title: 'Linux source v6.18.55: arch/arm64/kernel/head.S'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm64/kernel/head.S?h=v6.18.55
+  - title: 'Linux source v6.18.55: arch/arm64/kernel/setup.c and arch/arm64/kernel/acpi.c'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm64/kernel/setup.c?h=v6.18.55
+  - title: 'Linux source v6.18.55: init/main.c'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/init/main.c?h=v6.18.55
+  - title: 'Linux source v6.18.55: drivers/of/fdt.c and drivers/of/base.c'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/of/fdt.c?h=v6.18.55
+  - title: 'Linux source v6.18.55: drivers/tty/serial/earlycon.c and drivers/tty/serial/amba-pl011.c'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/tty/serial/earlycon.c?h=v6.18.55
+  - title: 'Linux source v6.18.55: kernel/printk/printk.c (register_console)'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/kernel/printk/printk.c?h=v6.18.55
+  - title: "Linux kernel documentation: The kernel's command-line parameters (Documentation/admin-guide/kernel-parameters.txt, v6.18.55)"
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/Documentation/admin-guide/kernel-parameters.txt?h=v6.18.55
+    section: 'console=, earlycon=, keep_bootcon'
+  - title: 'Linux source v6.18.55: arch/arm/kernel/head.S and arch/arm/kernel/head-common.S'
+    url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm/kernel/head.S?h=v6.18.55
+  - title: 'QEMU source v10.0.0: hw/arm/virt.c (create_randomness)'
+    url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/hw/arm/virt.c
+  - title: 'Buildroot 2026.02.3 source: board/beagleboard/beaglebone/extlinux.conf'
+    url: https://gitlab.com/buildroot.org/buildroot/-/blob/2026.02.3/board/beagleboard/beaglebone/extlinux.conf
+  - title: 'Buildroot 2026.02.3 source: board/stmicroelectronics/stm32mp157c-dk2/overlay/boot/extlinux/extlinux.conf'
+    url: https://gitlab.com/buildroot.org/buildroot/-/blob/2026.02.3/board/stmicroelectronics/stm32mp157c-dk2/overlay/boot/extlinux/extlinux.conf
+---
+
+import Callout from '@ea/ui/Callout.astro';
+import CodeBlock from '@ea/ui/CodeBlock.astro';
+import Deeper from '@ea/ui/Deeper.astro';
+
+<div class="t-lead">
+  The kernel starts like any bare-metal program: MMU off, no console, one pointer in a register. Within a fraction of a
+  second it runs with virtual memory, knows its machine from the Device Tree, and prints to a serial port. This page
+  follows a 64-bit kernel through those steps, using the boot logs you capture in this module's lab.
+</div>
+
+## head.S runs before C, with the MMU off
+
+The kernel's first instructions are in `arch/arm64/kernel/head.S`. The image header jumps to `primary_entry`, which runs from the physical address the bootloader chose.[^head] In order, it:
+
+1. Records whether the MMU was on at entry, which the boot protocol forbids.
+2. Saves `x0` to `x3` in `boot_args`, and keeps the Device Tree address in `x21`.
+3. Builds an identity map: page tables in which virtual addresses equal physical ones, so the code keeps running when the MMU comes on.
+4. Calls `init_kernel_el`. If the CPU entered at EL2, this sets up EL2 and continues at EL1, as the [page on changing levels](/courses/linux-boot-arm/01-arm-for-booting/02-moving-between-levels/) in module 01 shows.
+5. Calls `__cpu_setup` to prepare the CPU's translation registers.
+6. Jumps to `__primary_switch`, which turns the MMU on with `__enable_mmu`, then calls `__pi_early_map_kernel` to map and relocate the kernel at its virtual address.
+
+Relocation is where KASLR, kernel address space layout randomisation, happens. QEMU's `virt` machine puts a `kaslr-seed` in `/chosen`, and the log says `KASLR enabled`.[^kaslr]
+
+The last step runs at the kernel's virtual address:
+
+{/* REUSE-IgnoreStart */}
+
+<CodeBlock path="arch/arm64/kernel/head.S" project="Linux" lang="asm" simplified>
+
+```asm
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Low-level CPU initialisation
+ * Based on arch/arm/kernel/head.S
+ *
+ * Copyright (C) 1994-2002 Russell King
+ * Copyright (C) 2003-2012 ARM Ltd.
+ * Authors:	Catalin Marinas <catalin.marinas@arm.com>
+ *		Will Deacon <will.deacon@arm.com>
+ */
+
+/* ... */
+
+SYM_FUNC_START_LOCAL(__primary_switched)
+	adr_l	x4, init_task
+	init_cpu_task x4, x5, x6
+
+	adr_l	x8, vectors			// load VBAR_EL1 with virtual
+	msr	vbar_el1, x8			// vector table address
+	isb
+
+	/* ... */
+
+	str_l	x21, __fdt_pointer, x5		// Save FDT pointer
+
+	/* ... */
+
+	bl	start_kernel
+	ASM_BUG()
+SYM_FUNC_END(__primary_switched)
+```
+
+</CodeBlock>
+
+{/* REUSE-IgnoreEnd */}
+
+The excerpt keeps the license of `head.S`, GPL-2.0-only. It installs the exception vectors, stores the Device Tree address in `__fdt_pointer`, and calls `start_kernel()`, the first C function of the generic kernel. `start_kernel()` never returns.
+
+## start_kernel prints the banner, then reads the Device Tree
+
+`start_kernel()` in `init/main.c` is a long, fixed list of initialisation calls.[^main] The first ones produce the first lines of every arm64 boot log:
+
+- `smp_setup_processor_id()` prints `Booting Linux on physical CPU`, with the CPU's ID.[^setup]
+- `start_kernel()` prints the banner, `Linux version 6.18.55 ...`, with the compiler and build date.[^main]
+- `setup_arch()` takes over the architecture-specific setup.
+
+`setup_arch()` maps the Device Tree at `__fdt_pointer` and scans it with `early_init_dt_scan()`. That scan reads the memory nodes, the root's cell sizes, and `/chosen`: the command line in `bootargs` and the location of an initramfs.[^fdt] Then it prints the root's `model`:[^setup]
+
+- In the lab under QEMU, that line is `Machine model: linux,dummy-virt`.[^log1]
+- If the blob is not a valid Device Tree, `setup_machine_fdt()` prints an error that says the dtb must be 8-byte aligned and at most 2 MB, then spins forever. With no console yet, you may see nothing at all.[^setup]
+
+Later in `setup_arch()`, after the memory map and the kernel's page tables are set up, `unflatten_device_tree()` turns the flat blob into a tree of `struct device_node` objects. Drivers use that tree when they probe.[^setup]
+
+At the end of `setup_arch()` the kernel checks the boot protocol once more. If `x1`, `x2` or `x3` was not zero at entry, it prints `WARNING: x1-x3 nonzero in violation of boot protocol`.[^setup]
+
+## The command line comes from /chosen
+
+Back in `start_kernel()`, the kernel prints the command line it received, for example `Kernel command line: earlycon console=ttyAMA0`, and parses it.[^main][^log2] The bootloader put that text in `/chosen/bootargs`, as module 07 explains in [the bootloader hands Linux a dtb](/courses/linux-boot-arm/07-device-tree/02-how-the-dtb-reaches-linux/). Parameters marked early, such as `earlycon`, are handled first.
+
+## earlycon prints before any driver is ready
+
+Kernel messages go into a log buffer first. A console is what copies them to a device you can read. The real serial console needs its driver. The PL011 driver registers its console when it probes the UART, and drivers only probe after `start_kernel()` has handed over to the first process, as the next page shows.[^main] Until then, messages wait in the buffer.
+
+`earlycon` closes that gap. It starts an early, polled-mode console on a UART, before the driver exists. With no value, it takes the UART from `stdout-path` in `/chosen`; with a value, you name the driver and address yourself, for example `earlycon=pl011,<addr>` for a PL011.[^params] On arm64, a bare `earlycon` waits until the kernel has decided between Device Tree and ACPI.[^acpi]
+
+The lab's earlycon boot shows the hand-over:[^log2]
+
+- `earlycon: pl11 at MMIO 0x0000000009000000 (options '')`, then `printk: legacy bootconsole [pl11] enabled`, a few lines after `Machine model:`.
+- About 0.18 seconds later, the PL011 driver probes and prints `9000000.pl011: ttyAMA0 at MMIO 0x9000000`.
+- `printk: console [ttyAMA0] enabled`, then `printk: legacy bootconsole [pl11] disabled`. These two lines appear twice: the boot console and the real console both print them, to the same UART.
+
+When the real console registers, the kernel disables the boot consoles. It also skips replaying old messages if a boot console has already shown them.[^printk] Without `earlycon`, the real console replays the whole buffer when it registers, so the log looks almost the same. The difference shows when the kernel stops before the driver probes: with `earlycon` you see how far it got, without it you see nothing.
+
+## console= names the real console
+
+`console=` picks the device for the real console. The name comes from the driver: the PL011 driver registers its ports as `ttyAMA`, so the first one is `ttyAMA0`.[^pl011] Serial options follow a comma, for example `,115200n8`.[^params]
+
+Without `console=`, the kernel falls back to the UART that `/chosen/stdout-path` names.[^ofbase] The lab's first boot passes no command line at all, and its log still ends with `printk: console [ttyAMA0] enabled`.[^log1]
+
+On the boards, the boot files from module 08 show both styles. The BeagleBone Black's `extlinux.conf` from Buildroot passes `console=ttyS0,115200n8`. The STM32MP157 DK2's passes no `console=` and relies on `stdout-path`.[^br]
+
+<Deeper depth="practitioner" title="The same steps on a 32-bit kernel">
+
+On the BeagleBone Black and the STM32MP157, the decompressor from the previous page jumps to `stext` in `arch/arm/kernel/head.S`. It looks up the processor type, checks the ATAG or Device Tree pointer in `__vet_atags`, patches its physical-to-virtual translation with `__fixup_pv_table`, builds initial page tables with `__create_page_tables`, and turns the MMU on through `__enable_mmu`. `__mmap_switched` in `head-common.S` then branches to the same `start_kernel()`.[^arm]
+
+</Deeper>
+
+<Deeper depth="expert" title="When even earlycon shows nothing">
+
+If the kernel dies between the boot console's removal and the real console's start, add `keep_bootcon`: the boot console then stays registered. The documentation describes it as useful only for debugging that window.[^params]
+
+If the kernel prints nothing even with `earlycon`, it most likely stopped before `setup_arch()` scanned the Device Tree, or before `earlycon` found its UART. Check the dtb address and the `stdout-path` first, and compare them with the entry rules on the [kernel entry registers page](/courses/linux-boot-arm/01-arm-for-booting/03-kernel-entry-registers/).
+
+</Deeper>
+
+## What comes next
+
+`start_kernel()` ends in `rest_init()`, which creates the first processes. The next page follows them to a root file system and PID 1.
+
+<Callout level="info">
+  The facts on this page come from the Linux `v6.18.55` sources listed under Sources. The quoted log lines come from
+  boots captured in the lab container on 2026-10-12, under QEMU's `virt` machine. Nobody has checked the board-specific
+  statements on hardware, so the page is marked unverified.
+</Callout>
+
+[^head]: `arch/arm64/kernel/head.S` at v6.18.55: `primary_entry`, `preserve_boot_args`, `init_kernel_el`, `__primary_switch`, `__enable_mmu` and `__primary_switched`.
+
+[^kaslr]: `arch/arm64/kernel/pi/map_kernel.c` at v6.18.55 reads the seed with `kaslr_early_init()`, and `arch/arm64/kernel/kaslr.c` prints `KASLR enabled`; the line is in `logs/qemu/m09-initramfs-boot.log`. `hw/arm/virt.c` at QEMU v10.0.0, `create_randomness()`, writes `kaslr-seed` into `/chosen`, as the module 07 lab shows.
+
+[^main]: `init/main.c` at v6.18.55: `start_kernel()`, from `pr_notice("%s", linux_banner)` to `console_init()` and `rest_init()`.
+
+[^setup]: `arch/arm64/kernel/setup.c` at v6.18.55: `smp_setup_processor_id()`, `setup_machine_fdt()` and `setup_arch()`.
+
+[^fdt]: `drivers/of/fdt.c` at v6.18.55: `early_init_dt_scan()`, `early_init_dt_scan_nodes()` and `early_init_dt_scan_chosen()`.
+
+[^log1]: `logs/qemu/m09-initramfs-boot.log`, the boot without `-append`.
+
+[^log2]: `logs/qemu/m09-earlycon-boot.log`, the boot with `-append "earlycon console=ttyAMA0"`.
+
+[^params]: `Documentation/admin-guide/kernel-parameters.txt` at v6.18.55: `console=`, `earlycon=` (including `pl011,<addr>`) and `keep_bootcon`.
+
+[^acpi]: `drivers/tty/serial/earlycon.c` at v6.18.55, `param_setup_earlycon()`: with `CONFIG_ACPI_SPCR_TABLE` a bare `earlycon` only sets a flag; `acpi_boot_table_init()` in `arch/arm64/kernel/acpi.c` then calls `early_init_dt_scan_chosen_stdout()` when ACPI is not in use.
+
+[^printk]: `kernel/printk/printk.c` at v6.18.55: the comments in `register_console()`.
+
+[^pl011]: `drivers/tty/serial/amba-pl011.c` at v6.18.55: `.dev_name = "ttyAMA"`.
+
+[^ofbase]: `drivers/of/base.c` at v6.18.55: `of_console_check()` adds the `stdout-path` device as the preferred console unless the command line set one.
+
+[^br]: Buildroot 2026.02.3: `board/beagleboard/beaglebone/extlinux.conf` and `board/stmicroelectronics/stm32mp157c-dk2/overlay/boot/extlinux/extlinux.conf`.
+
+[^arm]: `arch/arm/kernel/head.S` (`stext`) and `arch/arm/kernel/head-common.S` (`__mmap_switched`) at v6.18.55.
