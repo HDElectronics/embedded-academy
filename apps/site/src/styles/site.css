@@ -48,6 +48,15 @@ body {
   white-space: nowrap;
 }
 
+/* A path segment longer than the screen breaks instead of widening the page */
+@media (width <= 640px) {
+  .site-prompt,
+  .site-prompt * {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
 .site-prompt__path {
   display: contents;
 }
@@ -261,6 +270,34 @@ a.site-prompt__seg:hover {
   --astro-code-token-string-expression: var(--ansi-green);
   --astro-code-token-punctuation: var(--ink-muted);
   --astro-code-token-link: var(--link);
+}
+
+/* Grid items default to min-width: auto, so one long line would widen the page */
+.site-main > *,
+.lesson > *,
+.lesson-body > * {
+  min-width: 0;
+}
+
+/* Lists are grids too; long paths in prose break; wide tables scroll in their own box */
+.prose li {
+  min-width: 0;
+}
+
+.lesson-body :not(pre) > code {
+  overflow-wrap: anywhere;
+}
+
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Previous / Next carry whole lesson titles: let them wrap on narrow screens */
+.lesson > nav .ea-btn {
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
 }
 
 /* Lesson body: prose at reading width, figures across the content width */

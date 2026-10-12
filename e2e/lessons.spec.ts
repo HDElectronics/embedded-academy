@@ -34,6 +34,12 @@ for (const path of paths) {
       const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
       expect(results.violations.map((v) => `${theme} ${v.id}: ${v.nodes.length} × ${v.help}`)).toEqual([]);
     }
+    // The page never scrolls sideways; wide code and figures scroll inside their own box.
+    const width = await page.evaluate(() => ({
+      page: document.documentElement.scrollWidth,
+      view: document.documentElement.clientWidth,
+    }));
+    expect(width.page, `page is ${width.page}px wide in a ${width.view}px viewport`).toBeLessThanOrEqual(width.view);
     expect(errors).toEqual([]);
   });
 }
