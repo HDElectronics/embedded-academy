@@ -29,6 +29,9 @@ export function formatAddress(value: number): string {
 
 // Figure: ExceptionLevels (m01)
 export * from './interactives/exception-levels.ts';
+// Interactive figures: PlaceDtb
+export * from './interactives/place-dtb.ts';
+export * from './interactives/replay.ts';
 
 // Figure: SplFit (m04)
 export * from './interactives/spl-fit.ts';

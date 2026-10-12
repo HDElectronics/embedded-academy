@@ -51,6 +51,9 @@ From `@ea/anim`. Each figure reads its facts from `packages/boards` and its cons
 `SerialConsole`
 : A log replay with a stage timeline. Props: `board`, `pane`.
 
+`PlaceDtb`
+: A DRAM strip with the kernel at its load address on QEMU `virt`, and four places to hand `booti` a Device Tree: inside the kernel, above it, an address with no tree, another board's tree. Each choice replays U-Boot's real answer from `logs/qemu/`. Props: `start` (`inside`, `above`, `nothing` or `foreign`, default `inside`), `pane`.
+
 `ExceptionLevels`
 : The exception level elevator: the learner runs `svc #0`, `hvc #0`, `smc #0` and `eret` and watches the core move between EL0 and EL3, with the pending `ELR_ELx` and `SPSR_ELx` returns. Instructions that are undefined or stay at the level say why. Also shows the reset levels captured in the m01 lab. Rules and sources live in `packages/boards/src/interactives/exception-levels.ts`. Props: `pane`.
 

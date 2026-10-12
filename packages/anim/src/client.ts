@@ -31,3 +31,9 @@ defineExceptionLevels();
 import { defineSplFit } from './spl-fit.ts';
 
 defineSplFit();
+
+// Replay figures: pick a scenario, replay its capture.
+import { renderPlaceScene } from './place-dtb.ts';
+import { defineReplayFigure } from './replay-figure.ts';
+
+defineReplayFigure('ea-place-dtb', renderPlaceScene);
