@@ -16,7 +16,7 @@ const data = toChainBoard(board, readBoardLog(board));
 const json = JSON.stringify(data).replace(/</g, '<');
 ---
 
-<ea-privilege-ladder class="ea-ladder" data-window="privilege">
+<ea-privilege-ladder class="ea-ladder" data-figure="privilege">
   <script is:inline type="application/json" data-ladder set:html={json} />
   <section class="ea-pane" aria-label={`Privilege ladder, ${board.name}`}>
     <div class="ea-pane__bar">

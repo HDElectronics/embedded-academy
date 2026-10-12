@@ -51,7 +51,7 @@ From `@ea/anim`. Each figure reads its facts from `packages/boards` and its cons
 `SerialConsole`
 : A log replay with a stage timeline. Props: `board`, `pane`.
 
-On wide screens figures move into windows of a split session, so refer to a figure by name, never as "below" or "above".
+Figures sit in the text, at the full content width. Refer to a figure by name, never as "below" or "above".
 
 ## Example
 

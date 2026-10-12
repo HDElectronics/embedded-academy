@@ -55,7 +55,7 @@ The example values are placeholders, not a plan for module `m05`. [Lesson frontm
 - Write addresses as `0x` plus uppercase hex. Code and logs keep the tool's spelling.
 - Put each command in its own Prompt block, logs in a SerialConsole block, and files in a CodeBlock with the real upstream path. Mark shortened files `(simplified)`.
 - Use asides with kernel log levels only: `<6> info`, `<4> warning`, `<3> error`.
-- Place each figure right after the text that introduces it, but never write "below" or "above". On wide screens a lesson becomes a split session: figures move into numbered windows and the first serial console into its own pane, leaving a link in the text. Name the figure instead: "Step through the chain on the privilege ladder".
+- Place each figure right after the text that introduces it, but never write "below" or "above": a figure can sit further from its text on a narrow screen. Name the figure instead: "Step through the chain on the privilege ladder".
 
 ## Cite every fact a learner could act on
 

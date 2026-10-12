@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: MIT
 import { VERIFICATION_LABEL } from '@ea/anim';
 import { getCollection, getEntry, render } from 'astro:content';
-import Session from '../../components/Session.astro';
 import Base from '../../layouts/Base.astro';
 import { courseLessons, lessonHref, type Lesson } from '../../lib/lessons.ts';
 
@@ -37,73 +36,57 @@ const hint = next
   : { command: 'cd ..', href: `/courses/${course.id}/`, label: 'back to the course' };
 ---
 
-<Base title={lesson.data.title} description={lesson.data.description} hint={hint} session>
-  <Session>
-    <article class="prose wide">
-      <header class="prose">
-        <p class="t-label">
-          <a href={`/courses/${course.id}/`}>{course.id}</a> · {lesson.data.module} · {module?.title}
-        </p>
-        <h1>{lesson.data.title}</h1>
-        <div class="lesson-meta">
-          <span class="ea-tag">{lesson.data.type}</span>
-          {lesson.data.boards.map((b) => (
-            <span class="ea-tag">{b}</span>
-          ))}
-          <span class="ea-tag">{VERIFICATION_LABEL[lesson.data.verification]}</span>
-          {lesson.data.draft && <span class="ea-tag ea-tag--secure">draft</span>}
-        </div>
-      </header>
-      <div class="prose wide">
-        <Content />
+<Base title={lesson.data.title} description={lesson.data.description} hint={hint}>
+  <article class="prose wide lesson">
+    <header class="prose">
+      <p class="t-label">
+        <a href={`/courses/${course.id}/`}>{course.id}</a> · {lesson.data.module} · {module?.title}
+      </p>
+      <h1>{lesson.data.title}</h1>
+      <div class="lesson-meta">
+        <span class="ea-tag">{lesson.data.type}</span>
+        {lesson.data.boards.map((b) => (
+          <span class="ea-tag">{b}</span>
+        ))}
+        <span class="ea-tag">{VERIFICATION_LABEL[lesson.data.verification]}</span>
+        {lesson.data.draft && <span class="ea-tag ea-tag--secure">draft</span>}
       </div>
-      <section class="lesson-sources t-small" aria-labelledby="sources-title">
-        <h2 class="t-label" id="sources-title">
-          Sources
-        </h2>
-        <ol>
-          {lesson.data.sources.map((s) => (
-            <li>
-              {s.url ? <a href={s.url}>{s.title}</a> : s.title}
-              {s.section && `, ${s.section}`}
-            </li>
-          ))}
-        </ol>
-      </section>
-      <nav class="ea-chain__controls" aria-label="Lesson">
-        {prev && (
-          <a class="ea-btn" href={lessonHref(prev)}>
-            Previous: {prev.data.title}
-          </a>
-        )}
-        {next && (
-          <a class="ea-btn ea-btn--primary" href={lessonHref(next)}>
-            Next: {next.data.title}
-          </a>
-        )}
-      </nav>
-    </article>
-  </Session>
+    </header>
+    <div class="lesson-body">
+      <Content />
+    </div>
+    <section class="lesson-sources t-small" aria-labelledby="sources-title">
+      <h2 class="t-label" id="sources-title">
+        Sources
+      </h2>
+      <ol>
+        {lesson.data.sources.map((s) => (
+          <li>
+            {s.url ? <a href={s.url}>{s.title}</a> : s.title}
+            {s.section && `, ${s.section}`}
+          </li>
+        ))}
+      </ol>
+    </section>
+    <nav class="ea-chain__controls" aria-label="Lesson">
+      {prev && (
+        <a class="ea-btn" href={lessonHref(prev)}>
+          Previous: {prev.data.title}
+        </a>
+      )}
+      {next && (
+        <a class="ea-btn ea-btn--primary" href={lessonHref(next)}>
+          Next: {next.data.title}
+        </a>
+      )}
+    </nav>
+  </article>
   <div class="status-bar" slot="status">
     <div class="ea-status">
       <span class="ea-status__mode">LEARN</span>
       <span class="ea-status__seg">{course.id}</span>
       <span class="ea-status__seg">
         {lesson.data.module} <b>{module?.title}</b>
-      </span>
-      <span class="ea-status__seg ea-status__zoom" role="group" aria-label="Panes">
-        <button type="button" data-zoom-to="" aria-pressed="true">
-          split
-        </button>
-        <button type="button" data-zoom-to="read" aria-pressed="false">
-          0:read
-        </button>
-        <button type="button" data-zoom-to="windows" aria-pressed="false">
-          1:figures
-        </button>
-        <button type="button" data-zoom-to="serial" aria-pressed="false">
-          2:serial
-        </button>
       </span>
       <span class="ea-status__right">
         lesson {position + 1}/{siblings.length}
