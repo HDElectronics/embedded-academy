@@ -54,6 +54,8 @@ export class ReplayFigure<T extends ReplayData = ReplayData> extends HTMLElement
     if (!json || !out) return false;
     this.#data = JSON.parse(json) as T;
     this.#typer = new ConsoleTyper(out);
+    // Show the last lines first, as a console would.
+    out.scrollTop = out.scrollHeight;
     const checked = this.querySelector<HTMLElement>('[data-choice][aria-checked="true"]');
     this.#index = clampChoice(this.#data.choices, Number(checked?.dataset.choice ?? 0));
     this.addEventListener('click', this.#onClick);
