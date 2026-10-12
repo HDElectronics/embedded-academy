@@ -29,6 +29,7 @@ import Prompt from '@ea/ui/Prompt.astro';
 import Callout from '@ea/ui/Callout.astro';
 import Deeper from '@ea/ui/Deeper.astro';
 import MemoryMap from '@ea/anim/MemoryMap.astro';
+import SplFit from '@ea/anim/SplFit.astro';
 
 <Callout level="info">
   Every step of this lab was run in the lab container on 2026-10-11, with U-Boot v2026.07 and GCC 14.2.0, and gave the
@@ -152,6 +153,10 @@ You now have three numbers:
 
 When this lab was run in the lab container with GCC 14.2.0, `spl/u-boot-spl.bin` was 110408 bytes: only 184 bytes
 below limit B.[^run] Another compiler version can give another size.
+
+The "will SPL fit" figure holds the sizes from that run against both limits. Add bytes to SPL until the link fails, and watch the margin shrink to nothing. Then compare `u-boot.img` with the whole download area, and see why the boot needs a second stage.
+
+<SplFit pane={2} />
 
 You also saw that SPL's BSS sits in DRAM, and how `u-boot.img` compares with the SRAM limit. Keep the build folder: module 08 puts these files on an SD card.
 

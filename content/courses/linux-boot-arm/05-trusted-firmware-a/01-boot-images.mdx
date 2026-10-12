@@ -33,6 +33,7 @@ sources:
 ---
 
 import BootChain from '@ea/anim/BootChain.astro';
+import HandoffRelay from '@ea/anim/HandoffRelay.astro';
 import PrivilegeLadder from '@ea/anim/PrivilegeLadder.astro';
 import Callout from '@ea/ui/Callout.astro';
 import Deeper from '@ea/ui/Deeper.astro';
@@ -67,6 +68,10 @@ BL31 is different: it never exits. After it starts BL33, it keeps its exception 
 
 BL32 needs a partner inside BL31. TF-A calls it a Secure Payload Dispatcher (SPD). The dispatcher initializes BL32 before BL33 runs, and routes requests between the two worlds. With no BL32, BL31 passes control straight to BL33.[^cold-boot]
 
+The hand-off relay replays this chain from a real boot on QEMU `virt`, which has no BL32. Step through it and watch BL2 call back into BL1 before BL31 starts, then BL31 leave EL3 for U-Boot. Each stage shows the entry point and the `SPSR` value it hands over.
+
+<HandoffRelay pane={1} />
+
 ## On 32-bit Arm, BL32 is the monitor
 
 The STM32MP157 has Cortex-A7 cores. Its TF-A port is an Armv7-A platform, built for AArch32 with dedicated code.[^mp1] On AArch32 the chain has four steps, not five:[^cold-boot]
@@ -84,7 +89,7 @@ On the STM32MP157, the chip's own ROM code plays the part of BL1. It loads only 
 
 Step through the STM32MP157 on the boot chain and watch the TF-A BL2 stage load OP-TEE and U-Boot.
 
-<BootChain boards={['stm32mp157']} label="secure-chain" pane={1} />
+<BootChain boards={['stm32mp157']} label="secure-chain" pane={2} />
 
 Because there is no BL1 to call back into, BL2 must start as if it were the reset code. The ST platform files build it with `RESET_TO_BL2` set to `1`.[^st-common] The firmware design describes this mode: BL2 then runs at EL3 and jumps to the next image directly.[^bl2-el3]
 
@@ -92,7 +97,7 @@ For OP-TEE, TF-A's STM32MP1 page is explicit: OP-TEE is the default BL32 for ST 
 
 On the privilege ladder, follow the STM32MP157 from the secure world to the normal world. The handover from OP-TEE to U-Boot is where the world changes.
 
-<PrivilegeLadder board="stm32mp157" pane={2} />
+<PrivilegeLadder board="stm32mp157" pane={3} />
 
 ## The other two boards use less of TF-A
 

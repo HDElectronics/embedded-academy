@@ -1,0 +1,100 @@
+---
+// SPDX-FileCopyrightText: Embedded Academy contributors
+// SPDX-License-Identifier: MIT
+import { splFit as fig } from '@ea/boards';
+import { captureSpan } from '@ea/boards/node';
+import {
+  fitStart,
+  renderBudget,
+  renderConsole,
+  renderFitControls,
+  renderFitResult,
+  renderFitImage,
+  renderSourceList,
+  renderZoom,
+} from '../src/index.ts';
+
+interface Props {
+  pane?: number;
+}
+
+const { pane = 1 } = Astro.props;
+const state = fitStart();
+const measured = [fig.limitA, fig.limitB, fig.spl, fig.image];
+const evidence = measured.map((m) => ({ label: m.label, ref: m.evidence, lines: captureSpan(m.evidence) }));
+const sources = [
+  ...measured.flatMap((m) => m.sources),
+  ...fig.scratch.sources,
+  ...fig.fits.sources,
+  ...fig.twoStages.sources,
+].filter((s, k, all) => all.findIndex((o) => o.title === s.title && o.section === s.section) === k);
+const json = JSON.stringify(fig).replace(/</g, '\\u003c');
+---
+
+<ea-spl-fit class="ea-fit" data-figure="spl-fit">
+  <script is:inline type="application/json" data-fit set:html={json} />
+  <section class="ea-pane" aria-label="SPL against the SRAM download area">
+    <div class="ea-pane__bar">
+      <span class="ea-pane__id">{pane}:</span>
+      <span class="ea-pane__title">will SPL fit</span>
+      <span class="ea-pane__meta">
+        {fig.board} · {fig.build.version}
+      </span>
+    </div>
+    <div class="ea-pane__body ea-fit__body">
+      <section class="ea-fit__box" aria-labelledby="ea-fit-area">
+        <p class="ea-fit__title" id="ea-fit-area">
+          The whole download area
+        </p>
+        <div class="ea-fit__rows" data-part="budget" set:html={renderBudget(fig, state)} />
+      </section>
+      <section class="ea-fit__box" aria-labelledby="ea-fit-zoom">
+        <p class="ea-fit__title" id="ea-fit-zoom">
+          Zoom on the end of the area
+        </p>
+        <div class="ea-fit__zoom" data-part="zoom" set:html={renderZoom(fig, state)} />
+      </section>
+      <div
+        class="ea-chain__controls"
+        role="group"
+        aria-label="Change the size of SPL"
+        data-part="controls"
+        set:html={renderFitControls(fig, state)}
+      />
+      <section class="ea-fit__box" aria-labelledby="ea-fit-link">
+        <p class="ea-fit__title" id="ea-fit-link">
+          Link result
+        </p>
+        <div class="ea-fit__result" aria-live="polite">
+          <div data-part="result" set:html={renderFitResult(fig, state)} />
+          <p class="ea-fit__note" data-part="note"></p>
+        </div>
+      </section>
+      <section class="ea-fit__box" aria-labelledby="ea-fit-image">
+        <p class="ea-fit__title" id="ea-fit-image">
+          And the full U-Boot?
+        </p>
+        <div class="ea-fit__image" set:html={renderFitImage(fig)} />
+      </section>
+      <details class="ea-fit__evidence">
+        <summary>The captured lines these sizes come from</summary>
+        {evidence.map((e) => (
+          <div class="ea-fit__span">
+            <p class="t-small">
+              {e.label}: <code>logs/{e.ref.log}</code>, lines {e.ref.from} to {e.ref.to}
+            </p>
+            <div class="ea-console ea-fit__console" set:html={renderConsole(e.lines)} />
+          </div>
+        ))}
+      </details>
+      <p class="ea-chain__sources t-small">
+        Sizes from the m04 lab build of <code>{fig.build.defconfig}</code>, captured in{' '}
+        <code>logs/{fig.spl.evidence.log}</code>. Sources: <Fragment set:html={renderSourceList(sources)} />
+      </p>
+    </div>
+  </section>
+</ea-spl-fit>
+
+<script>
+  import '@ea/anim/client';
+</script>

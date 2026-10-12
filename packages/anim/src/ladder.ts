@@ -64,6 +64,36 @@ export function ladderState(board: ChainBoard, index: number): LadderState {
 
 const STATE: Record<StageState, string> = { ok: '[  OK  ]', run: '[ RUN  ]', wait: '[ WAIT ]' };
 
+/**
+ * The grid of levels by security state, most privileged first, as the
+ * privilege ladder draws it. `here` returns what a cell holds.
+ */
+export function renderLevelGrid(
+  arch: ChainBoard['arch'],
+  here: (level: Level, world: 'secure' | 'normal') => string,
+): string {
+  const rows = LADDERS[arch].rows
+    .map(
+      (r) =>
+        `<div class="ea-ladder__level" role="rowheader"><b>${r.level}</b><span>${esc(r.note)}</span></div>` +
+        (['secure', 'normal'] as const)
+          .map((w) =>
+            r.only && r.only !== w
+              ? `<div class="ea-ladder__cell is-none" role="cell"><span aria-hidden="true">—</span><span class="visually-hidden">no ${r.level} in the ${w} world</span></div>`
+              : `<div class="ea-ladder__cell is-${w}" role="cell">${here(r.level, w)}</div>`,
+          )
+          .join(''),
+    )
+    .map((cells) => `<div role="row" class="ea-ladder__row">${cells}</div>`)
+    .join('');
+  return (
+    `<div class="ea-ladder__grid" role="table" aria-label="Privilege levels by security state">` +
+    `<div role="row" class="ea-ladder__row"><span role="columnheader" class="ea-ladder__corner">level</span>` +
+    `<span role="columnheader" class="ea-ladder__head is-secure">Secure world</span>` +
+    `<span role="columnheader" class="ea-ladder__head is-normal">Normal world</span></div>${rows}</div>`
+  );
+}
+
 export function renderLadder(board: ChainBoard, state: LadderState): string {
   const ladder = LADDERS[board.arch];
   const stage = board.stages[state.index];
@@ -80,20 +110,6 @@ export function renderLadder(board: ChainBoard, state: LadderState): string {
     state.at === 'unknown'
       ? `<p class="ea-ladder__unknown">${token} Level and world for this stage are not stated by the sources yet.</p>`
       : '';
-  const rows = ladder.rows
-    .map(
-      (r) =>
-        `<div class="ea-ladder__level" role="rowheader"><b>${r.level}</b><span>${esc(r.note)}</span></div>` +
-        (['secure', 'normal'] as const)
-          .map((w) =>
-            r.only && r.only !== w
-              ? `<div class="ea-ladder__cell is-none" role="cell"><span aria-hidden="true">—</span><span class="visually-hidden">no ${r.level} in the ${w} world</span></div>`
-              : `<div class="ea-ladder__cell is-${w}" role="cell">${here(r.level, w)}</div>`,
-          )
-          .join(''),
-    )
-    .map((cells) => `<div role="row" class="ea-ladder__row">${cells}</div>`)
-    .join('');
   const trail = state.stages
     .map(
       (s, k) =>
@@ -106,10 +122,7 @@ export function renderLadder(board: ChainBoard, state: LadderState): string {
   return (
     firmware +
     unknown +
-    `<div class="ea-ladder__grid" role="table" aria-label="Privilege levels by security state">` +
-    `<div role="row" class="ea-ladder__row"><span role="columnheader" class="ea-ladder__corner">level</span>` +
-    `<span role="columnheader" class="ea-ladder__head is-secure">Secure world</span>` +
-    `<span role="columnheader" class="ea-ladder__head is-normal">Normal world</span></div>${rows}</div>` +
+    renderLevelGrid(board.arch, here) +
     `<p class="ea-ladder__caption">${esc(stage.does[0] ?? '')}</p>` +
     `<ol class="ea-ladder__trail">${trail}</ol>` +
     `<p class="ea-chain__sources t-small">Levels: <a href="${esc(src.url ?? '')}" rel="noopener">${esc(src.title)}</a></p>`
