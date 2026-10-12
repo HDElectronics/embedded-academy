@@ -12,7 +12,8 @@
     "./MemoryMap.astro": "./astro/MemoryMap.astro",
     "./CourseMap.astro": "./astro/CourseMap.astro",
     "./PrivilegeLadder.astro": "./astro/PrivilegeLadder.astro",
-    "./ExceptionLevels.astro": "./astro/ExceptionLevels.astro"
+    "./ExceptionLevels.astro": "./astro/ExceptionLevels.astro",
+    "./SplFit.astro": "./astro/SplFit.astro"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p ."

@@ -866,3 +866,245 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Figure: SplFit (will the BeagleBone Black SPL fit in SRAM) */
+.ea-fit__body {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.ea-fit__box {
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.ea-fit__title {
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-raised);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.ea-fit__rows,
+.ea-fit__zoom,
+.ea-fit__result,
+.ea-fit__image {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.ea-fit__row {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 1fr) minmax(0, 9rem);
+  gap: var(--space-1) var(--space-3);
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.ea-fit__name {
+  overflow-wrap: anywhere;
+}
+
+.ea-fit__bytes {
+  text-align: right;
+}
+
+.ea-fit__track,
+.ea-fit__zoom-track {
+  position: relative;
+  display: block;
+  height: 24px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.ea-fit__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--line-strong);
+}
+
+.ea-fit__fill.is-ok {
+  background: var(--success);
+}
+
+.ea-fit__fill.is-fail {
+  background: var(--danger);
+}
+
+@media (width <= 640px) {
+  .ea-fit__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .ea-fit__track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+.ea-fit__zoom-track {
+  height: 40px;
+}
+
+.ea-fit__gap {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border: 2px dashed var(--success);
+}
+
+.ea-fit__gap.is-fail {
+  border-color: var(--ink);
+}
+
+.ea-fit__scratch {
+  position: absolute;
+  inset: 0 0 0 50%;
+  border-left: 2px solid var(--ink);
+  background: repeating-linear-gradient(135deg, transparent 0 6px, var(--line) 6px 8px);
+}
+
+.ea-fit__axis {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-muted);
+}
+
+.ea-fit__axis-right {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.ea-fit .ea-fit__key {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.ea-fit__swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: var(--space-2);
+  border: 2px dashed var(--success);
+  vertical-align: -1px;
+}
+
+.ea-fit__swatch.is-fail {
+  border: 0;
+  background: var(--danger);
+}
+
+.ea-fit__swatch.is-scratch {
+  border: 1px solid var(--ink);
+  background: repeating-linear-gradient(135deg, transparent 0 3px, var(--line-strong) 3px 4px);
+}
+
+.ea-fit__result p,
+.ea-fit__image p {
+  margin: 0;
+  max-width: 72ch;
+}
+
+.ea-fit__verdict {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 22px;
+}
+
+.ea-fit__status {
+  white-space: pre;
+}
+
+.ea-fit__verdict.is-ok .ea-fit__status {
+  color: var(--success);
+}
+
+.ea-fit__verdict.is-fail .ea-fit__status {
+  color: var(--danger);
+}
+
+.ea-fit__note:empty {
+  display: none;
+}
+
+.ea-fit [aria-disabled="true"] {
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
+.ea-fit .ea-btn--primary[aria-disabled="true"] {
+  border-color: var(--line-strong);
+  background: transparent;
+  color: var(--ink-muted);
+}
+
+.ea-fit .ea-btn--primary[aria-disabled="true"]::before,
+.ea-fit .ea-btn--primary[aria-disabled="true"]::after {
+  color: var(--ink-muted);
+}
+
+.ea-fit__blocks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(32px, 1fr));
+  gap: var(--space-1);
+}
+
+.ea-fit__block {
+  height: 24px;
+  border: 1px dashed var(--danger);
+}
+
+.ea-fit__block.is-area {
+  border: 1px solid var(--success);
+  background: var(--success);
+}
+
+.ea-fit__legend {
+  color: var(--ink-muted);
+}
+
+.ea-fit__evidence summary {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.ea-fit__evidence summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.ea-fit__span {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.ea-fit__span p {
+  margin: 0;
+}
+
+.ea-fit .ea-fit__console {
+  height: auto;
+}
