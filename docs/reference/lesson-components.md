@@ -51,6 +51,9 @@ From `@ea/anim`. Each figure reads its facts from `packages/boards` and its cons
 `SerialConsole`
 : A log replay with a stage timeline. Props: `board`, `pane`.
 
+`ExceptionLevels`
+: The exception level elevator: the learner runs `svc #0`, `hvc #0`, `smc #0` and `eret` and watches the core move between EL0 and EL3, with the pending `ELR_ELx` and `SPSR_ELx` returns. Instructions that are undefined or stay at the level say why. Also shows the reset levels captured in the m01 lab. Rules and sources live in `packages/boards/src/interactives/exception-levels.ts`. Props: `pane`.
+
 `PredictLine`
 : A quiz over the full-chain capture `logs/qemu/m10-chain-virt.log`: the console up to a point, real lines from the same capture to choose from, a score and a sourced reason for each answer. Data in `packages/boards/src/interactives/predict-line.ts`. Props: `pane`.
 

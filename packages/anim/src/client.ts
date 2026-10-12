@@ -21,3 +21,8 @@ definePredictLine();
 import { defineHandoffRelay } from './handoff-relay.ts';
 
 defineHandoffRelay();
+
+// Figure: ExceptionLevels
+import { defineExceptionLevels } from './exception-levels.ts';
+
+defineExceptionLevels();
