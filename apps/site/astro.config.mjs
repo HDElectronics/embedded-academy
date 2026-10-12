@@ -4,6 +4,7 @@
 import { unified } from '@astrojs/markdown-remark';
 import mdx from '@astrojs/mdx';
 import { defineConfig } from 'astro/config';
+import rehypeScrollTables from './src/lib/rehype-scroll-tables.mjs';
 import remarkUnwrapParagraphs from './src/lib/remark-unwrap-paragraphs.mjs';
 
 export default defineConfig({
@@ -11,7 +12,7 @@ export default defineConfig({
   markdown: {
     // Astro 7 renders Markdown with Sätteri, which runs no remark plugins.
     // The unified processor does, and MDX inherits it.
-    processor: unified({ remarkPlugins: [remarkUnwrapParagraphs] }),
+    processor: unified({ remarkPlugins: [remarkUnwrapParagraphs], rehypePlugins: [rehypeScrollTables] }),
     shikiConfig: { theme: 'css-variables' },
   },
 });
