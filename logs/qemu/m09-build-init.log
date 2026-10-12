@@ -1,0 +1,18 @@
+# board: none; build only, target arm64
+# software: GCC 14.2.0 (aarch64-linux-gnu, Debian 14.2.0-19), glibc 2.41 (libc6-dev-arm64-cross 2.41-11cross1), GNU cpio 2.15, file 5.46
+# command: the build commands of 09-linux-takes-over/04-lab-boot-to-your-own-init.mdx, in ~/work/m09; init.c is the file shown on that page
+# captured: 2026-10-12 (UTC), embedded-academy-lab container (Debian 13.7, QEMU 10.0.13)
+# note: the container clock matched the Date header of www.google.com at capture, so dates in the output are real UTC
+# input: the init.c from the lab page, sent to "cat > init.c" on standard input
+# note: each line starting with "# --- run: " was printed by the capture loop before its command
+# verification: emulated
+# --- run: cd ~/work/m09
+# --- run: cat > init.c
+# --- run: aarch64-linux-gnu-gcc -static -o init init.c
+# --- run: file init
+init: ELF 64-bit LSB executable, ARM aarch64, version 1 (GNU/Linux), statically linked, BuildID[sha1]=5d1c66a73a5cecb5273bf403ea8457052666c183, for GNU/Linux 3.7.0, not stripped
+# --- run: echo init | cpio -o -H newc > initramfs.cpio
+1377 blocks
+# --- run: cpio -t < initramfs.cpio
+1377 blocks
+init

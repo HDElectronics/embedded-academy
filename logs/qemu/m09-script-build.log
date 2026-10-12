@@ -1,0 +1,19 @@
+# board: none; build only
+# software: GNU cpio 2.15 (Debian 2.15+dfsg-2), bash printf
+# command: the script commands of 09-linux-takes-over/04-lab-boot-to-your-own-init.mdx, in ~/work/m09
+# captured: 2026-10-12 (UTC), embedded-academy-lab container (Debian 13.7, QEMU 10.0.13)
+# note: the container clock matched the Date header of www.google.com at capture, so dates in the output are real UTC
+# note: each line starting with "# --- run: " was printed by the capture loop before its command
+# verification: emulated
+# --- run: cd ~/work/m09
+# --- run: printf '#!/bin/sh\necho Hello from a script\n' > hello.sh
+# --- run: chmod +x hello.sh
+# --- run: cat hello.sh
+#!/bin/sh
+echo Hello from a script
+# --- run: printf 'init\nhello.sh\n' | cpio -o -H newc > script.cpio
+1378 blocks
+# --- run: cpio -t < script.cpio
+1378 blocks
+init
+hello.sh
