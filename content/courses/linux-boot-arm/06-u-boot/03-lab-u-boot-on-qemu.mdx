@@ -43,9 +43,10 @@ import Callout from '@ea/ui/Callout.astro';
 import Deeper from '@ea/ui/Deeper.astro';
 
 <Callout level="info">
-  Every step on this page was run in the lab container under QEMU on 2026-10-11, at the versions this course pins. The
-  console output it describes comes from that run, saved in `logs/qemu/m06-u-boot-virt.log` and
-  `logs/qemu/m06-u-boot-virt-1g.log`. If a step behaves differently for you, report it with the `inaccuracy` issue form.
+  Every step on this page was run in the lab container under QEMU on 2026-10-11, at the versions this course pins, and
+  the steps that keep the environment on 2026-10-12. The console output it describes comes from those runs, saved in
+  `logs/qemu/m06-u-boot-virt.log`, `logs/qemu/m06-u-boot-virt-1g.log` and `logs/qemu/m06-u-boot-envstore.log`. If a step
+  behaves differently for you, report it with the `inaccuracy` issue form.
 </Callout>
 
 <div class="t-lead">
@@ -96,9 +97,8 @@ Start QEMU with the minimal command line from the U-Boot documentation, plus `-n
 - `-bios` puts `u-boot.bin` in the emulated flash.
 - `-cpu cortex-a57` asks for a 64-bit CPU.
 - `-nographic` sends the serial console to your terminal.[^qemu-src]
-- `-nic none` gives the machine no network device. Without it, QEMU adds a default network card.[^qemu-src] In the lab
-  container that card's boot ROM file is missing, and QEMU stops before the CPU runs with
-  `qemu-system-aarch64: failed to find romfile "efi-virtio.rom"`. U-Boot needs no network in this lab.
+- `-nic none` gives the machine no network device. Without it, QEMU adds a default network card.[^qemu-src] This lab
+  needs no network card, so `-nic none` keeps QEMU from adding one.
 
 <Prompt
   dir="~/work/src/u-boot"
@@ -148,9 +148,18 @@ Quit QEMU with `Ctrl-A`, then `X`.
 
 <Deeper depth="practitioner" title="Keep the environment across QEMU runs">
 
-`qemu_arm64_defconfig` stores the environment in the emulated flash (`CONFIG_ENV_IS_IN_FLASH`).[^defconfig] Without a file behind that flash, QEMU does not keep it between runs. The U-Boot documentation gives a way to keep it: create a 64 MiB raw image with `qemu-img create -f raw envstore.img 64M`, then add `-drive if=pflash,format=raw,index=1,file=envstore.img` to the QEMU command line.[^qemu] After that, `saveenv` survives a restart.
+`qemu_arm64_defconfig` stores the environment in the emulated flash (`CONFIG_ENV_IS_IN_FLASH`).[^defconfig] Without a file behind that flash, QEMU does not keep it between runs. The U-Boot documentation gives a way to keep it: create a 64 MiB raw image with `qemu-img`, then add `-drive if=pflash,format=raw,index=1,file=envstore.img` to the QEMU command line.[^qemu] The lab image has `qemu-img`.
 
-Check first that the container has `qemu-img` with `command -v qemu-img`. The lab image installs `qemu-system-arm`, and `qemu-img` may come in a separate package.
+<Prompt dir="~/work/src/u-boot" cmd="qemu-img create -f raw envstore.img 64M" />
+
+It prints `Formatting 'envstore.img', fmt=raw size=67108864`. Start U-Boot with the image behind the second flash:
+
+<Prompt
+  dir="~/work/src/u-boot"
+  cmd="qemu-system-aarch64 -machine virt -nographic -cpu cortex-a57 -bios $HOME/work/build/qemu_arm64/u-boot.bin -nic none -drive if=pflash,format=raw,index=1,file=envstore.img"
+/>
+
+The image is still empty, so U-Boot again reports a bad CRC and uses the default environment. At the prompt, type `setenv bootdelay 5`, then `saveenv`. U-Boot erases and writes the flash, and ends with `OK`.[^envcmd] Quit QEMU and run the same command again: U-Boot now prints `Loading Environment from Flash... OK`, the countdown starts at 5, and `printenv bootdelay` shows `bootdelay=5`.
 
 </Deeper>
 

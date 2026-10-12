@@ -1,0 +1,17 @@
+# board: QEMU virt (cortex-a72, 1 GiB), dumpdtb only: QEMU writes the tree and exits before any guest code runs
+# software: QEMU 10.0.13 (Debian 1:10.0.13+ds-0+deb13u1), DTC 1.7.2 fdtget; Linux v6.18.55 arm64 defconfig, arch/arm64/boot/Image built in ~/work/build/linux-arm64 as in module 08, GCC 14.2.0 (Debian 14.2.0-19); copied to ~/work/m09/Image
+# command: the /chosen commands of 09-linux-takes-over/04-lab-boot-to-your-own-init.mdx, in ~/work/m09
+# captured: 2026-10-12 (UTC), embedded-academy-lab container (Debian 13.7, QEMU 10.0.13)
+# note: the container clock matched the Date header of www.google.com at capture, so dates in the output are real UTC
+# note: each line starting with "# --- run: " was printed by the capture loop before its command
+# verification: emulated
+# --- run: cd ~/work/m09
+# --- run: qemu-system-aarch64 -machine virt,dumpdtb=chosen.dtb -cpu cortex-a72 -m 1G -nographic -nic none -kernel Image -initrd initramfs.cpio -append "console=ttyAMA0"
+# --- run: fdtget chosen.dtb /chosen bootargs
+console=ttyAMA0
+# --- run: fdtget -t x chosen.dtb /chosen linux,initrd-start
+0 48000000
+# --- run: fdtget -t x chosen.dtb /chosen linux,initrd-end
+0 480ac200
+# --- run: ls -l initramfs.cpio
+-rw-r--r-- 1 learner learner 705024 Oct 12 19:36 initramfs.cpio
