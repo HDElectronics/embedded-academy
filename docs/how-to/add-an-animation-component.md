@@ -32,6 +32,13 @@ Read every address, stage, file name and size from `packages/boards`. Never hard
 - Make every control work from the keyboard, with the 2px focus ring.
 - Write buttons as bracketed text, such as `[ Play boot ]`, with one primary button per pane.
 
+## Show captured output, never typed output
+
+A figure that shows console lines reads them from a capture in `logs/qemu/`. Describe each span as a `CaptureRef`, `{ log: 'qemu/m10-chain-virt.log', from: 55, to: 61 }`: the file under `logs/` and an inclusive range of its raw line numbers, as your editor shows them. Put the refs in the figure's data module under `packages/boards/src/`, and read them at build time in the `.astro` component with `captureSpan(ref)` from `@ea/boards/node`. A span that reaches into the `#` header, or past the end of the file, fails the build.
+
+Any address, size or number the figure states outside the console lines must also come from a capture or from board data. Test it: assert that `captureSpan(ref).join('
+')` contains the value, so a re-captured log that changes the number fails the test instead of the lesson.
+
 ## Mark it as a figure
 
 Give the component's root element a `data-figure` attribute with a short lowercase name, such as `data-figure="memory-map"`. Lessons keep prose at 72 characters wide and let elements with `data-figure` use the full content width, so the figure stays readable next to the text that introduces it.
