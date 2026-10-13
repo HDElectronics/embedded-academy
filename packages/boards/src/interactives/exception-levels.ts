@@ -79,7 +79,7 @@ const QEMU_RESET: Source = {
 const A72_TRM: Source = {
   title: 'Arm Cortex-A72 MPCore Processor Technical Reference Manual r0p1',
   url: 'https://developer.arm.com/documentation/100095/0001',
-  section: '3.2.4 Rules for changing Exception state',
+  section: '3.2.2 Exception levels; 3.2.4 Rules for changing Exception state',
 };
 
 const RULE = [ARM_INSNS, GUIDE];

@@ -79,9 +79,51 @@ export const UBOOT_STM32MP1: Source = {
   url: 'https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html',
 };
 
+export const UBOOT_STM32MP1_SD: Source = {
+  title: 'U-Boot documentation (v2026.07): STM32MP1 boards',
+  url: 'https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html',
+  section: 'Prepare an SD card',
+};
+
+/** The SD card Buildroot builds for STM32MP1: fsbl1, fsbl2, fip, then a bootable rootfs. */
+export const BUILDROOT_STM32MP1_GENIMAGE: Source = {
+  title: 'Buildroot 2026.02.3 source: board/stmicroelectronics/common/stm32mp1xx/genimage.cfg.template',
+  url: 'https://gitlab.com/buildroot.org/buildroot/-/blob/2026.02.3/board/stmicroelectronics/common/stm32mp1xx/genimage.cfg.template',
+};
+
+export const BUILDROOT_DK2_EXTLINUX: Source = {
+  title: 'Buildroot 2026.02.3 source: board/stmicroelectronics/stm32mp157c-dk2/overlay/boot/extlinux/extlinux.conf',
+  url: 'https://gitlab.com/buildroot.org/buildroot/-/blob/2026.02.3/board/stmicroelectronics/stm32mp157c-dk2/overlay/boot/extlinux/extlinux.conf',
+};
+
 export const OPTEE_PLATFORMS: Source = {
   title: 'OP-TEE documentation: platforms supported',
   url: 'https://optee.readthedocs.io/en/4.10.0/general/platforms.html',
+};
+
+export const UBOOT_AM335X_DEFCONFIG: Source = {
+  title: 'U-Boot v2026.07 source: configs/am335x_evm_defconfig',
+  url: 'https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/configs/am335x_evm_defconfig',
+  section: 'CONFIG_DISTRO_DEFAULTS, CONFIG_BOOTCOMMAND',
+};
+
+export const UBOOT_STM32MP15_DEFCONFIG: Source = {
+  title: 'U-Boot v2026.07 source: configs/stm32mp15_defconfig',
+  url: 'https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/configs/stm32mp15_defconfig',
+  section: 'CONFIG_DISTRO_DEFAULTS, CONFIG_BOOTCOMMAND',
+};
+
+export const UBOOT_STM32MP15_ST_COMMON: Source = {
+  title: 'U-Boot v2026.07 source: include/configs/stm32mp15_st_common.h',
+  url: 'https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/include/configs/stm32mp15_st_common.h',
+  section: 'ST_STM32MP1_BOOTCMD (bootcmd_stm32mp)',
+};
+
+/** The script-based distro boot that DISTRO_DEFAULTS boards run from bootcmd. */
+export const UBOOT_DISTRO_BOOTCMD: Source = {
+  title: 'U-Boot v2026.07 source: include/config_distro_bootcmd.h',
+  url: 'https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/include/config_distro_bootcmd.h',
+  section: 'distro_bootcmd',
 };
 
 export const ARM_ARM_A: Source = {

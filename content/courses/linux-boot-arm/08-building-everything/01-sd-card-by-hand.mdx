@@ -9,10 +9,10 @@ boards: [rpi4, bbb, stm32mp157]
 verification: unverified
 sources:
   - title: 'Linux kernel documentation: Kbuild, environment variables'
-    url: https://docs.kernel.org/kbuild/kbuild.html
+    url: https://www.kernel.org/doc/html/v6.18/kbuild/kbuild.html
     section: ARCH; CROSS_COMPILE
   - title: 'Linux kernel documentation: README, build directory for the kernel'
-    url: https://docs.kernel.org/admin-guide/README.html
+    url: https://www.kernel.org/doc/html/v6.18/admin-guide/README.html
   - title: 'Linux source v6.18.55: arch/arm64/Kconfig.platforms'
     url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm64/Kconfig.platforms?h=v6.18.55
   - title: 'Linux source v6.18.55: arch/arm64/Makefile'
@@ -251,7 +251,7 @@ label stm32mp157c-dk2-buildroot
 ## Where the sources disagree
 
 - **TF-A compiler.** The TF-A examples use `arm-none-eabi-`, which the lab container does not have. This guide uses `arm-linux-gnueabihf-`.[^tfa] With it, both TF-A builds finish in the lab container and write `tf-a-stm32mp157c-dk2.stm32` and `fip.bin`.
-- **U-Boot defconfig with FIP.** The TF-A documentation builds U-Boot with `stm32mp15_trusted_defconfig`. The U-Boot documentation says that configuration is for TF-A without FIP support and names `stm32mp15_defconfig` for FIP.[^ubstm] This guide follows U-Boot.
+- **U-Boot defconfig with FIP.** The TF-A documentation builds U-Boot with `stm32mp15_trusted_defconfig`, and so does Buildroot 2026.02.3's DK2 configuration, with U-Boot 2026.01.[^brstm] The U-Boot documentation says that configuration is for TF-A without FIP support and names `stm32mp15_defconfig` for FIP.[^ubstm] This guide follows U-Boot.
 - **`DEVICE_TREE` spelling.** The U-Boot documentation writes `DEVICE_TREE=stm32mp157c-ev1`, without a folder. But `configs/stm32mp15_defconfig` sets its default Device Tree to `st/stm32mp157c-ev1`, with a folder, and Buildroot 2026.02.3 passes `DEVICE_TREE=st/stm32mp157c-dk2`.[^brstm] This guide uses the `st/` form. At `v2026.07` it builds in the lab container, and the `u-boot.dtb` it writes has the model `STMicroelectronics STM32MP157C-DK2 Discovery Board`.
 - **BL2 file and partition names.** U-Boot calls the image `tf-a.stm32` and requires partitions named `fsbl1` and `fsbl2`. TF-A writes `tf-a-<dtb name>.stm32` and describes one `fsbl` partition, usually two copies.[^tfampus]
 - **OP-TEE or SP_min.** Both projects also document SP_min as BL32. Buildroot's DK2 configuration uses SP_min and builds no OP-TEE.[^brstm] TF-A calls OP-TEE the recommended choice.[^tfa]

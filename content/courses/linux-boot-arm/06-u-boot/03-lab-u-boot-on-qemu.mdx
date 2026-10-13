@@ -43,10 +43,11 @@ import Callout from '@ea/ui/Callout.astro';
 import Deeper from '@ea/ui/Deeper.astro';
 
 <Callout level="info">
-  Every step on this page was run in the lab container under QEMU on 2026-10-11, at the versions this course pins, and
-  the steps that keep the environment on 2026-10-12. The console output it describes comes from those runs, saved in
-  `logs/qemu/m06-u-boot-virt.log`, `logs/qemu/m06-u-boot-virt-1g.log` and `logs/qemu/m06-u-boot-envstore.log`. If a step
-  behaves differently for you, report it with the `inaccuracy` issue form.
+  Every step on this page was run in the lab container under QEMU on 2026-10-13, at the versions this course pins, right
+  after the TF-A lab of module 05. The console output it describes comes from earlier runs on 2026-10-11 and 2026-10-12,
+  saved in `logs/qemu/m06-u-boot-virt.log`, `logs/qemu/m06-u-boot-virt-1g.log` and `logs/qemu/m06-u-boot-envstore.log`.
+  The 2026-10-13 run printed the same lines apart from build times. If a step behaves differently for you, report it
+  with the `inaccuracy` issue form.
 </Callout>
 
 <div class="t-lead">
@@ -78,7 +79,7 @@ Tell the build which cross compiler to use. The lab container has the Debian cro
 
 <Prompt dir="~/work/src/u-boot" cmd="export CROSS_COMPILE=aarch64-linux-gnu-" />
 
-Create the configuration. `O=` puts every output file, including `.config`, in a separate build folder, so the source tree stays clean for the other boards.[^gcc]
+Create the configuration. `O=` puts every output file, including `.config`, in a separate build folder, so the source tree stays clean for the other boards.[^gcc] If you did the TF-A lab in module 05, this folder already holds a build of the same configuration, and the next two commands refresh it.
 
 <Prompt dir="~/work/src/u-boot" cmd="make O=$HOME/work/build/qemu_arm64 qemu_arm64_defconfig" />
 
@@ -150,12 +151,18 @@ Quit QEMU with `Ctrl-A`, then `X`.
 
 `qemu_arm64_defconfig` stores the environment in the emulated flash (`CONFIG_ENV_IS_IN_FLASH`).[^defconfig] Without a file behind that flash, QEMU does not keep it between runs. The U-Boot documentation gives a way to keep it: create a 64 MiB raw image with `qemu-img`, then add `-drive if=pflash,format=raw,index=1,file=envstore.img` to the QEMU command line.[^qemu] The lab image has `qemu-img`.
 
-<Prompt dir="~/work/src/u-boot" cmd="qemu-img create -f raw envstore.img 64M" />
+Keep the image out of the U-Boot source tree. Make a folder for it and go there:
+
+<Prompt cmd="mkdir -p ~/work/m06" />
+
+<Prompt cmd="cd ~/work/m06" />
+
+<Prompt dir="~/work/m06" cmd="qemu-img create -f raw envstore.img 64M" />
 
 It prints `Formatting 'envstore.img', fmt=raw size=67108864`. Start U-Boot with the image behind the second flash:
 
 <Prompt
-  dir="~/work/src/u-boot"
+  dir="~/work/m06"
   cmd="qemu-system-aarch64 -machine virt -nographic -cpu cortex-a57 -bios $HOME/work/build/qemu_arm64/u-boot.bin -nic none -drive if=pflash,format=raw,index=1,file=envstore.img"
 />
 

@@ -88,7 +88,7 @@ boards: [rpi4, bbb, stm32mp157]
 verification: unverified
 sources:
   - title: U-Boot documentation
-    url: https://docs.u-boot.org/en/latest/
+    url: https://docs.u-boot.org/en/v2026.07/
 draft: true
 ```
 

@@ -9,6 +9,8 @@ import {
   KERNEL_ARM_BOOTING,
   UBOOT_AM33XX_OMAP_H,
   UBOOT_AM335X,
+  UBOOT_AM335X_DEFCONFIG,
+  UBOOT_DISTRO_BOOTCMD,
   UBOOT_TI_ENV,
 } from '../sources.ts';
 
@@ -81,7 +83,7 @@ export const bbb: Board = {
       world: 'vendor',
       does: [
         'Relocates itself to the top of the 512 MB.',
-        'Runs bootcmd: standard boot finds extlinux.conf.',
+        'Runs bootcmd: distro boot (distro_bootcmd) finds extlinux.conf.',
         'Loads zImage to 0x82000000 and the DTB to 0x88000000, then runs bootz.',
       ],
       loads: [
@@ -89,7 +91,7 @@ export const bbb: Board = {
         { file: 'zImage', from: 'root filesystem, /boot', to: 'dram', address: 0x82000000, sources: [UBOOT_TI_ENV] },
         { file: 'dtb', from: 'root filesystem, /boot', to: 'dram', address: 0x88000000, sources: [UBOOT_TI_ENV] },
       ],
-      sources: [UBOOT_AM335X, UBOOT_TI_ENV],
+      sources: [UBOOT_AM335X, UBOOT_TI_ENV, UBOOT_AM335X_DEFCONFIG, UBOOT_DISTRO_BOOTCMD],
       verification: 'unverified',
     },
     {
