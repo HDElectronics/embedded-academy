@@ -1,6 +1,6 @@
 ---
 title: The environment and bootcmd decide what U-Boot boots
-description: U-Boot keeps its settings in environment variables, runs bootcmd after a countdown, and uses standard boot to find extlinux.conf or boot.scr.
+description: U-Boot keeps its settings in environment variables, runs bootcmd after a countdown, and finds extlinux.conf or boot.scr with standard boot or distro boot.
 course: linux-boot-arm
 module: m06
 order: 2
@@ -110,6 +110,8 @@ The variable `boot_targets` sets which bootdevs are tried and in what order. In 
 **`extlinux.conf`.** The `extlinux` bootmeth looks for `extlinux/extlinux.conf` at the root of a partition or under `/boot`.[^extlinux] The file lists one or more labels. Each label names a `kernel`, the kernel command line (`append`), the Device Tree (`fdt`, or `fdtdir` for a directory) and optionally an `initrd`.[^pxe] Distributions write this file; U-Boot only reads it and does what it says.[^bootstd]
 
 **`boot.scr`.** The `script` bootmeth looks for `boot.scr.uimg`, then `boot.scr`, in the same places. U-Boot loads the file into memory and runs the commands in it.[^script] The commands are wrapped as a FIT or a legacy U-Boot image, which you build with the `mkimage` tool. The `source` command runs such a script by hand.[^source] A script gives you full control, at the price of writing the load and boot commands yourself.
+
+Two of the course boards still find these files the older way at `v2026.07`. On the Raspberry Pi 4, `bootcmd` runs standard boot. On the BeagleBone Black and the STM32MP157 DK2, it runs the script-based distro boot, `distro_bootcmd`, which looks for the same two files.[^defconfigs] [^stm32] [^distro]
 
 <Deeper depth="practitioner" title="What each board's bootcmd runs at v2026.07">
 

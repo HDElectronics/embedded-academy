@@ -2,7 +2,16 @@
 // SPDX-License-Identifier: MIT
 
 import type { Board } from '../schema.ts';
-import { KERNEL_ARM_BOOTING, OPTEE_PLATFORMS, STM32MP15_RM, TFA_STM32MP1, UBOOT_STM32MP1 } from '../sources.ts';
+import {
+  KERNEL_ARM_BOOTING,
+  OPTEE_PLATFORMS,
+  STM32MP15_RM,
+  TFA_STM32MP1,
+  UBOOT_DISTRO_BOOTCMD,
+  UBOOT_STM32MP1,
+  UBOOT_STM32MP15_DEFCONFIG,
+  UBOOT_STM32MP15_ST_COMMON,
+} from '../sources.ts';
 
 export const stm32mp157: Board = {
   id: 'stm32mp157',
@@ -104,14 +113,14 @@ export const stm32mp157: Board = {
       privilege: { level: 'PL1', world: 'normal' },
       does: [
         'Runs in the normal world. The OP-TEE carve-out is now invisible to it.',
-        'Standard boot finds /extlinux/extlinux.conf on bootfs.',
+        'Distro boot (distro_bootcmd) finds /extlinux/extlinux.conf on bootfs.',
         'Loads the kernel and stm32mp157c-dk2.dtb, and can start Cortex-M4 firmware.',
       ],
       loads: [
         { file: 'zImage', from: 'GPT partition bootfs', to: 'dram', sources: [UBOOT_STM32MP1] },
         { file: 'stm32mp157c-dk2.dtb', from: 'GPT partition bootfs', to: 'dram', sources: [UBOOT_STM32MP1] },
       ],
-      sources: [UBOOT_STM32MP1],
+      sources: [UBOOT_STM32MP1, UBOOT_STM32MP15_DEFCONFIG, UBOOT_STM32MP15_ST_COMMON, UBOOT_DISTRO_BOOTCMD],
       verification: 'unverified',
     },
     {
