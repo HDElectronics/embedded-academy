@@ -101,6 +101,31 @@ export const OPTEE_PLATFORMS: Source = {
   url: 'https://optee.readthedocs.io/en/4.10.0/general/platforms.html',
 };
 
+export const UBOOT_AM335X_DEFCONFIG: Source = {
+  title: 'U-Boot v2026.07 source: configs/am335x_evm_defconfig',
+  url: 'https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/configs/am335x_evm_defconfig',
+  section: 'CONFIG_DISTRO_DEFAULTS, CONFIG_BOOTCOMMAND',
+};
+
+export const UBOOT_STM32MP15_DEFCONFIG: Source = {
+  title: 'U-Boot v2026.07 source: configs/stm32mp15_defconfig',
+  url: 'https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/configs/stm32mp15_defconfig',
+  section: 'CONFIG_DISTRO_DEFAULTS, CONFIG_BOOTCOMMAND',
+};
+
+export const UBOOT_STM32MP15_ST_COMMON: Source = {
+  title: 'U-Boot v2026.07 source: include/configs/stm32mp15_st_common.h',
+  url: 'https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/include/configs/stm32mp15_st_common.h',
+  section: 'ST_STM32MP1_BOOTCMD (bootcmd_stm32mp)',
+};
+
+/** The script-based distro boot that DISTRO_DEFAULTS boards run from bootcmd. */
+export const UBOOT_DISTRO_BOOTCMD: Source = {
+  title: 'U-Boot v2026.07 source: include/config_distro_bootcmd.h',
+  url: 'https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/include/config_distro_bootcmd.h',
+  section: 'distro_bootcmd',
+};
+
 export const ARM_ARM_A: Source = {
   title: 'Arm Architecture Reference Manual for A-profile architecture (DDI 0487)',
   url: 'https://developer.arm.com/documentation/ddi0487/latest',

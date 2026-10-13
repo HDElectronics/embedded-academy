@@ -11,8 +11,11 @@ import {
   TFA_STM32MP1,
   TFA_STM32MP1_PLATFORM_MK,
   TFA_STM32MPUS,
+  UBOOT_DISTRO_BOOTCMD,
   UBOOT_STM32MP1,
   UBOOT_STM32MP1_SD,
+  UBOOT_STM32MP15_DEFCONFIG,
+  UBOOT_STM32MP15_ST_COMMON,
 } from '../sources.ts';
 
 export const stm32mp157: Board = {
@@ -115,7 +118,7 @@ export const stm32mp157: Board = {
       privilege: { level: 'PL1', world: 'normal' },
       does: [
         'Runs in the normal world. The OP-TEE carve-out is now invisible to it.',
-        'Standard boot finds /boot/extlinux/extlinux.conf on partition 4, the bootable rootfs.',
+        'Distro boot (distro_bootcmd) finds /boot/extlinux/extlinux.conf on partition 4, the bootable rootfs.',
         'Loads the kernel and stm32mp157c-dk2.dtb, and can start Cortex-M4 firmware.',
       ],
       loads: [
@@ -132,7 +135,14 @@ export const stm32mp157: Board = {
           sources: [UBOOT_STM32MP1_SD, BUILDROOT_STM32MP1_GENIMAGE, BUILDROOT_DK2_EXTLINUX],
         },
       ],
-      sources: [UBOOT_STM32MP1, UBOOT_STM32MP1_SD, BUILDROOT_DK2_EXTLINUX],
+      sources: [
+        UBOOT_STM32MP1,
+        UBOOT_STM32MP1_SD,
+        BUILDROOT_DK2_EXTLINUX,
+        UBOOT_STM32MP15_DEFCONFIG,
+        UBOOT_STM32MP15_ST_COMMON,
+        UBOOT_DISTRO_BOOTCMD,
+      ],
       verification: 'unverified',
     },
     {
