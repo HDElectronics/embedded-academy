@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import type { Board } from '../schema.ts';
-import { AM335X_TRM, KERNEL_ARM_BOOTING, UBOOT_AM335X, UBOOT_TI_ENV } from '../sources.ts';
+import { AM335X_TRM, BBB_SRM_BOOT, KERNEL_ARM_BOOTING, UBOOT_AM335X, UBOOT_TI_ENV } from '../sources.ts';
 
 export const bbb: Board = {
   id: 'bbb',
@@ -35,12 +35,12 @@ export const bbb: Board = {
       level: 'SVC',
       world: 'vendor',
       does: [
-        'Reads the SYSBOOT pins to choose a boot device order. Holding S2 at power-on puts the SD card first.',
+        'Reads the SYSBOOT pins to choose a boot device order. Holding S2 at power-on changes the order to SPI0, then the microSD card.',
         'Finds MLO in raw sectors or as a file on a FAT partition.',
         'Copies it to internal SRAM at 0x402F0400 and jumps to it.',
       ],
       loads: [{ file: 'MLO', from: 'eMMC or SD card', to: 'sram', address: 0x402f0400, sources: [AM335X_TRM] }],
-      sources: [AM335X_TRM],
+      sources: [AM335X_TRM, BBB_SRM_BOOT],
       verification: 'unverified',
     },
     {
