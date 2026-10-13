@@ -42,8 +42,8 @@ export const rpi4: Board = {
       world: 'firmware',
       does: [
         'The GPU-side VPU executes first. The Arm cores are still held in reset.',
-        'Looks for the second-stage bootloader in the SPI EEPROM.',
-        'If that image is corrupt, loads recovery.bin from the SD card to reflash it.',
+        'If OTP allows it, runs recovery.bin from the SD card to reflash the EEPROM.',
+        'Otherwise loads the second-stage bootloader from the SPI EEPROM.',
       ],
       loads: [{ file: 'pieeprom.bin', from: 'SPI EEPROM', to: 'onchip', sources: [RPI_BOOT] }],
       sources: [RPI_BOOT],

@@ -35,6 +35,12 @@ export const AM335X_TRM: Source = {
   section: 'Initialization (ROM code)',
 };
 
+export const BBB_SRM_BOOT: Source = {
+  title: 'BeagleBone Black System Reference Manual: Detailed Hardware Design',
+  url: 'https://docs.beagleboard.org/boards/beaglebone/black/ch06.html#default-boot-options',
+  section: 'Boot Configuration; Default Boot Options',
+};
+
 export const UBOOT_AM335X: Source = {
   title: 'U-Boot documentation: AM335x generic boards',
   url: 'https://docs.u-boot.org/en/latest/board/ti/am335x_evm.html',
