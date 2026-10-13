@@ -55,6 +55,19 @@ export const TFA_STM32MP1: Source = {
   url: 'https://trustedfirmware-a.readthedocs.io/en/latest/plat/st/stm32mp1.html',
 };
 
+/** Names the BL2 image TF-A builds for STM32MP1: tf-a-<dtb name>.stm32. */
+export const TFA_STM32MP1_PLATFORM_MK: Source = {
+  title: 'TF-A lts-v2.14.10 source: plat/st/stm32mp1/platform.mk',
+  url: 'https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/st/stm32mp1/platform.mk',
+  section: 'STM32_TF_STM32',
+};
+
+export const TFA_STM32MPUS: Source = {
+  title: 'Trusted Firmware-A documentation (lts-v2.14.10): STMicroelectronics STM32 MPUs',
+  url: 'https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/st/stm32mpus.html',
+  section: 'Populate SD-card',
+};
+
 export const UBOOT_STM32MP1: Source = {
   title: 'U-Boot documentation: STM32MP1 boards',
   url: 'https://docs.u-boot.org/en/latest/board/st/stm32mp1.html',
