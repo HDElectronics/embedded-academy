@@ -2,7 +2,15 @@
 // SPDX-License-Identifier: MIT
 
 import type { Board } from '../schema.ts';
-import { KERNEL_ARM_BOOTING, OPTEE_PLATFORMS, STM32MP15_RM, TFA_STM32MP1, UBOOT_STM32MP1 } from '../sources.ts';
+import {
+  KERNEL_ARM_BOOTING,
+  OPTEE_PLATFORMS,
+  STM32MP15_RM,
+  TFA_STM32MP1,
+  TFA_STM32MP1_PLATFORM_MK,
+  TFA_STM32MPUS,
+  UBOOT_STM32MP1,
+} from '../sources.ts';
 
 export const stm32mp157: Board = {
   id: 'stm32mp157',
@@ -43,10 +51,10 @@ export const stm32mp157: Board = {
       ],
       loads: [
         {
-          file: 'tf-a-stm32mp157c-dk2-sdcard.stm32',
+          file: 'tf-a-stm32mp157c-dk2.stm32',
           from: 'GPT partition fsbl1',
           to: 'sysram',
-          sources: [STM32MP15_RM],
+          sources: [STM32MP15_RM, TFA_STM32MP1_PLATFORM_MK, TFA_STM32MPUS],
         },
       ],
       sources: [STM32MP15_RM],
@@ -55,7 +63,7 @@ export const stm32mp157: Board = {
     {
       id: 'tf-a-bl2',
       name: 'TF-A BL2',
-      file: 'tf-a-stm32mp157c-dk2-sdcard.stm32',
+      file: 'tf-a-stm32mp157c-dk2.stm32',
       from: 'GPT partition fsbl1',
       region: 'sysram',
       core: 'Cortex-A7 #0',
@@ -71,7 +79,7 @@ export const stm32mp157: Board = {
         { file: 'BL32 (OP-TEE)', from: 'GPT partition fip', to: 'dram', sources: [TFA_STM32MP1] },
         { file: 'BL33 (U-Boot)', from: 'GPT partition fip', to: 'dram', sources: [TFA_STM32MP1] },
       ],
-      sources: [TFA_STM32MP1],
+      sources: [TFA_STM32MP1, TFA_STM32MP1_PLATFORM_MK],
       verification: 'unverified',
     },
     {
