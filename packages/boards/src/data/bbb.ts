@@ -28,7 +28,7 @@ export const bbb: Board = {
       kind: 'sram',
       base: 0x402f0400,
       size: 0x1b400,
-      note: 'Download area for the first-stage image, up to 109 KB',
+      note: 'Download area for the first-stage image',
       sources: [AM335X_TRM_PUBLIC_RAM, UBOOT_AM33XX_OMAP_H],
     },
     { id: 'dram', label: 'DDR3L', kind: 'dram', base: 0x80000000, size: 0x20000000, sources: [AM335X_TRM] },
