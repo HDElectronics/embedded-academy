@@ -2,7 +2,15 @@
 // SPDX-License-Identifier: MIT
 
 import type { Board } from '../schema.ts';
-import { AM335X_TRM, BBB_SRM_BOOT, KERNEL_ARM_BOOTING, UBOOT_AM335X, UBOOT_TI_ENV } from '../sources.ts';
+import {
+  AM335X_TRM,
+  AM335X_TRM_PUBLIC_RAM,
+  BBB_SRM_BOOT,
+  KERNEL_ARM_BOOTING,
+  UBOOT_AM33XX_OMAP_H,
+  UBOOT_AM335X,
+  UBOOT_TI_ENV,
+} from '../sources.ts';
 
 export const bbb: Board = {
   id: 'bbb',
@@ -19,8 +27,9 @@ export const bbb: Board = {
       label: 'Internal SRAM',
       kind: 'sram',
       base: 0x402f0400,
+      size: 0x1b400,
       note: 'Download area for the first-stage image, up to 109 KB',
-      sources: [AM335X_TRM],
+      sources: [AM335X_TRM_PUBLIC_RAM, UBOOT_AM33XX_OMAP_H],
     },
     { id: 'dram', label: 'DDR3L', kind: 'dram', base: 0x80000000, size: 0x20000000, sources: [AM335X_TRM] },
   ],
