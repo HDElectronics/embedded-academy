@@ -51,6 +51,12 @@ export const UBOOT_TI_ENV: Source = {
   url: 'https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/include/configs/ti_armv7_common.h',
 };
 
+export const BBB_SRM_DDR: Source = {
+  title: 'BeagleBone Black System Reference Manual: BeagleBone Black High Level Specification',
+  url: 'https://docs.beagleboard.org/boards/beaglebone/black/ch05.html#mb-ddr3l',
+  section: '512MB DDR3L',
+};
+
 export const STM32MP15_RM: Source = {
   title: 'ST RM0436: STM32MP157 reference manual',
   section: 'Memory map; boot modes',

@@ -6,6 +6,7 @@ import {
   AM335X_TRM,
   AM335X_TRM_PUBLIC_RAM,
   BBB_SRM_BOOT,
+  BBB_SRM_DDR,
   KERNEL_ARM_BOOTING,
   UBOOT_AM33XX_OMAP_H,
   UBOOT_AM335X,
@@ -33,7 +34,14 @@ export const bbb: Board = {
       note: 'Download area for the first-stage image',
       sources: [AM335X_TRM_PUBLIC_RAM, UBOOT_AM33XX_OMAP_H],
     },
-    { id: 'dram', label: 'DDR3L', kind: 'dram', base: 0x80000000, size: 0x20000000, sources: [AM335X_TRM] },
+    {
+      id: 'dram',
+      label: 'DDR3L',
+      kind: 'dram',
+      base: 0x80000000,
+      size: 0x20000000,
+      sources: [AM335X_TRM, BBB_SRM_DDR],
+    },
   ],
   stages: [
     {
