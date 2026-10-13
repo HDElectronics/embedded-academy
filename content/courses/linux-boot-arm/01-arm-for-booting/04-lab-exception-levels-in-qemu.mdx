@@ -32,7 +32,7 @@ sources:
     url: https://gitlab.com/qemu-project/qemu/-/blob/v10.0.0/hw/arm/boot.c
   - title: 'Arm Cortex-A72 MPCore Processor Technical Reference Manual r0p1'
     url: https://developer.arm.com/documentation/100095/0001
-    section: 3.2.5 Stack Pointer selection
+    section: 3.2.2 Exception levels; 3.2.4 Rules for changing Exception state; 3.2.5 Stack Pointer selection
   - title: 'Linux v6.18.55 source: arch/arm64/kernel/head.S'
     url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/arch/arm64/kernel/head.S?h=v6.18.55
 ---
@@ -167,7 +167,7 @@ Without `-kernel`, QEMU starts the CPU at its highest exception level, like real
 
 [^reset]: QEMU 10.0, `target/arm/cpu.c`, `arm_cpu_reset_hold`.
 
-[^a72]: Arm Cortex-A72 MPCore TRM r0p1, 3.2.4 Rules for changing Exception state (reset into EL3) and Table 3-1 AArch64 Stack Pointer options.
+[^a72]: Arm Cortex-A72 MPCore TRM r0p1, 3.2.2 Exception levels (implements EL0 to EL3), 3.2.4 Rules for changing Exception state (reset into EL3) and 3.2.5 Stack Pointer selection, Table 3-1 AArch64 Stack Pointer options.
 
 [^head]: Linux v6.18.55, `arch/arm64/kernel/head.S`, `init_kernel_el`.
 
