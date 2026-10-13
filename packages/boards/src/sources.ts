@@ -79,6 +79,23 @@ export const UBOOT_STM32MP1: Source = {
   url: 'https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html',
 };
 
+export const UBOOT_STM32MP1_SD: Source = {
+  title: 'U-Boot documentation (v2026.07): STM32MP1 boards',
+  url: 'https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html',
+  section: 'Prepare an SD card',
+};
+
+/** The SD card Buildroot builds for STM32MP1: fsbl1, fsbl2, fip, then a bootable rootfs. */
+export const BUILDROOT_STM32MP1_GENIMAGE: Source = {
+  title: 'Buildroot 2026.02.3 source: board/stmicroelectronics/common/stm32mp1xx/genimage.cfg.template',
+  url: 'https://gitlab.com/buildroot.org/buildroot/-/blob/2026.02.3/board/stmicroelectronics/common/stm32mp1xx/genimage.cfg.template',
+};
+
+export const BUILDROOT_DK2_EXTLINUX: Source = {
+  title: 'Buildroot 2026.02.3 source: board/stmicroelectronics/stm32mp157c-dk2/overlay/boot/extlinux/extlinux.conf',
+  url: 'https://gitlab.com/buildroot.org/buildroot/-/blob/2026.02.3/board/stmicroelectronics/stm32mp157c-dk2/overlay/boot/extlinux/extlinux.conf',
+};
+
 export const OPTEE_PLATFORMS: Source = {
   title: 'OP-TEE documentation: platforms supported',
   url: 'https://optee.readthedocs.io/en/4.10.0/general/platforms.html',
