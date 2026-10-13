@@ -151,12 +151,18 @@ Quit QEMU with `Ctrl-A`, then `X`.
 
 `qemu_arm64_defconfig` stores the environment in the emulated flash (`CONFIG_ENV_IS_IN_FLASH`).[^defconfig] Without a file behind that flash, QEMU does not keep it between runs. The U-Boot documentation gives a way to keep it: create a 64 MiB raw image with `qemu-img`, then add `-drive if=pflash,format=raw,index=1,file=envstore.img` to the QEMU command line.[^qemu] The lab image has `qemu-img`.
 
-<Prompt dir="~/work/src/u-boot" cmd="qemu-img create -f raw envstore.img 64M" />
+Keep the image out of the U-Boot source tree. Make a folder for it and go there:
+
+<Prompt cmd="mkdir -p ~/work/m06" />
+
+<Prompt cmd="cd ~/work/m06" />
+
+<Prompt dir="~/work/m06" cmd="qemu-img create -f raw envstore.img 64M" />
 
 It prints `Formatting 'envstore.img', fmt=raw size=67108864`. Start U-Boot with the image behind the second flash:
 
 <Prompt
-  dir="~/work/src/u-boot"
+  dir="~/work/m06"
   cmd="qemu-system-aarch64 -machine virt -nographic -cpu cortex-a57 -bios $HOME/work/build/qemu_arm64/u-boot.bin -nic none -drive if=pflash,format=raw,index=1,file=envstore.img"
 />
 
