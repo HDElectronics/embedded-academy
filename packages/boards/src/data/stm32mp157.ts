@@ -9,7 +9,10 @@ import {
   OPTEE_PLATFORMS,
   STM32MP15_RM,
   TFA_STM32MP1,
+  TFA_STM32MP1_DEF_DDR,
+  TFA_STM32MP1_DEF_SYSRAM,
   TFA_STM32MP1_PLATFORM_MK,
+  TFA_STM32MP15_DKX_DTSI,
   TFA_STM32MPUS,
   UBOOT_DISTRO_BOOTCMD,
   UBOOT_STM32MP1,
@@ -28,7 +31,14 @@ export const stm32mp157: Board = {
   log: 'illustrative/stm32mp157.log',
   regions: [
     { id: 'rom', label: 'Boot ROM', kind: 'rom', sources: [STM32MP15_RM] },
-    { id: 'sysram', label: 'SYSRAM', kind: 'sram', base: 0x2ffc0000, size: 0x40000, sources: [STM32MP15_RM] },
+    {
+      id: 'sysram',
+      label: 'SYSRAM',
+      kind: 'sram',
+      base: 0x2ffc0000,
+      size: 0x40000,
+      sources: [STM32MP15_RM, TFA_STM32MP1_DEF_SYSRAM],
+    },
     {
       id: 'dram',
       label: 'DDR3L',
@@ -36,7 +46,7 @@ export const stm32mp157: Board = {
       base: 0xc0000000,
       size: 0x20000000,
       note: 'OP-TEE keeps a secure carve-out',
-      sources: [STM32MP15_RM, TFA_STM32MP1],
+      sources: [STM32MP15_RM, TFA_STM32MP1, TFA_STM32MP1_DEF_DDR, TFA_STM32MP15_DKX_DTSI],
     },
   ],
   stages: [

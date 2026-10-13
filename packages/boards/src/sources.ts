@@ -135,3 +135,31 @@ export const ARM_ARM_V7A: Source = {
   title: 'ARM Architecture Reference Manual, ARMv7-A and ARMv7-R edition (DDI 0406)',
   url: 'https://developer.arm.com/documentation/ddi0406/latest',
 };
+
+export const AM335X_TRM_PUBLIC_RAM: Source = {
+  ...AM335X_TRM,
+  section: '26.1.4.2 Public RAM Memory Map; 26.1.9.2 Boot Image Location and Size',
+};
+
+export const UBOOT_AM33XX_OMAP_H: Source = {
+  title: 'U-Boot v2026.07 source: arch/arm/include/asm/arch-am33xx/omap.h',
+  url: 'https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/arch/arm/include/asm/arch-am33xx/omap.h',
+  section: 'NON_SECURE_SRAM_START, NON_SECURE_SRAM_IMG_END',
+};
+
+export const TFA_STM32MP1_DEF_SYSRAM: Source = {
+  title: 'TF-A lts-v2.14.10 source: plat/st/stm32mp1/stm32mp1_def.h',
+  url: 'https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/plat/st/stm32mp1/stm32mp1_def.h',
+  section: 'STM32MP15: STM32MP_SYSRAM_BASE, STM32MP_SYSRAM_SIZE',
+};
+
+export const TFA_STM32MP1_DEF_DDR: Source = {
+  ...TFA_STM32MP1_DEF_SYSRAM,
+  section: 'STM32MP_DDR_BASE',
+};
+
+export const TFA_STM32MP15_DKX_DTSI: Source = {
+  title: 'TF-A lts-v2.14.10 source: fdts/stm32mp15xx-dkx.dtsi',
+  url: 'https://github.com/ARM-software/arm-trusted-firmware/blob/lts-v2.14.10/fdts/stm32mp15xx-dkx.dtsi',
+  section: 'memory@c0000000',
+};
