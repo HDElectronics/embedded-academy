@@ -14,6 +14,11 @@ sources:
   - title: 'U-Boot documentation (v2026.07): QEMU ARM'
     url: https://docs.u-boot.org/en/v2026.07/board/emulation/qemu-arm.html
     section: Building (secure); Running U-Boot (non-secure)
+  - title: 'U-Boot documentation (v2026.07): Building with GCC'
+    url: https://docs.u-boot.org/en/v2026.07/build/gcc.html
+    section: Out-of-tree building
+  - title: 'U-Boot source (v2026.07): Makefile'
+    url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/Makefile
   - title: 'U-Boot source (v2026.07): configs/qemu_arm64_defconfig'
     url: https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/configs/qemu_arm64_defconfig
   - title: 'Trusted Firmware-A documentation (lts-v2.14.10): Performing an Initial Build'
@@ -46,9 +51,10 @@ import Callout from '@ea/ui/Callout.astro';
 import Deeper from '@ea/ui/Deeper.astro';
 
 <Callout level="info">
-  Every command on this page was run in the lab container under QEMU on 2026-10-11, at the versions this course pins.
-  The console output quoted below comes from that run, saved in `logs/qemu/m05-tfa-virt.log`. If a step fails or behaves
-  differently for you, open an issue with the `inaccuracy` form and paste what you saw.
+  Every command on this page was run in the lab container under QEMU on 2026-10-13, at the versions this course pins.
+  The console output quoted below comes from an earlier run on 2026-10-11, saved in `logs/qemu/m05-tfa-virt.log`. The
+  2026-10-13 run printed the same lines apart from build times. If a step fails or behaves differently for you, open an
+  issue with the `inaccuracy` form and paste what you saw.
 </Callout>
 
 <div class="t-lead">
@@ -86,13 +92,16 @@ Tell U-Boot's build which cross compiler to use. The lab container has the 64-bi
 
 <Prompt dir="~/work/src/u-boot" cmd="export CROSS_COMPILE=aarch64-linux-gnu-" />
 
-Select the QEMU AArch64 configuration, then build:[^uboot-qemu]
+Select the QEMU AArch64 configuration, then build.[^uboot-qemu] U-Boot's guide builds inside the source tree. This lab
+adds `O=`, which puts every output file, `.config` included, in a separate build folder.[^gcc] The source tree stays
+clean. That matters, because U-Boot refuses an `O=` build in a tree that holds an in-tree configuration.[^makefile] Every later U-Boot
+build in this course uses `O=`, and the U-Boot lab in module 06 reuses this folder, `~/work/build/qemu_arm64`.
 
-<Prompt dir="~/work/src/u-boot" cmd="make qemu_arm64_defconfig" />
+<Prompt dir="~/work/src/u-boot" cmd="make O=$HOME/work/build/qemu_arm64 qemu_arm64_defconfig" />
 
-<Prompt dir="~/work/src/u-boot" cmd="make -j$(nproc)" />
+<Prompt dir="~/work/src/u-boot" cmd="make O=$HOME/work/build/qemu_arm64 -j$(nproc)" />
 
-The build writes `u-boot.bin` in the top folder of the U-Boot tree. That file is your BL33.[^uboot-qemu]
+The build writes `u-boot.bin` in the build folder, `~/work/build/qemu_arm64`. That file is your BL33.[^uboot-qemu]
 
 ## Build TF-A with U-Boot inside the FIP
 
@@ -100,7 +109,7 @@ Move to the TF-A tree and build every image plus the FIP in one command:
 
 <Prompt
   dir="~/work/src/trusted-firmware-a"
-  cmd="make CROSS_COMPILE=aarch64-linux-gnu- PLAT=qemu BL33=$HOME/work/src/u-boot/u-boot.bin all fip"
+  cmd="make CROSS_COMPILE=aarch64-linux-gnu- PLAT=qemu BL33=$HOME/work/build/qemu_arm64/u-boot.bin all fip"
 />
 
 This is the flash build from TF-A's QEMU guide with the OP-TEE options removed.[^tfa-qemu] Each part has one job:
@@ -182,7 +191,7 @@ Rebuild TF-A with `DEBUG=1`. Debug builds compile in log level 40, so each stage
 
 <Prompt
   dir="~/work/src/trusted-firmware-a"
-  cmd="make CROSS_COMPILE=aarch64-linux-gnu- PLAT=qemu BL33=$HOME/work/src/u-boot/u-boot.bin DEBUG=1 all fip"
+  cmd="make CROSS_COMPILE=aarch64-linux-gnu- PLAT=qemu BL33=$HOME/work/build/qemu_arm64/u-boot.bin DEBUG=1 all fip"
 />
 
 The debug boot adds `INFO` lines that show where each image goes. In the lab run, saved in
@@ -211,6 +220,10 @@ You ran the full five-step AArch64 chain from the first page of this module, min
 [^uboot-qemu]: U-Boot documentation at `v2026.07`, QEMU ARM: "Building (secure)", "Running U-Boot (secure)" and "Running U-Boot (non-secure)".
 
 [^defconfig]: U-Boot source at `v2026.07`: `configs/qemu_arm64_defconfig`.
+
+[^gcc]: U-Boot documentation at `v2026.07`, Building with GCC: "Out-of-tree building".
+
+[^makefile]: U-Boot source at `v2026.07`: the top-level `Makefile`, target `outputmakefile`, which stops with `The source tree is not clean, please run 'make mrproper'` when the source tree holds a `.config` or other output of an in-tree build.
 
 [^opts]: Trusted Firmware-A documentation, Build Options: `BL33`, `DEBUG`, `LOG_LEVEL` and `TRANSFER_LIST`.
 
