@@ -2,7 +2,24 @@
 // SPDX-License-Identifier: MIT
 
 import type { Board } from '../schema.ts';
-import { KERNEL_ARM_BOOTING, OPTEE_PLATFORMS, STM32MP15_RM, TFA_STM32MP1, UBOOT_STM32MP1 } from '../sources.ts';
+import {
+  BUILDROOT_DK2_EXTLINUX,
+  BUILDROOT_STM32MP1_GENIMAGE,
+  KERNEL_ARM_BOOTING,
+  OPTEE_PLATFORMS,
+  STM32MP15_RM,
+  TFA_STM32MP1,
+  TFA_STM32MP1_DEF_DDR,
+  TFA_STM32MP1_DEF_SYSRAM,
+  TFA_STM32MP1_PLATFORM_MK,
+  TFA_STM32MP15_DKX_DTSI,
+  TFA_STM32MPUS,
+  UBOOT_DISTRO_BOOTCMD,
+  UBOOT_STM32MP1,
+  UBOOT_STM32MP1_SD,
+  UBOOT_STM32MP15_DEFCONFIG,
+  UBOOT_STM32MP15_ST_COMMON,
+} from '../sources.ts';
 
 export const stm32mp157: Board = {
   id: 'stm32mp157',
@@ -14,7 +31,14 @@ export const stm32mp157: Board = {
   log: 'illustrative/stm32mp157.log',
   regions: [
     { id: 'rom', label: 'Boot ROM', kind: 'rom', sources: [STM32MP15_RM] },
-    { id: 'sysram', label: 'SYSRAM', kind: 'sram', base: 0x2ffc0000, size: 0x40000, sources: [STM32MP15_RM] },
+    {
+      id: 'sysram',
+      label: 'SYSRAM',
+      kind: 'sram',
+      base: 0x2ffc0000,
+      size: 0x40000,
+      sources: [STM32MP15_RM, TFA_STM32MP1_DEF_SYSRAM],
+    },
     {
       id: 'dram',
       label: 'DDR3L',
@@ -22,7 +46,7 @@ export const stm32mp157: Board = {
       base: 0xc0000000,
       size: 0x20000000,
       note: 'OP-TEE keeps a secure carve-out',
-      sources: [STM32MP15_RM, TFA_STM32MP1],
+      sources: [STM32MP15_RM, TFA_STM32MP1, TFA_STM32MP1_DEF_DDR, TFA_STM32MP15_DKX_DTSI],
     },
   ],
   stages: [
@@ -43,10 +67,10 @@ export const stm32mp157: Board = {
       ],
       loads: [
         {
-          file: 'tf-a-stm32mp157c-dk2-sdcard.stm32',
+          file: 'tf-a-stm32mp157c-dk2.stm32',
           from: 'GPT partition fsbl1',
           to: 'sysram',
-          sources: [STM32MP15_RM],
+          sources: [STM32MP15_RM, TFA_STM32MP1_PLATFORM_MK, TFA_STM32MPUS],
         },
       ],
       sources: [STM32MP15_RM],
@@ -55,7 +79,7 @@ export const stm32mp157: Board = {
     {
       id: 'tf-a-bl2',
       name: 'TF-A BL2',
-      file: 'tf-a-stm32mp157c-dk2-sdcard.stm32',
+      file: 'tf-a-stm32mp157c-dk2.stm32',
       from: 'GPT partition fsbl1',
       region: 'sysram',
       core: 'Cortex-A7 #0',
@@ -71,7 +95,7 @@ export const stm32mp157: Board = {
         { file: 'BL32 (OP-TEE)', from: 'GPT partition fip', to: 'dram', sources: [TFA_STM32MP1] },
         { file: 'BL33 (U-Boot)', from: 'GPT partition fip', to: 'dram', sources: [TFA_STM32MP1] },
       ],
-      sources: [TFA_STM32MP1],
+      sources: [TFA_STM32MP1, TFA_STM32MP1_PLATFORM_MK],
       verification: 'unverified',
     },
     {
@@ -104,21 +128,38 @@ export const stm32mp157: Board = {
       privilege: { level: 'PL1', world: 'normal' },
       does: [
         'Runs in the normal world. The OP-TEE carve-out is now invisible to it.',
-        'Standard boot finds /extlinux/extlinux.conf on bootfs.',
+        'Distro boot (distro_bootcmd) finds /boot/extlinux/extlinux.conf on partition 4, the bootable rootfs.',
         'Loads the kernel and stm32mp157c-dk2.dtb, and can start Cortex-M4 firmware.',
       ],
       loads: [
-        { file: 'zImage', from: 'GPT partition bootfs', to: 'dram', sources: [UBOOT_STM32MP1] },
-        { file: 'stm32mp157c-dk2.dtb', from: 'GPT partition bootfs', to: 'dram', sources: [UBOOT_STM32MP1] },
+        {
+          file: 'zImage',
+          from: 'GPT partition 4 (rootfs), /boot',
+          to: 'dram',
+          sources: [UBOOT_STM32MP1_SD, BUILDROOT_STM32MP1_GENIMAGE, BUILDROOT_DK2_EXTLINUX],
+        },
+        {
+          file: 'stm32mp157c-dk2.dtb',
+          from: 'GPT partition 4 (rootfs), /boot',
+          to: 'dram',
+          sources: [UBOOT_STM32MP1_SD, BUILDROOT_STM32MP1_GENIMAGE, BUILDROOT_DK2_EXTLINUX],
+        },
       ],
-      sources: [UBOOT_STM32MP1],
+      sources: [
+        UBOOT_STM32MP1,
+        UBOOT_STM32MP1_SD,
+        BUILDROOT_DK2_EXTLINUX,
+        UBOOT_STM32MP15_DEFCONFIG,
+        UBOOT_STM32MP15_ST_COMMON,
+        UBOOT_DISTRO_BOOTCMD,
+      ],
       verification: 'unverified',
     },
     {
       id: 'linux',
       name: 'Linux',
       file: 'zImage',
-      from: 'GPT partition bootfs',
+      from: 'GPT partition 4 (rootfs), /boot',
       region: 'dram',
       core: 'Cortex-A7 ×2',
       level: 'NS SVC',
@@ -129,7 +170,7 @@ export const stm32mp157: Board = {
         'PSCI CPU_ON over SMC wakes the second Cortex-A7; the OP-TEE driver exposes /dev/tee0.',
         'Mounts the root filesystem and runs /sbin/init as PID 1.',
       ],
-      sources: [KERNEL_ARM_BOOTING],
+      sources: [KERNEL_ARM_BOOTING, BUILDROOT_DK2_EXTLINUX],
       verification: 'unverified',
     },
   ],

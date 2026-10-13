@@ -2,7 +2,18 @@
 // SPDX-License-Identifier: MIT
 
 import type { Board } from '../schema.ts';
-import { AM335X_TRM, BBB_SRM_DDR, KERNEL_ARM_BOOTING, UBOOT_AM335X, UBOOT_TI_ENV } from '../sources.ts';
+import {
+  AM335X_TRM,
+  AM335X_TRM_PUBLIC_RAM,
+  BBB_SRM_BOOT,
+  BBB_SRM_DDR,
+  KERNEL_ARM_BOOTING,
+  UBOOT_AM33XX_OMAP_H,
+  UBOOT_AM335X,
+  UBOOT_AM335X_DEFCONFIG,
+  UBOOT_DISTRO_BOOTCMD,
+  UBOOT_TI_ENV,
+} from '../sources.ts';
 
 export const bbb: Board = {
   id: 'bbb',
@@ -19,8 +30,9 @@ export const bbb: Board = {
       label: 'Internal SRAM',
       kind: 'sram',
       base: 0x402f0400,
-      note: 'Download area for the first-stage image, up to 109 KB',
-      sources: [AM335X_TRM],
+      size: 0x1b400,
+      note: 'Download area for the first-stage image',
+      sources: [AM335X_TRM_PUBLIC_RAM, UBOOT_AM33XX_OMAP_H],
     },
     {
       id: 'dram',
@@ -42,12 +54,12 @@ export const bbb: Board = {
       level: 'SVC',
       world: 'vendor',
       does: [
-        'Reads the SYSBOOT pins to choose a boot device order. Holding S2 at power-on puts the SD card first.',
+        'Reads the SYSBOOT pins to choose a boot device order. Holding S2 at power-on changes the order to SPI0, then the microSD card.',
         'Finds MLO in raw sectors or as a file on a FAT partition.',
         'Copies it to internal SRAM at 0x402F0400 and jumps to it.',
       ],
       loads: [{ file: 'MLO', from: 'eMMC or SD card', to: 'sram', address: 0x402f0400, sources: [AM335X_TRM] }],
-      sources: [AM335X_TRM],
+      sources: [AM335X_TRM, BBB_SRM_BOOT],
       verification: 'unverified',
     },
     {
@@ -79,7 +91,7 @@ export const bbb: Board = {
       world: 'vendor',
       does: [
         'Relocates itself to the top of the 512 MB.',
-        'Runs bootcmd: standard boot finds extlinux.conf.',
+        'Runs bootcmd: distro boot (distro_bootcmd) finds extlinux.conf.',
         'Loads zImage to 0x82000000 and the DTB to 0x88000000, then runs bootz.',
       ],
       loads: [
@@ -87,7 +99,7 @@ export const bbb: Board = {
         { file: 'zImage', from: 'root filesystem, /boot', to: 'dram', address: 0x82000000, sources: [UBOOT_TI_ENV] },
         { file: 'dtb', from: 'root filesystem, /boot', to: 'dram', address: 0x88000000, sources: [UBOOT_TI_ENV] },
       ],
-      sources: [UBOOT_AM335X, UBOOT_TI_ENV],
+      sources: [UBOOT_AM335X, UBOOT_TI_ENV, UBOOT_AM335X_DEFCONFIG, UBOOT_DISTRO_BOOTCMD],
       verification: 'unverified',
     },
     {

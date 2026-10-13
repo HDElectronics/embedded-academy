@@ -87,9 +87,8 @@ Build U-Boot for QEMU into `~/work/m10/u-boot`:
 <Prompt dir="~/work/src/u-boot" cmd="make O=$HOME/work/m10/u-boot qemu_arm64_defconfig" />
 
 <Callout level="warning">
-  If you built U-Boot inside the source tree in the TF-A lab, this step stops with `The source tree is not clean, please
-  run 'make mrproper'`. An `O=` build needs a clean tree. Run `make mrproper` in `~/work/src/u-boot`, then repeat the
-  step. It deletes the in-tree build, including the `u-boot.bin` that the TF-A lab used.
+  If this step stops with `The source tree is not clean, please run 'make mrproper'`, an earlier build ran inside the
+  source tree: run `make mrproper` in `~/work/src/u-boot`, then repeat the step.
 </Callout>
 
 <Prompt dir="~/work/src/u-boot" cmd="make O=$HOME/work/m10/u-boot -j$(nproc)" />
