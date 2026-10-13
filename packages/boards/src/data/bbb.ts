@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import type { Board } from '../schema.ts';
-import { AM335X_TRM, KERNEL_ARM_BOOTING, UBOOT_AM335X, UBOOT_TI_ENV } from '../sources.ts';
+import { AM335X_TRM, BBB_SRM_DDR, KERNEL_ARM_BOOTING, UBOOT_AM335X, UBOOT_TI_ENV } from '../sources.ts';
 
 export const bbb: Board = {
   id: 'bbb',
@@ -22,7 +22,14 @@ export const bbb: Board = {
       note: 'Download area for the first-stage image, up to 109 KB',
       sources: [AM335X_TRM],
     },
-    { id: 'dram', label: 'DDR3L', kind: 'dram', base: 0x80000000, size: 0x20000000, sources: [AM335X_TRM] },
+    {
+      id: 'dram',
+      label: 'DDR3L',
+      kind: 'dram',
+      base: 0x80000000,
+      size: 0x20000000,
+      sources: [AM335X_TRM, BBB_SRM_DDR],
+    },
   ],
   stages: [
     {
