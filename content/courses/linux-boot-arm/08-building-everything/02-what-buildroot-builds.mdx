@@ -97,7 +97,7 @@ Buildroot also forwards configuration to the components it builds. With the kern
 </Deeper>
 
 <Deeper depth="expert" title="A board defconfig pins its own versions">
-The manual asks board defconfigs to use fixed versions or commit hashes, never "latest".[^board] Those versions are Buildroot's choice, not this course's. At Buildroot 2026.02.3 the DK2 defconfig builds TF-A from the 2.10 LTS line with SP_min as BL32, and no OP-TEE, while this course pins TF-A `lts-v2.14.10` and OP-TEE `4.10.0`.[^configs] Read a defconfig before you assume it builds the chain you studied.
+The manual asks board defconfigs to use fixed versions or commit hashes, never "latest".[^board] Those versions are Buildroot's choice, not this course's. At Buildroot 2026.02.3 the DK2 defconfig builds TF-A from the 2.10 LTS line with SP_min as BL32, no OP-TEE, and U-Boot 2026.01 with `stm32mp15_trusted`. This course pins TF-A `lts-v2.14.10`, OP-TEE `4.10.0` and U-Boot `v2026.07`, and builds the DK2's U-Boot with `stm32mp15_defconfig`.[^configs] Read a defconfig before you assume it builds the chain you studied.
 
 </Deeper>
 

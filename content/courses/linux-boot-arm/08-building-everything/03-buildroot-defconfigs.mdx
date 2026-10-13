@@ -18,6 +18,8 @@ sources:
     url: https://gitlab.com/buildroot.org/buildroot/-/blob/2026.02.3/board/stmicroelectronics/stm32mp157c-dk2/readme.txt
   - title: 'Buildroot 2026.02.3 source: board/stmicroelectronics/common/stm32mp1xx'
     url: https://gitlab.com/buildroot.org/buildroot/-/tree/2026.02.3/board/stmicroelectronics/common/stm32mp1xx
+  - title: 'Buildroot 2026.02.3 source: boot/arm-trusted-firmware/Config.in'
+    url: https://gitlab.com/buildroot.org/buildroot/-/blob/2026.02.3/boot/arm-trusted-firmware/Config.in
   - title: 'Buildroot 2026.02.3 source: board/qemu'
     url: https://gitlab.com/buildroot.org/buildroot/-/tree/2026.02.3/board/qemu
   - title: 'Buildroot 2026.02.3 source: fs/ext2/ext2.mk'
@@ -55,9 +57,12 @@ There is no `qemu_arm_virt_defconfig` at this tag. The 32-bit Arm QEMU defconfig
 
 All four build an ext4 root filesystem. `qemu_aarch64_virt_defconfig` also builds QEMU itself for your host.[^configs]
 
+The DK2 defconfig asks for the latest TF-A 2.10 LTS rather than a tag. At 2026.02.3, Buildroot resolves that choice to `lts-v2.10.5`.[^atf]
+
 <Callout level="warning">
   These versions are Buildroot's, not the course's. The course pins Linux `v6.18.55`, U-Boot `v2026.07`, TF-A
-  `lts-v2.14.10` and OP-TEE `4.10.0`. The DK2 defconfig builds no OP-TEE: it uses TF-A's SP_min as BL32.[^configs]
+  `lts-v2.14.10` and OP-TEE `4.10.0`. The DK2 defconfig builds no OP-TEE: it uses TF-A's SP_min as BL32. It also builds
+  U-Boot with `stm32mp15_trusted`, where module 06 uses `stm32mp15_defconfig`.[^configs]
 </Callout>
 
 ## Images in `output/images/`
@@ -108,6 +113,8 @@ The kernel and Device Tree are not in a partition of their own. The defconfig in
 The readme's QEMU command uses `output/images/Image` and `output/images/rootfs.ext4`.[^qemu] The QEMU post-image script also writes `start-qemu.sh` to `output/images/`, built from that same command.[^qemupost]
 
 [^configs]: Buildroot 2026.02.3, `configs/`: the four defconfigs named on this page, and the file list of the folder.
+
+[^atf]: Buildroot 2026.02.3, `boot/arm-trusted-firmware/Config.in`: `BR2_TARGET_ARM_TRUSTED_FIRMWARE_LATEST_LTS_2_10_VERSION` sets the version to `lts-v2.10.5`.
 
 [^ebbr]: Buildroot 2026.02.3, `board/qemu/arm-ebbr/readme.txt`.
 
