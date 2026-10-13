@@ -6,12 +6,12 @@ import type { Source } from './schema.ts';
 /** Sources shared by several boards. Each board file adds its own. */
 export const KERNEL_ARM_BOOTING: Source = {
   title: 'Linux kernel documentation: Booting ARM Linux',
-  url: 'https://docs.kernel.org/arch/arm/booting.html',
+  url: 'https://www.kernel.org/doc/html/v6.18/arch/arm/booting.html',
 };
 
 export const KERNEL_ARM64_BOOTING: Source = {
   title: 'Linux kernel documentation: Booting AArch64 Linux',
-  url: 'https://docs.kernel.org/arch/arm64/booting.html',
+  url: 'https://www.kernel.org/doc/html/v6.18/arch/arm64/booting.html',
 };
 
 export const RPI_BOOT: Source = {
@@ -26,7 +26,7 @@ export const RPI_CONFIG_TXT: Source = {
 
 export const UBOOT_RPI: Source = {
   title: 'U-Boot documentation: Raspberry Pi',
-  url: 'https://docs.u-boot.org/en/latest/board/broadcom/raspberrypi.html',
+  url: 'https://docs.u-boot.org/en/v2026.07/board/broadcom/raspberrypi.html',
 };
 
 export const AM335X_TRM: Source = {
@@ -37,12 +37,12 @@ export const AM335X_TRM: Source = {
 
 export const UBOOT_AM335X: Source = {
   title: 'U-Boot documentation: AM335x generic boards',
-  url: 'https://docs.u-boot.org/en/latest/board/ti/am335x_evm.html',
+  url: 'https://docs.u-boot.org/en/v2026.07/board/ti/am335x_evm.html',
 };
 
 export const UBOOT_TI_ENV: Source = {
   title: 'U-Boot source: include/configs/ti_armv7_common.h (default load addresses)',
-  url: 'https://source.denx.de/u-boot/u-boot/-/blob/master/include/configs/ti_armv7_common.h',
+  url: 'https://source.denx.de/u-boot/u-boot/-/blob/v2026.07/include/configs/ti_armv7_common.h',
 };
 
 export const STM32MP15_RM: Source = {
@@ -52,7 +52,7 @@ export const STM32MP15_RM: Source = {
 
 export const TFA_STM32MP1: Source = {
   title: 'Trusted Firmware-A documentation: STMicroelectronics STM32MP1',
-  url: 'https://trustedfirmware-a.readthedocs.io/en/latest/plat/st/stm32mp1.html',
+  url: 'https://trustedfirmware-a.readthedocs.io/en/lts-v2.14.10/plat/st/stm32mp1.html',
 };
 
 /** Names the BL2 image TF-A builds for STM32MP1: tf-a-<dtb name>.stm32. */
@@ -70,12 +70,12 @@ export const TFA_STM32MPUS: Source = {
 
 export const UBOOT_STM32MP1: Source = {
   title: 'U-Boot documentation: STM32MP1 boards',
-  url: 'https://docs.u-boot.org/en/latest/board/st/stm32mp1.html',
+  url: 'https://docs.u-boot.org/en/v2026.07/board/st/stm32mp1.html',
 };
 
 export const OPTEE_PLATFORMS: Source = {
   title: 'OP-TEE documentation: platforms supported',
-  url: 'https://optee.readthedocs.io/en/latest/general/platforms.html',
+  url: 'https://optee.readthedocs.io/en/4.10.0/general/platforms.html',
 };
 
 export const ARM_ARM_A: Source = {
